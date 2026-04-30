@@ -1,0 +1,89 @@
+const GITHUB_API = 'https://api.github.com';
+const RAW_BASE = 'https://raw.githubusercontent.com/foundryvtt/pf2e';
+const REPO = 'foundryvtt/pf2e';
+const PACKS_SUBPATH = 'packs/pf2e';
+
+const API_TIMEOUT_MS = 30_000;
+const RAW_TIMEOUT_MS = 20_000;
+
+export interface TreeEntry {
+  path: string;
+  sha: string;
+  type: 'blob' | 'tree';
+  size?: number;
+}
+
+export class GithubError extends Error {
+  status: number;
+  rateLimitResetsAt: Date | null;
+  constructor(status: number, message: string, rateLimitResetsAt: Date | null = null) {
+    super(message);
+    this.name = 'GithubError';
+    this.status = status;
+    this.rateLimitResetsAt = rateLimitResetsAt;
+  }
+  get isRateLimit() {
+    return this.status === 403 || this.status === 429;
+  }
+}
+
+function withTimeout(ms: number): AbortSignal {
+  return AbortSignal.timeout(ms);
+}
+
+async function githubGet<T>(url: string): Promise<T> {
+  const res = await fetch(url, {
+    headers: { Accept: 'application/vnd.github.v3+json' },
+    signal: withTimeout(API_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    const resetHeader = res.headers.get('X-RateLimit-Reset');
+    const resetsAt = resetHeader ? new Date(parseInt(resetHeader, 10) * 1000) : null;
+    const text = await res.text().catch(() => '');
+    throw new GithubError(res.status, text, resetsAt);
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function fetchLatestCommitSha(): Promise<string> {
+  const commits = await githubGet<Array<{ sha: string }>>(
+    `${GITHUB_API}/repos/${REPO}/commits?path=${PACKS_SUBPATH}&per_page=1`,
+  );
+  if (!commits.length) throw new Error('No commits found');
+  return commits[0].sha;
+}
+
+/**
+ * Fetch all files under packs/pf2e using the Git Trees API.
+ * 2 API calls total instead of one per pack directory (~90).
+ *
+ * Returns entries with paths relative to packs/pf2e/,
+ * e.g. "pathfinder-bestiary/goblin-warrior.json"
+ */
+export async function fetchPf2eTree(): Promise<{ entries: TreeEntry[]; truncated: boolean }> {
+  // Call 1: get the tree SHA for the packs/pf2e directory
+  type ContentsEntry = { name: string; sha: string; type: string };
+  const packsContents = await githubGet<ContentsEntry[]>(
+    `${GITHUB_API}/repos/${REPO}/contents/packs`,
+  );
+  const pf2eEntry = packsContents.find(e => e.name === 'pf2e' && e.type === 'dir');
+  if (!pf2eEntry) throw new Error('Could not find packs/pf2e directory in repo');
+
+  // Call 2: fetch the full recursive tree for that directory
+  const tree = await githubGet<{ tree: TreeEntry[]; truncated: boolean }>(
+    `${GITHUB_API}/repos/${REPO}/git/trees/${pf2eEntry.sha}?recursive=1`,
+  );
+
+  return { entries: tree.tree, truncated: tree.truncated };
+}
+
+/**
+ * Fetch a creature JSON file from raw.githubusercontent.com using a stable commit SHA.
+ * raw.githubusercontent.com is a CDN with no rate limit.
+ */
+export async function fetchCreatureRaw(commitSha: string, relativePath: string): Promise<unknown> {
+  const url = `${RAW_BASE}/${commitSha}/${PACKS_SUBPATH}/${relativePath}`;
+  const res = await fetch(url, { signal: withTimeout(RAW_TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`Fetch failed ${res.status}: ${url}`);
+  return res.json();
+}

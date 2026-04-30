@@ -1,0 +1,180 @@
+.list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px 4px;
+  border-bottom: 1px solid #ddd0b0;
+}
+
+.resultCount {
+  font-size: 0.7rem;
+  color: #6b4c2a;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sortGroup {
+  display: flex;
+  gap: 2px;
+}
+
+.sortBtn {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border: 1px solid #c8b98a;
+  border-radius: 3px;
+  background: transparent;
+  color: #6b4c2a;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.sortBtn:hover {
+  background: #f0e8d0;
+}
+
+.sortBtnActive {
+  background: #6b1a1a;
+  border-color: #6b1a1a;
+  color: #fff;
+}
+
+.sortBtnActive:hover {
+  background: #6b1a1a;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  border-bottom: 1px solid #e8dfc4;
+  transition: background 0.1s;
+  width: 100%;
+  font-family: inherit;
+}
+
+.row:hover {
+  background: #f0e8d0;
+}
+
+.rowSelected {
+  background: #e8d8b0 !important;
+  border-left: 3px solid #6b1a1a;
+}
+
+.rowMain {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #2c1a0e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.levelBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #6b1a1a;
+  color: #fff;
+  border-radius: 10px;
+  padding: 1px 7px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.rowMeta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.sizeMeta {
+  font-size: 0.72rem;
+  color: #6b4c2a;
+}
+
+.rarityTag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #3a1fa8;
+  color: #fff;
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.traitList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-left: 2px;
+}
+
+.traitTag {
+  font-size: 0.68rem;
+  background: #c8a45a;
+  color: #2c1a0e;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-weight: 600;
+}
+
+.traitMore {
+  font-size: 0.68rem;
+  color: #6b4c2a;
+  padding: 1px 4px;
+}
+
+/* Empty / loading states */
+.emptyState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: #6b4c2a;
+}
+
+.emptyTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.emptyHint {
+  font-size: 0.82rem;
+  opacity: 0.75;
+  margin: 0;
+}
+
+.loading {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}

@@ -1,0 +1,215 @@
+/* Drawer container */
+.drawer {
+  width: 0;
+  overflow: hidden;
+  transition: width 0.25s ease;
+  border-left: 1px solid #c8b98a;
+  background: #f5eed9;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.drawer.open {
+  width: 440px;
+}
+
+.content {
+  width: 440px;
+  height: 100%;
+  overflow-y: auto;
+  position: relative;
+}
+
+.closeBtn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.25);
+  border: none;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: background 0.15s;
+}
+
+.closeBtn:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Header bar */
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  background: #6b1a1a;
+  color: #fff;
+  padding: 10px 14px;
+  gap: 1rem;
+}
+
+.creatureName {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: 'Georgia', serif;
+  line-height: 1.2;
+}
+
+.creatureLevel {
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+/* Traits row */
+.traitsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 10px;
+  background: #5a1212;
+  border-bottom: 2px solid #3a0a0a;
+}
+
+.traitChip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #fff;
+  background: #8b4513;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 3px;
+  padding: 2px 8px;
+}
+
+/* Body */
+.body {
+  padding: 8px 14px 20px;
+  font-size: 0.85rem;
+  color: #2c1a0e;
+  line-height: 1.5;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid #6b1a1a;
+  margin: 7px 0;
+}
+
+/* Source line at top */
+.sourceLine {
+  margin: 0 0 5px;
+  font-size: 0.75rem;
+  color: #8a6a40;
+}
+
+/* Info lines (perception, languages, skills, speed) */
+.infoLine {
+  margin: 3px 0;
+}
+
+/* Ability scores — inline */
+.abilityLine {
+  margin: 5px 0 3px;
+}
+
+/* Defense lines (AC/saves and HP/imm/res/weak) */
+.defenseLine {
+  margin: 3px 0;
+}
+
+/* Attack line */
+.attackLine {
+  margin: 5px 0;
+  line-height: 1.55;
+}
+
+.attackTypeLabel {
+  font-style: italic;
+  color: #6b4c2a;
+}
+
+.mapBracket {
+  font-size: 0.8em;
+  color: #8a6a40;
+}
+
+.attackTraits {
+  font-size: 0.82em;
+  color: #6b4c2a;
+  font-style: italic;
+}
+
+/* Action cost symbol */
+.actionSymbol {
+  color: #6b1a1a;
+  font-weight: 700;
+}
+
+/* Item (ability/action) blocks */
+.itemBlock {
+  margin: 5px 0;
+}
+
+.itemHeader {
+  margin: 4px 0 1px;
+  line-height: 1.45;
+}
+
+.itemName {
+  font-size: 0.88rem;
+  color: #2c1a0e;
+}
+
+.itemTraits {
+  font-size: 0.8em;
+  color: #6b4c2a;
+  font-style: italic;
+}
+
+.itemDesc {
+  margin: 1px 0 1px 0.5rem;
+  font-size: 0.82rem;
+  color: #3a2010;
+}
+
+.itemDesc p {
+  margin: 2px 0;
+}
+
+.itemDesc ul,
+.itemDesc ol {
+  margin: 4px 0;
+  padding-left: 1.25rem;
+}
+
+.itemDesc hr {
+  border: none;
+  border-top: 1px solid #c8b98a;
+  margin: 6px 0;
+}
+
+/* Public notes */
+.publicNotes {
+  font-size: 0.8rem;
+  color: #4a3020;
+  line-height: 1.55;
+}
+
+.publicNotes p {
+  margin: 4px 0;
+}
+
+.publicNotes hr {
+  border: none;
+  border-top: 1px solid #c8b98a;
+  margin: 6px 0;
+}

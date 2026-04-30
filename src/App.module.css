@@ -1,0 +1,55 @@
+.app {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Georgia', serif;
+  background: #f5eed9;
+}
+
+.leftCol {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #c8b98a;
+  overflow: hidden;
+}
+
+.center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Sync progress banner */
+.progressBar {
+  background: #fdf3dc;
+  border-bottom: 1px solid #d4b870;
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.progressLabel {
+  font-size: 0.8rem;
+  color: #6b4c2a;
+  font-family: system-ui, sans-serif;
+}
+
+.progressTrack {
+  height: 5px;
+  background: #e0c878;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: #6b1a1a;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
