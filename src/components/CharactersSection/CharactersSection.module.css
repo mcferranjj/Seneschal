@@ -1,0 +1,25 @@
+.stub {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-mute);
+}
+
+.icon {
+  font-size: 40px;
+  opacity: 0.25;
+}
+
+.title {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-mid);
+}
+
+.hint {
+  font-size: 0.82rem;
+}

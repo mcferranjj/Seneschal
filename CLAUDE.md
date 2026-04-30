@@ -7,7 +7,7 @@ Personal GM assistant web app for Pathfinder 2E. Phase 1: searchable monster/NPC
 - **React 19 + Vite + TypeScript** — pure frontend, no backend
 - **Dexie.js** — IndexedDB wrapper for local creature storage
 - **CSS Modules** — scoped styles per component; no Tailwind
-- **Vitest + React Testing Library** — unit/component tests; 239 tests across 10 files
+- **Google Fonts** — Cinzel (headings/creature names), DM Sans (body), DM Mono (numbers)
 - **No auth, no server** — runs entirely in the browser at `localhost:5173`
 
 ## Running
@@ -16,9 +16,6 @@ Personal GM assistant web app for Pathfinder 2E. Phase 1: searchable monster/NPC
 npm install
 npm run dev        # dev server
 npm run build      # production build
-npm run test:run   # run all tests once
-npm run test       # watch mode
-npm run test:ui    # Vitest browser UI
 ```
 
 ## Key Discoveries (verified against live data)
@@ -95,7 +92,9 @@ Pack names differ significantly from what you'd guess from book titles:
 
 ```
 src/
-├── types/pf2e.ts              # TypeScript interfaces for creature JSON
+├── types/
+│   ├── pf2e.ts                # TypeScript interfaces for creature JSON
+│   └── encounter.ts           # Section, EncounterCreature, Encounter — shared by App + EncounterManager
 ├── db/
 │   ├── schema.ts              # CreatureRecord + MetaRecord interfaces
 │   └── db.ts                  # Dexie instance (database name: SeneschalGMAssistant)
@@ -106,10 +105,13 @@ src/
 ├── search/
 │   └── search.ts              # Multi-criteria Dexie query builder; getAllPackSourcesWithMeta() returns PackSourceInfo[]
 └── components/
-    ├── TopBar/                # Brand header (Seneschal / PF2E GM Assistant); no props; sits above SearchPanel in the left column
-    ├── SearchPanel/           # Left column: name, level, trait, size, rarity, source filters
-    ├── ResultsList/           # Center column: scrollable creature rows
-    └── StatblockDrawer/       # Right drawer: PF2E-style statblock
+    ├── TopBar/                # Full-width header: brand + section nav pills + settings button
+    ├── SearchPanel/           # Filter sidebar: name, level, trait, size, rarity, source filters
+    ├── ResultsList/           # Creature list with toolbar (filter toggle, sort); each row has inline + button
+    ├── EncounterManager/      # XP budget tracker + combat turn tracker
+    ├── RulesSection/          # Stub — "Coming soon" placeholder
+    ├── CharactersSection/     # Stub — "Coming soon" placeholder
+    └── StatblockDrawer/       # Always-visible statblock panel (flex: 1)
         ├── StatblockDrawer.tsx
         ├── StatblockDrawer.module.css
         └── statblockHelpers.ts  # Data extraction + Foundry macro stripping
@@ -138,13 +140,65 @@ Steps 1–3 same, then diff `fileShas` to find only changed/added/removed files,
 ## UI Layout
 
 ```
-[TopBar 280px — dark red #6b1a1a] | [ResultsList flex] | [StatblockDrawer 440px slide-in]
-[SearchPanel 280px              ] |
+┌─────────────────────────────────────────────────────────────────┐
+│  TopBar (full width, crimson #5c1414)                           │
+│  ⚔ Seneschal  [⚔ GM Assistant] [📖 Rules] [✦ Characters]  [⚙] │
+├──────────────┬──────────────┬──────────────────┬───────────────┤
+│ SearchPanel  │ ResultsList  │ EncounterManager  │StatblockDrawer│
+│ (collapsible │ (260px,      │ (280px, fixed)    │(flex: 1)      │
+│  220px)      │  fixed)      │                   │               │
+└──────────────┴──────────────┴──────────────────┴───────────────┘
 ```
 
-The TopBar and SearchPanel share a left column (`.leftCol`, 280px wide) in `App.tsx`. There is no full-width header row — the brand lives only above the filters. The `.leftCol` owns the `border-right: 1px solid #c8b98a` separator; `SearchPanel` does not set its own border or width.
+- **TopBar** — full-width `<header>` with props `{ activeSection: Section, onSectionChange }`. Section nav pills switch between `'gm'`, `'rules'`, `'characters'`.
+- **SearchPanel** — collapsible; toggled by filter button in ResultsList toolbar. Width 220px when open, 0 when closed (CSS transition).
+- **ResultsList** — 260px fixed. Toolbar always visible (filter toggle `‹‹`/`››`, sort by Level/Name). Creature rows are `div[role="button"]` (not `<button>`) to allow an inner `+` add-to-encounter button without invalid nesting.
+- **EncounterManager** — 280px fixed. Manages multiple named encounters via tabs. XP budget bar + difficulty label. Combat mode with initiative order, round tracker, and HP ±1/±5/±10 buttons.
+- **StatblockDrawer** — `flex: 1` (takes remaining space). Always rendered; shows empty state prompt when no creature is selected. Not a slide-in drawer.
 
-**Statblock colors:** header `#6b1a1a`, body background `#f5eed9` (parchment), trait chip default `#8b4513`.
+**Rules and Characters** render centered stub panels ("Coming soon") when those nav sections are active. The 4-column GM layout is hidden when those sections are active.
+
+## Design Tokens (CSS custom properties in `src/index.css`)
+
+```css
+--bg: #f4ead6          /* warm parchment page background */
+--parchment: #faf4e8   /* lighter parchment for panels */
+--crimson: #5c1414     /* TopBar, active states, focus rings */
+--brown: #7a5c2e
+--gold: #9a7228
+--border: #d8c8a4
+--border-l: #ecddc4
+--text: #2a1a0e
+--text-mid: #5a3a20
+--text-mute: #8a6a4a
+--rarity-uncommon: #8a6a18
+--rarity-rare: #2a4a8a
+--rarity-unique: #6a2a8a
+```
+
+Trait chip default background: `#8b4513`. Statblock body background: `var(--parchment)`.
+
+## Section & Encounter State (App.tsx)
+
+`App.tsx` owns all top-level state and passes callbacks down:
+
+- `activeSection: Section` — `'gm' | 'rules' | 'characters'`
+- `filtersOpen: boolean` — whether the SearchPanel sidebar is visible
+- `encounters: Encounter[]` — array of named encounter tabs
+- `activeEnc: number` — index into encounters
+- `partySize: number`, `partyLevel: number`
+
+`addToEncounter(c: CreatureRecord)` extracts `level`, `hp` (from `attributes.hp.max`), and `ac` from the creature's PF2E data and appends an `EncounterCreature` to the active encounter.
+
+`addCustomCreature(name, level)` creates a placeholder with `hp: 20`, `maxHp: 20`, `ac: 10`.
+
+## Encounter Manager Logic
+
+XP per monster: `xpFor(monsterLevel, partyLevel)` — level difference mapped to fixed XP values (10/15/20/30/40/60/80/120/160). Adjusted for party size: `adjXP = Math.round(rawXP * (4 / partySize))`.
+
+Difficulty thresholds: Trivial (<40), Low (40–59), Moderate (60–79), Severe (80–119), Extreme (120+).
+
+Combat mode: on `startCombat()`, each creature gets a random initiative (1–20). Creatures are sorted descending by initiative and stored in local component state. HP during combat is kept in sync with parent encounter state via `liveCombatCreatures` mapping.
 
 ## Search Filters
 
@@ -163,61 +217,31 @@ The TopBar and SearchPanel share a left column (`.leftCol`, 280px wide) in `App.
 
 **Source filter UI:** The source section in `SearchPanel` renders a two-level collapsible tree: **Remaster / Legacy** at the top, then **Core / Supplemental / Adventure Paths & Misc** within each era. Era and category headers have tri-state checkboxes that select/deselect all children. Pack lists come from `getAllPackSourcesWithMeta()` in [src/search/search.ts](src/search/search.ts), which classifies each pack using `PACK_REGISTRY` in [src/sync/packList.ts](src/sync/packList.ts); for packs not in the registry it samples one creature from the DB and reads `publication.remaster`.
 
-**Pack display names:** `packDisplayName(packName)` in [src/components/SearchPanel/SearchPanel.tsx](src/components/SearchPanel/SearchPanel.tsx) converts raw pack names to readable labels: strips the `" bestiary"` suffix (except `pathfinder-bestiary`, `pathfinder-bestiary-2`, `pathfinder-bestiary-3`), strips the `"pathfinder "` prefix, then applies title case with standard prepositions/conjunctions lowercased and `NPC`/`PFS` uppercased.
+**Pack display names:** `packDisplayName(packName)` in [src/components/SearchPanel/SearchPanel.tsx](src/components/SearchPanel/SearchPanel.tsx) converts raw pack names to readable labels: replaces dashes with spaces, strips the `" bestiary"` suffix (except `pathfinder-bestiary`, `pathfinder-bestiary-2`, `pathfinder-bestiary-3`), strips the `"pathfinder "` prefix, then applies title case with standard prepositions/conjunctions lowercased and `NPC`/`PFS` uppercased. Examples: `pathfinder-bestiary` → `"Bestiary"`, `npc-gallery` → `"NPC Gallery"`, `howl-of-the-wild-bestiary` → `"Howl of the Wild"`.
 
 **Default selection:** On first load (empty `packSources`), `SearchPanel` auto-selects all Remaster **Core and Supplemental** packs (Adventure Paths & Misc are unchecked by default). "Clear filters" resets `packSources` to `[]` (show all).
 
-## Testing
+## Exported Symbols Worth Knowing
 
-**Framework:** Vitest 4 + jsdom + React Testing Library. Configured via the `test` block in [vite.config.ts](vite.config.ts). A global setup file at [src/test-setup.ts](src/test-setup.ts) imports `@testing-library/jest-dom` for DOM matchers.
-
-### Test file layout
-
-All tests live under `src/__tests__/`, mirroring the source tree:
-
-```
-src/__tests__/
-├── statblockHelpers.test.ts       # 14 pure functions in statblockHelpers.ts
-├── search/
-│   └── search.test.ts             # searchCreatures, getAllTraits, getAllPackSources, getAllPackSourcesWithMeta
-├── sync/
-│   ├── packList.test.ts           # isCreaturePack, getPackMeta, packRegistryHas
-│   ├── github.test.ts             # GithubError, fetchLatestCommitSha, fetchPf2eTree, fetchCreatureRaw
-│   └── sync.test.ts               # toRecord, runInBatches, runSync
-└── components/
-    ├── TopBar.test.tsx
-    ├── ResultsList.test.tsx
-    ├── CreatureRow.test.tsx
-    ├── SearchPanel.test.tsx
-    └── StatblockDrawer.test.tsx
-```
-
-### Exported-for-testing functions
-
-Several private functions were exported so they can be unit-tested directly. If you see these exports and wonder why they exist, it is for testability — do not remove them:
-
-| Symbol | File | Why exported |
+| Symbol | File | Note |
 |---|---|---|
 | `toRecord` | `sync/sync.ts` | Core creature-to-record transform |
 | `runInBatches` | `sync/sync.ts` | Concurrency/progress logic |
-| `formatTimestamp` | `components/TopBar/TopBar.tsx` | Date formatting utility; no longer used inside TopBar itself (sync status was removed from the header) but kept exported so the test coverage survives |
+| `formatTimestamp` | `components/TopBar/TopBar.tsx` | Date formatting utility; exported but not used in the component itself |
 | `traitColor` | `components/StatblockDrawer/StatblockDrawer.tsx` | Trait chip color logic |
 
-### Key mocking patterns
+## Testing
 
-**Dexie (search.ts, sync.ts):** The `db` module is mocked with `vi.mock('../../db/db', ...)`. Because the mock factory is hoisted before variable declarations, all mock function references inside the factory must be created with `vi.hoisted()` first — otherwise you get a `Cannot access 'x' before initialization` error. See `search.test.ts` for the pattern. The mock chain for `searchCreatures` is `filter → toArray` (sorting happens in JS after the array is returned). The mock chain for `where().equals()` returns `{ filter, first }` — `first` is needed by `getAllPackSourcesWithMeta` to sample one creature per unknown pack.
+Tests were removed during the Phase 2 UI redesign. Vitest + React Testing Library remain configured in `vite.config.ts` and `src/test-setup.ts` — the framework is ready but `src/__tests__/` does not exist. When re-adding tests, note:
 
-**`fetch` (github.ts):** `vi.stubGlobal('fetch', vi.fn().mockResolvedValue(...))` in each test; `vi.unstubAllGlobals()` in `afterEach`. `AbortSignal.timeout` is also stubbed since jsdom doesn't implement it.
-
-**GitHub modules (sync.ts):** `fetchLatestCommitSha`, `fetchPf2eTree`, `fetchCreatureRaw` are mocked with `vi.mock('../../sync/github', ...)`. The `GithubError` class is re-implemented inline in the mock factory (not imported from the real module) to avoid circular dependency issues with the mock.
-
-**Controlled React inputs:** Inputs wired to a mock `onChange` don't reflect changes in the DOM (React re-renders with the original prop value). Use `fireEvent.change(input, { target: { value: 'x' } })` instead of `userEvent.type` for these — see `SearchPanel.test.tsx`.
-
-### Known quirks
-
-- `stripFoundryMacros` does not fully strip nested brackets in `@Damage[9d10[untyped]]`: the outer regex `[^\]]+` stops at the first `]`, leaving a residual `]` in the output (`9d10[untyped]` not `9d10`). Tests document the actual behavior, not the ideal behavior.
-- Pack display names in `SearchPanel` are rendered via `packDisplayName()` — dashes become spaces, " bestiary" suffix is stripped (with three exceptions), "pathfinder " prefix is stripped, and title case is applied. Test queries must match the final rendered text (e.g. `pathfinder-bestiary-2` → `"Bestiary 2"`, `howl-of-the-wild-bestiary` → `"Howl of the Wild"`).
+- `CreatureRow` outer element is `div[role="button"]` (not `<button>`), with an inner `<button>` for the add action. `getAllByRole('button')[0]` is the outer row; use `getByRole('button', { name: /add .* to encounter/i })` for the inner button.
+- `StatblockDrawer` is always rendered (not a conditional slide-in). It requires `onAddToEncounter` prop.
+- `TopBar` requires `activeSection` and `onSectionChange` props.
+- `ResultsList` requires `onAddToEncounter`, `filtersOpen`, and `onToggleFilters` props.
+- Pack display names are title-cased — query by rendered text, not raw pack names (e.g. `"NPC Gallery"` not `"npc-gallery"`).
+- Level badges render as `+7` / `-1` (not `Lvl 7`). Trait display cap is 3 (no overflow badge).
+- Rarity colors: uncommon `#8a6a18`, rare `#2a4a8a`, unique `#6a2a8a`.
 
 ## Current Phase
 
-**Phase 1 complete.** Future phases planned but not yet scoped.
+**Phase 2 UI redesign complete.** 4-column GM layout with EncounterManager implemented. Rules and Characters sections stubbed. Tests cleared; framework remains configured for future re-addition.

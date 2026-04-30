@@ -1,71 +1,102 @@
-/* Drawer container */
+/* Fixed panel — always visible, flex: 1 */
 .drawer {
-  width: 0;
-  overflow: hidden;
-  transition: width 0.25s ease;
-  border-left: 1px solid #c8b98a;
-  background: #f5eed9;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.drawer.open {
-  width: 440px;
-}
-
-.content {
-  width: 440px;
-  height: 100%;
-  overflow-y: auto;
-  position: relative;
-}
-
-.closeBtn {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  background: rgba(255, 255, 255, 0.25);
-  border: none;
-  color: #fff;
-  font-size: 1rem;
-  cursor: pointer;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+  flex: 1;
+  min-width: 0;
   display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+  background: var(--parchment);
+}
+
+/* Empty state */
+.emptyState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 2;
-  transition: background 0.15s;
+  gap: 8px;
+  color: var(--text-mute);
 }
 
-.closeBtn:hover {
-  background: rgba(255, 255, 255, 0.4);
+.emptyIcon {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 2.5rem;
+  opacity: 0.12;
+}
+
+.emptyTitle {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-mid);
+}
+
+.emptyHint {
+  font-size: 0.78rem;
+}
+
+/* Scrollable content */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Header bar */
 .header {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
-  background: #6b1a1a;
+  background: var(--crimson);
   color: #fff;
-  padding: 10px 14px;
-  gap: 1rem;
+  padding: 11px 14px 10px;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.headerMain {
+  flex: 1;
+  min-width: 0;
 }
 
 .creatureName {
-  font-size: 1.1rem;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.05rem;
   font-weight: 700;
-  font-family: 'Georgia', serif;
+  color: #fff;
   line-height: 1.2;
+  display: block;
 }
 
 .creatureLevel {
-  font-size: 0.82rem;
-  font-weight: 600;
-  white-space: nowrap;
-  opacity: 0.9;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 1px;
+  display: block;
+}
+
+.closeBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s;
+}
+
+.closeBtn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
 }
 
 /* Traits row */
@@ -74,59 +105,56 @@
   flex-wrap: wrap;
   gap: 4px;
   padding: 6px 10px;
-  background: #5a1212;
-  border-bottom: 2px solid #3a0a0a;
+  background: #4a1010;
+  border-bottom: 2px solid #360c0c;
+  flex-shrink: 0;
 }
 
 .traitChip {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #fff;
   background: #8b4513;
-  border: 1px solid rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 3px;
-  padding: 2px 8px;
+  padding: 2px 7px;
 }
 
 /* Body */
 .body {
-  padding: 8px 14px 20px;
-  font-size: 0.85rem;
-  color: #2c1a0e;
+  padding: 10px 14px 16px;
+  font-size: 0.82rem;
+  color: var(--text);
   line-height: 1.5;
+  flex: 1;
 }
 
 .divider {
   border: none;
-  border-top: 1px solid #6b1a1a;
+  border-top: 1px solid var(--border);
   margin: 7px 0;
 }
 
-/* Source line at top */
 .sourceLine {
   margin: 0 0 5px;
-  font-size: 0.75rem;
-  color: #8a6a40;
+  font-size: 0.72rem;
+  color: var(--text-mute);
 }
 
-/* Info lines (perception, languages, skills, speed) */
 .infoLine {
   margin: 3px 0;
 }
 
-/* Ability scores — inline */
 .abilityLine {
   margin: 5px 0 3px;
 }
 
-/* Defense lines (AC/saves and HP/imm/res/weak) */
 .defenseLine {
   margin: 3px 0;
 }
 
-/* Attack line */
 .attackLine {
   margin: 5px 0;
   line-height: 1.55;
@@ -134,27 +162,25 @@
 
 .attackTypeLabel {
   font-style: italic;
-  color: #6b4c2a;
+  color: var(--text-mid);
 }
 
 .mapBracket {
   font-size: 0.8em;
-  color: #8a6a40;
+  color: var(--text-mute);
 }
 
 .attackTraits {
   font-size: 0.82em;
-  color: #6b4c2a;
+  color: var(--text-mid);
   font-style: italic;
 }
 
-/* Action cost symbol */
 .actionSymbol {
-  color: #6b1a1a;
+  color: var(--crimson);
   font-weight: 700;
 }
 
-/* Item (ability/action) blocks */
 .itemBlock {
   margin: 5px 0;
 }
@@ -165,20 +191,21 @@
 }
 
 .itemName {
-  font-size: 0.88rem;
-  color: #2c1a0e;
+  font-size: 0.85rem;
+  color: var(--text);
+  font-family: 'Cinzel', Georgia, serif;
 }
 
 .itemTraits {
   font-size: 0.8em;
-  color: #6b4c2a;
+  color: var(--text-mid);
   font-style: italic;
 }
 
 .itemDesc {
   margin: 1px 0 1px 0.5rem;
-  font-size: 0.82rem;
-  color: #3a2010;
+  font-size: 0.8rem;
+  color: var(--text-mid);
 }
 
 .itemDesc p {
@@ -193,14 +220,13 @@
 
 .itemDesc hr {
   border: none;
-  border-top: 1px solid #c8b98a;
+  border-top: 1px solid var(--border);
   margin: 6px 0;
 }
 
-/* Public notes */
 .publicNotes {
-  font-size: 0.8rem;
-  color: #4a3020;
+  font-size: 0.78rem;
+  color: var(--text-mid);
   line-height: 1.55;
 }
 
@@ -210,6 +236,26 @@
 
 .publicNotes hr {
   border: none;
-  border-top: 1px solid #c8b98a;
+  border-top: 1px solid var(--border);
   margin: 6px 0;
+}
+
+/* Add to Encounter button */
+.addToEncBtn {
+  margin-top: 14px;
+  padding: 7px 16px;
+  border-radius: 6px;
+  background: var(--crimson);
+  color: #f0e6cc;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: opacity 0.12s;
+  display: inline-block;
+}
+
+.addToEncBtn:hover {
+  opacity: 0.88;
 }

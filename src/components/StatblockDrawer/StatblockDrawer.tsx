@@ -18,9 +18,9 @@ import {
 import styles from './StatblockDrawer.module.css';
 
 const TRAIT_RARITY_COLORS: Record<string, string> = {
-  uncommon: '#c35a11',
-  rare: '#3a1fa8',
-  unique: '#5a1a8a',
+  uncommon: '#8a6a18',
+  rare: '#2a4a8a',
+  unique: '#6a2a8a',
 };
 
 const TRAIT_ALIGNMENT_COLORS: Record<string, string> = {
@@ -64,17 +64,34 @@ function skillDisplayName(raw: string): string {
 interface DrawerProps {
   creature: CreatureRecord | null;
   onClose: () => void;
+  onAddToEncounter: (creature: CreatureRecord) => void;
 }
 
-export function StatblockDrawer({ creature, onClose }: DrawerProps) {
+export function StatblockDrawer({ creature, onClose, onAddToEncounter }: DrawerProps) {
   return (
-    <aside className={`${styles.drawer} ${creature ? styles.open : ''}`} aria-hidden={!creature}>
-      {creature && <StatblockContent creature={creature} onClose={onClose} />}
+    <aside className={styles.drawer} aria-label="Creature statblock">
+      {creature ? (
+        <StatblockContent creature={creature} onClose={onClose} onAddToEncounter={onAddToEncounter} />
+      ) : (
+        <div className={styles.emptyState}>
+          <span className={styles.emptyIcon}>⚔</span>
+          <span className={styles.emptyTitle}>Select a creature</span>
+          <span className={styles.emptyHint}>Click any result to view its statblock</span>
+        </div>
+      )}
     </aside>
   );
 }
 
-function StatblockContent({ creature, onClose }: { creature: CreatureRecord; onClose: () => void }) {
+function StatblockContent({
+  creature,
+  onClose,
+  onAddToEncounter,
+}: {
+  creature: CreatureRecord;
+  onClose: () => void;
+  onAddToEncounter: (creature: CreatureRecord) => void;
+}) {
   const c = creature.data as PF2ECreature;
   const level = getLevel(c);
   const size = getSize(c);
@@ -123,14 +140,17 @@ function StatblockContent({ creature, onClose }: { creature: CreatureRecord; onC
 
   return (
     <div className={styles.content}>
-      <button className={styles.closeBtn} onClick={onClose} aria-label="Close statblock">
-        ✕
-      </button>
-
       {/* Header */}
       <div className={styles.header}>
-        <span className={styles.creatureName}>{c.name}</span>
-        <span className={styles.creatureLevel}>Creature {level}</span>
+        <div className={styles.headerMain}>
+          <span className={styles.creatureName}>{c.name}</span>
+          <span className={styles.creatureLevel}>
+            Creature {level} · {size}
+          </span>
+        </div>
+        <button className={styles.closeBtn} onClick={onClose} aria-label="Close statblock">
+          ✕
+        </button>
       </div>
 
       {/* Traits */}
@@ -149,7 +169,9 @@ function StatblockContent({ creature, onClose }: { creature: CreatureRecord; onC
       <div className={styles.body}>
         {/* Source */}
         {publication && (
-          <p className={styles.sourceLine}>Source <em>{publication}</em></p>
+          <p className={styles.sourceLine}>
+            Source <em>{publication}</em>
+          </p>
         )}
 
         {/* Perception / Senses */}
@@ -170,7 +192,7 @@ function StatblockContent({ creature, onClose }: { creature: CreatureRecord; onC
           </p>
         )}
 
-        {/* Ability scores — inline */}
+        {/* Ability scores */}
         <p className={styles.abilityLine}>
           <strong>Str</strong> {formatMod(str)},{' '}
           <strong>Dex</strong> {formatMod(dex)},{' '}
@@ -182,41 +204,65 @@ function StatblockContent({ creature, onClose }: { creature: CreatureRecord; onC
 
         <hr className={styles.divider} />
 
-        {/* AC + Saves — one line */}
+        {/* AC + Saves */}
         <p className={styles.defenseLine}>
-          <strong>AC</strong> <span>{ac}</span>{acDetail && ` (${acDetail})`};{' '}
-          <strong>Fort</strong> {formatMod(fort)}{fortDetail && `, ${fortDetail}`},{' '}
-          <strong>Ref</strong> {formatMod(ref)}{refDetail && `, ${refDetail}`},{' '}
-          <strong>Will</strong> {formatMod(will)}{willDetail && `, ${willDetail}`}
-          {allSaves && <>; <em>{allSaves}</em></>}
+          <strong>AC</strong> <span>{ac}</span>
+          {acDetail && ` (${acDetail})`};{' '}
+          <strong>Fort</strong> {formatMod(fort)}
+          {fortDetail && `, ${fortDetail}`},{' '}
+          <strong>Ref</strong> {formatMod(ref)}
+          {refDetail && `, ${refDetail}`},{' '}
+          <strong>Will</strong> {formatMod(will)}
+          {willDetail && `, ${willDetail}`}
+          {allSaves && (
+            <>
+              ; <em>{allSaves}</em>
+            </>
+          )}
         </p>
 
-        {/* HP + Immunities / Resistances / Weaknesses */}
+        {/* HP */}
         <p className={styles.defenseLine}>
-          <strong>HP</strong> <span>{hp}</span>{hpDetail && ` (${hpDetail})`}
-          {immunities && <>; <strong>Immunities</strong> {immunities}</>}
-          {resistances && <>; <strong>Resistances</strong> {resistances}</>}
-          {weaknesses && <>; <strong>Weaknesses</strong> {weaknesses}</>}
+          <strong>HP</strong> <span>{hp}</span>
+          {hpDetail && ` (${hpDetail})`}
+          {immunities && (
+            <>
+              ; <strong>Immunities</strong> {immunities}
+            </>
+          )}
+          {resistances && (
+            <>
+              ; <strong>Resistances</strong> {resistances}
+            </>
+          )}
+          {weaknesses && (
+            <>
+              ; <strong>Weaknesses</strong> {weaknesses}
+            </>
+          )}
         </p>
 
-        {/* Passive abilities and reactions (defense section) */}
-        {passives.map(item => <ItemBlock key={item._id} item={item} />)}
-        {reactions.map(item => <ItemBlock key={item._id} item={item} />)}
+        {passives.map(item => (
+          <ItemBlock key={item._id} item={item} />
+        ))}
+        {reactions.map(item => (
+          <ItemBlock key={item._id} item={item} />
+        ))}
 
         <hr className={styles.divider} />
 
-        {/* Speed */}
-        <p className={styles.infoLine}><strong>Speed</strong> {speed}</p>
+        <p className={styles.infoLine}>
+          <strong>Speed</strong> {speed}
+        </p>
 
-        {/* Attacks */}
         {attacks.map(item => (
           <AttackBlock key={item._id} item={item} />
         ))}
 
-        {/* Active abilities (standard and free actions) */}
-        {offenseActions.map(item => <ItemBlock key={item._id} item={item} />)}
+        {offenseActions.map(item => (
+          <ItemBlock key={item._id} item={item} />
+        ))}
 
-        {/* Public notes */}
         {publicNotes && (
           <>
             <hr className={styles.divider} />
@@ -226,6 +272,11 @@ function StatblockContent({ creature, onClose }: { creature: CreatureRecord; onC
             />
           </>
         )}
+
+        {/* Add to Encounter */}
+        <button className={styles.addToEncBtn} onClick={() => onAddToEncounter(creature)}>
+          + Add to Encounter
+        </button>
       </div>
     </div>
   );
@@ -238,23 +289,26 @@ function AttackBlock({ item }: { item: PF2EItem }) {
   const effects = item.system?.attackEffects?.value ?? [];
   // In PF2E Foundry v14 data, all NPC attacks use item.type === 'melee'.
   // Ranged attacks are identified by a range increment field or a thrown-N trait.
-  const isRanged = item.type === 'ranged'
-    || item.system?.category === 'ranged'
-    || item.system?.range?.increment != null
-    || traits.some(t => t.startsWith('thrown'));
+  const isRanged =
+    item.type === 'ranged' ||
+    item.system?.category === 'ranged' ||
+    item.system?.range?.increment != null ||
+    traits.some(t => t.startsWith('thrown'));
   const typeLabel = isRanged ? 'Ranged' : 'Melee';
   const isAgile = traits.includes('agile');
 
-  const mapStr = bonus != null
-    ? `[${formatMod(bonus - (isAgile ? 4 : 5))}/${formatMod(bonus - (isAgile ? 8 : 10))}]`
-    : '';
+  const mapStr =
+    bonus != null
+      ? `[${formatMod(bonus - (isAgile ? 4 : 5))}/${formatMod(bonus - (isAgile ? 8 : 10))}]`
+      : '';
 
   const range = item.system?.range;
-  const rangeDisplay = range?.increment != null
-    ? `range increment ${range.increment} feet`
-    : range?.value
-    ? `range ${range.value} feet`
-    : null;
+  const rangeDisplay =
+    range?.increment != null
+      ? `range increment ${range.increment} feet`
+      : range?.value
+        ? `range ${range.value} feet`
+        : null;
 
   const displayTraits = rangeDisplay ? [...traits, rangeDisplay] : traits;
   const traitStr = displayTraits.length > 0 ? `(${displayTraits.join(', ')})` : '';
@@ -266,10 +320,22 @@ function AttackBlock({ item }: { item: PF2EItem }) {
       {' ◆ '}
       <strong>{item.name}</strong>
       {bonus != null && (
-        <> {formatMod(bonus)} <span className={styles.mapBracket}>{mapStr}</span></>
+        <>
+          {' '}
+          {formatMod(bonus)} <span className={styles.mapBracket}>{mapStr}</span>
+        </>
       )}
-      {traitStr && <> <span className={styles.attackTraits}>{traitStr}</span></>}
-      {fullDamage && <>, <strong>Damage</strong> {fullDamage}</>}
+      {traitStr && (
+        <>
+          {' '}
+          <span className={styles.attackTraits}>{traitStr}</span>
+        </>
+      )}
+      {fullDamage && (
+        <>
+          , <strong>Damage</strong> {fullDamage}
+        </>
+      )}
     </p>
   );
 }
@@ -287,7 +353,12 @@ function ItemBlock({ item }: { item: PF2EItem }) {
         <strong className={styles.itemName}>{item.name}</strong>
         {symbol && <span className={styles.actionSymbol}>{symbol}</span>}
         {traitStr && <span className={styles.itemTraits}> {traitStr}</span>}
-        {trigger && <> <strong>Trigger</strong> {trigger};</>}
+        {trigger && (
+          <>
+            {' '}
+            <strong>Trigger</strong> {trigger};
+          </>
+        )}
       </p>
       {desc && (
         <div

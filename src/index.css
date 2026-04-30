@@ -13,11 +13,28 @@ body,
   width: 100%;
 }
 
+:root {
+  --bg: #f4ead6;
+  --parchment: #faf4e8;
+  --crimson: #5c1414;
+  --brown: #7a5c2e;
+  --gold: #9a7228;
+  --border: #d8c8a4;
+  --border-l: #ecddc4;
+  --text: #2a1a0e;
+  --text-mid: #5a3a20;
+  --text-mute: #8a6a4a;
+  --rarity-common: #5a7a3a;
+  --rarity-uncommon: #8a6a18;
+  --rarity-rare: #2a4a8a;
+  --rarity-unique: #6a2a8a;
+}
+
 body {
-  font-family: 'Georgia', serif;
+  font-family: 'DM Sans', system-ui, sans-serif;
   font-size: 14px;
-  color: #2c1a0e;
-  background: #f5eed9;
+  color: var(--text);
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -33,19 +50,19 @@ textarea {
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #ede7d3;
+  background: var(--border-l);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c8a45a;
-  border-radius: 4px;
+  background: var(--border);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a07832;
+  background: var(--gold);
 }
