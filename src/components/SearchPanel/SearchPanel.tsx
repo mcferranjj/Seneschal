@@ -4,6 +4,12 @@ import { getAllTraits, getAllPackSourcesWithMeta } from '../../search/search';
 import type { PackEra, PackCategory } from '../../sync/packList';
 import styles from './SearchPanel.module.css';
 
+const CREATURE_TYPES = [
+  'Aberration', 'Animal', 'Astral', 'Beast', 'Celestial', 'Construct',
+  'Dragon', 'Dream', 'Elemental', 'Ethereal', 'Fey', 'Fiend', 'Fungus',
+  'Humanoid', 'Monitor', 'Ooze', 'Plant', 'Shade', 'Spirit', 'Time', 'Undead',
+];
+
 const SIZES = [
   { value: 'tiny', label: 'Tiny' },
   { value: 'sm', label: 'Small' },
@@ -112,9 +118,10 @@ interface SearchPanelProps {
   filters: SearchFilters;
   onChange: (filters: SearchFilters) => void;
   disabled: boolean;
+  partyLevel: number;
 }
 
-export function SearchPanel({ filters, onChange, disabled }: SearchPanelProps) {
+export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchPanelProps) {
   const [allTraits, setAllTraits] = useState<string[]>([]);
   const [allPacksWithMeta, setAllPacksWithMeta] = useState<PackSourceInfo[]>([]);
   const [traitInput, setTraitInput] = useState('');
@@ -153,6 +160,11 @@ export function SearchPanel({ filters, onChange, disabled }: SearchPanelProps) {
 
   function removeTrait(trait: string) {
     set({ traits: filters.traits.filter(t => t !== trait) });
+  }
+
+  function toggleCreatureType(value: string, checked: boolean) {
+    const lower = value.toLowerCase();
+    set({ creatureTypes: checked ? [...filters.creatureTypes, lower] : filters.creatureTypes.filter(x => x !== lower) });
   }
 
   function toggleSize(value: string, checked: boolean) {
@@ -225,7 +237,17 @@ export function SearchPanel({ filters, onChange, disabled }: SearchPanelProps) {
       </div>
 
       <div className={styles.section}>
-        <label className={styles.label}>Level Range</label>
+        <div className={styles.levelHeader}>
+          <label className={styles.label}>Level Range</label>
+          <button
+            className={styles.partyLevelBtn}
+            onClick={() => set({ levelMin: Math.max(-1, partyLevel - 4), levelMax: Math.min(25, partyLevel + 4) })}
+            disabled={disabled}
+            type="button"
+          >
+            Use party level
+          </button>
+        </div>
         <div className={styles.levelRow}>
           <input
             className={styles.levelInput}
@@ -265,23 +287,50 @@ export function SearchPanel({ filters, onChange, disabled }: SearchPanelProps) {
             </span>
           ))}
         </div>
-        <input
-          className={styles.input}
-          type="text"
-          placeholder="Add trait…"
-          value={traitInput}
-          onChange={e => setTraitInput(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') addTrait(traitInput);
-          }}
-          disabled={disabled}
-          list="trait-suggestions"
-        />
-        <datalist id="trait-suggestions">
-          {filteredTraits.map(t => (
-            <option key={t} value={t} />
+        <div className={styles.traitInputWrap}>
+          <input
+            className={styles.input}
+            type="text"
+            placeholder="Add trait…"
+            value={traitInput}
+            onChange={e => setTraitInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') addTrait(traitInput);
+            }}
+            onBlur={() => setTraitInput('')}
+            disabled={disabled}
+          />
+          {filteredTraits.length > 0 && traitInput.length > 0 && (
+            <ul className={styles.traitSuggestions}>
+              {filteredTraits.map(t => (
+                <li
+                  key={t}
+                  className={styles.traitSuggestion}
+                  onMouseDown={e => { e.preventDefault(); addTrait(t); }}
+                >
+                  {t}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div className={styles.section}>
+        <span className={styles.label}>Creature Type</span>
+        <div className={styles.checkGroup}>
+          {CREATURE_TYPES.map(t => (
+            <label key={t} className={styles.checkLabel}>
+              <input
+                type="checkbox"
+                checked={filters.creatureTypes.includes(t.toLowerCase())}
+                onChange={e => toggleCreatureType(t, e.target.checked)}
+                disabled={disabled}
+              />
+              {t}
+            </label>
           ))}
-        </datalist>
+        </div>
       </div>
 
       <div className={styles.section}>
@@ -416,6 +465,7 @@ export function SearchPanel({ filters, onChange, disabled }: SearchPanelProps) {
             traits: [],
             levelMin: -1,
             levelMax: 25,
+            creatureTypes: [],
             sizes: [],
             rarities: [],
             packSources: [],

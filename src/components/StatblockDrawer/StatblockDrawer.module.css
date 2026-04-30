@@ -1,4 +1,4 @@
-/* Fixed panel — always visible, flex: 1 */
+/* Fixed panel — always visible, fills .statblockCol wrapper */
 .drawer {
   flex: 1;
   min-width: 0;

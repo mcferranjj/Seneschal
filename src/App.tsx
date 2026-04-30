@@ -201,12 +201,13 @@ export default function App() {
       <TopBar activeSection={activeSection} onSectionChange={setActiveSection} />
       <div className={styles.content}>
         {activeSection === 'gm' && (
-          <div className={styles.gmLayout}>
+          <div className={`${styles.gmLayout} ${!filtersOpen ? styles.gmLayoutCollapsed : ''}`}>
             <div className={`${styles.filterCol} ${filtersOpen ? styles.filterColOpen : ''}`}>
               <SearchPanel
                 filters={filters}
                 onChange={setFilters}
                 disabled={isSyncing && creatureCount === 0}
+                partyLevel={partyLevel}
               />
             </div>
             <div className={styles.resultsCol}>
@@ -226,24 +227,28 @@ export default function App() {
                 onToggleFilters={() => setFiltersOpen(o => !o)}
               />
             </div>
-            <EncounterManager
-              encounters={encounters}
-              activeEnc={activeEnc}
-              partySize={partySize}
-              partyLevel={partyLevel}
-              onActiveEncChange={setActiveEnc}
-              onPartySizeChange={setPartySize}
-              onPartyLevelChange={setPartyLevel}
-              onAddEncounter={addEncounter}
-              onRemoveCreature={removeCreature}
-              onUpdateHP={updateHP}
-              onAddCustomCreature={addCustomCreature}
-            />
-            <StatblockDrawer
-              creature={selected}
-              onClose={() => setSelected(null)}
-              onAddToEncounter={addToEncounter}
-            />
+            <div className={styles.encounterCol}>
+              <EncounterManager
+                encounters={encounters}
+                activeEnc={activeEnc}
+                partySize={partySize}
+                partyLevel={partyLevel}
+                onActiveEncChange={setActiveEnc}
+                onPartySizeChange={setPartySize}
+                onPartyLevelChange={setPartyLevel}
+                onAddEncounter={addEncounter}
+                onRemoveCreature={removeCreature}
+                onUpdateHP={updateHP}
+                onAddCustomCreature={addCustomCreature}
+              />
+            </div>
+            <div className={styles.statblockCol}>
+              <StatblockDrawer
+                creature={selected}
+                onClose={() => setSelected(null)}
+                onAddToEncounter={addToEncounter}
+              />
+            </div>
           </div>
         )}
         {activeSection === 'rules' && <RulesSection />}

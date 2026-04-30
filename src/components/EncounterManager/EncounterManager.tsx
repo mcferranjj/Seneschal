@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Encounter, EncounterCreature } from '../../types/encounter';
 import styles from './EncounterManager.module.css';
 
@@ -30,15 +30,21 @@ function xpFor(monsterLevel: number, partyLevel: number): number {
   if (d === -1) return 30;
   if (d === -2) return 20;
   if (d === -3) return 15;
-  return 10;
+  if (d === -4) return 10;
+  return 0;
 }
 
-function getDifficulty(adjXP: number) {
-  if (adjXP >= 120) return { label: 'Extreme', color: '#8a2a18', pct: 100 };
-  if (adjXP >= 80) return { label: 'Severe', color: '#8a5a18', pct: (adjXP / 120) * 100 };
-  if (adjXP >= 60) return { label: 'Moderate', color: '#6a7a18', pct: (adjXP / 120) * 100 };
-  if (adjXP >= 40) return { label: 'Low', color: '#3a6a5a', pct: (adjXP / 120) * 100 };
-  return { label: 'Trivial', color: '#5a7a3a', pct: (adjXP / 120) * 100 };
+function getDifficulty(totalXP: number, partySize: number) {
+  const adj = partySize - 4;
+  const low      = 60  + 20 * adj;
+  const moderate = 80  + 20 * adj;
+  const severe   = 120 + 30 * adj;
+  const extreme  = 160 + 40 * adj;
+  if (totalXP >= extreme)  return { label: 'Extreme',  color: '#8a2a18', pct: 100 };
+  if (totalXP >= severe)   return { label: 'Severe',   color: '#8a5a18', pct: (totalXP / extreme) * 100 };
+  if (totalXP >= moderate) return { label: 'Moderate', color: '#6a7a18', pct: (totalXP / extreme) * 100 };
+  if (totalXP >= low)      return { label: 'Low',      color: '#3a6a5a', pct: (totalXP / extreme) * 100 };
+  return                          { label: 'Trivial',  color: '#5a7a3a', pct: (totalXP / extreme) * 100 };
 }
 
 export function EncounterManager({
@@ -62,6 +68,12 @@ export function EncounterManager({
   const [customName, setCustomName] = useState('');
   const [customLevel, setCustomLevel] = useState(1);
 
+  // Inline editing
+  const [editingInit, setEditingInit] = useState<string | null>(null);
+  const [editInitVal, setEditInitVal] = useState('');
+  const [editingHp, setEditingHp] = useState<string | null>(null);
+  const [editHpVal, setEditHpVal] = useState('');
+
   const enc = encounters[activeEnc] ?? encounters[0];
 
   // Reset combat when switching encounters
@@ -72,9 +84,36 @@ export function EncounterManager({
     setCombatCreatures([]);
   }, [activeEnc]);
 
-  const rawXP = enc.creatures.reduce((s, c) => s + xpFor(c.level, partyLevel), 0);
-  const adjXP = Math.round(rawXP * (4 / partySize));
-  const diff = getDifficulty(adjXP);
+  // Pick up creatures added (or removed) while combat is running
+  const combatCreaturesRef = useRef(combatCreatures);
+  combatCreaturesRef.current = combatCreatures;
+  const activeTurnRef = useRef(activeTurn);
+  activeTurnRef.current = activeTurn;
+
+  useEffect(() => {
+    if (!combatMode) return;
+    const prev = combatCreaturesRef.current;
+    const encUids = new Set(enc.creatures.map(c => c.uid));
+    const prevUids = new Set(prev.map(c => c.uid));
+
+    const newOnes = enc.creatures
+      .filter(c => !prevUids.has(c.uid))
+      .map(c => ({ ...c, init: Math.floor(Math.random() * 20) + 1 }));
+    const kept = prev.filter(c => encUids.has(c.uid));
+
+    if (newOnes.length === 0 && kept.length === prev.length) return;
+
+    const activeUid = prev[activeTurnRef.current]?.uid;
+    const next = [...kept, ...newOnes].sort((a, b) => b.init - a.init);
+    setCombatCreatures(next);
+    if (activeUid) {
+      const newIdx = next.findIndex(c => c.uid === activeUid);
+      if (newIdx !== -1) setActiveTurn(newIdx);
+    }
+  }, [combatMode, enc.creatures]);
+
+  const totalXP = enc.creatures.reduce((s, c) => s + xpFor(c.level, partyLevel), 0);
+  const diff = getDifficulty(totalXP, partySize);
 
   // During combat, look up live HP from encounter state
   const liveCombatCreatures: CombatCreature[] = combatCreatures.map(cc => {
@@ -110,6 +149,32 @@ export function EncounterManager({
     onAddCustomCreature(customName.trim(), customLevel);
     setCustomName('');
     setShowCustomForm(false);
+  }
+
+  function commitInit(uid: string) {
+    const val = parseInt(editInitVal, 10);
+    if (!isNaN(val)) {
+      const activeUid = liveCombatCreatures[activeTurn]?.uid;
+      setCombatCreatures(prev => {
+        const updated = prev
+          .map(c => (c.uid === uid ? { ...c, init: val } : c))
+          .sort((a, b) => b.init - a.init);
+        if (activeUid) {
+          const newIdx = updated.findIndex(c => c.uid === activeUid);
+          if (newIdx !== -1) setActiveTurn(newIdx);
+        }
+        return updated;
+      });
+    }
+    setEditingInit(null);
+  }
+
+  function commitHp(uid: string, currentHp: number) {
+    const val = parseInt(editHpVal, 10);
+    if (!isNaN(val)) {
+      onUpdateHP(uid, val - currentHp);
+    }
+    setEditingHp(null);
   }
 
   return (
@@ -177,7 +242,7 @@ export function EncounterManager({
                   +
                 </button>
               </div>
-              <span className={styles.xpTotal}>{adjXP} XP</span>
+              <span className={styles.xpTotal}>{totalXP} XP</span>
             </div>
           </div>
 
@@ -280,9 +345,28 @@ export function EncounterManager({
                   className={`${styles.combatCard} ${isActive ? styles.combatCardActive : ''}`}
                 >
                   <div className={styles.combatCardTop}>
-                    <div className={`${styles.initBadge} ${isActive ? styles.initBadgeActive : ''}`}>
-                      {c.init}
-                    </div>
+                    {editingInit === c.uid ? (
+                      <input
+                        className={styles.initInput}
+                        type="number"
+                        value={editInitVal}
+                        autoFocus
+                        onChange={e => setEditInitVal(e.target.value)}
+                        onBlur={() => commitInit(c.uid)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') commitInit(c.uid);
+                          if (e.key === 'Escape') setEditingInit(null);
+                        }}
+                      />
+                    ) : (
+                      <div
+                        className={`${styles.initBadge} ${isActive ? styles.initBadgeActive : ''} ${styles.initBadgeClickable}`}
+                        title="Click to edit initiative"
+                        onClick={() => { setEditingInit(c.uid); setEditInitVal(String(c.init)); }}
+                      >
+                        {c.init}
+                      </div>
+                    )}
                     <div className={styles.combatCreatureInfo}>
                       <span
                         className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''}`}
@@ -292,9 +376,29 @@ export function EncounterManager({
                       </span>
                       <span className={styles.combatAC}>AC {c.ac}</span>
                     </div>
-                    <span className={styles.hpDisplay} style={{ color: hpColor }}>
-                      {c.hp}/{c.maxHp}
-                    </span>
+                    {editingHp === c.uid ? (
+                      <input
+                        className={styles.hpInput}
+                        type="number"
+                        value={editHpVal}
+                        autoFocus
+                        onChange={e => setEditHpVal(e.target.value)}
+                        onBlur={() => commitHp(c.uid, c.hp)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') commitHp(c.uid, c.hp);
+                          if (e.key === 'Escape') setEditingHp(null);
+                        }}
+                      />
+                    ) : (
+                      <span
+                        className={`${styles.hpDisplay} ${styles.hpDisplayClickable}`}
+                        style={{ color: hpColor }}
+                        title="Click to set HP"
+                        onClick={() => { setEditingHp(c.uid); setEditHpVal(String(c.hp)); }}
+                      >
+                        {c.hp}/{c.maxHp}
+                      </span>
+                    )}
                   </div>
                   <div className={styles.hpBar}>
                     <div
@@ -316,6 +420,51 @@ export function EncounterManager({
                 </div>
               );
             })}
+
+            {/* Add creatures during combat */}
+            {showCustomForm ? (
+              <div className={styles.customForm}>
+                <div className={styles.sectionLabel}>Add to Combat</div>
+                <input
+                  className={styles.customInput}
+                  value={customName}
+                  onChange={e => setCustomName(e.target.value)}
+                  placeholder="Name…"
+                  onKeyDown={e => e.key === 'Enter' && handleAddCustom()}
+                />
+                <div className={styles.customLevelRow}>
+                  <span className={styles.partyLabel}>Level</span>
+                  <button
+                    className={styles.stepBtn}
+                    onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}
+                  >
+                    −
+                  </button>
+                  <span className={styles.partyVal}>{customLevel}</span>
+                  <button
+                    className={styles.stepBtn}
+                    onClick={() => setCustomLevel(l => Math.min(25, l + 1))}
+                  >
+                    +
+                  </button>
+                </div>
+                <div className={styles.customActions}>
+                  <button className={styles.addCustomBtn} onClick={handleAddCustom}>
+                    Add
+                  </button>
+                  <button className={styles.cancelBtn} onClick={() => setShowCustomForm(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className={styles.addPlaceholderBtn}
+                onClick={() => setShowCustomForm(true)}
+              >
+                ＋ Add Creature
+              </button>
+            )}
           </div>
         </div>
       )}

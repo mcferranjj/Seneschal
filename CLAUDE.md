@@ -111,7 +111,7 @@ src/
     ├── EncounterManager/      # XP budget tracker + combat turn tracker
     ├── RulesSection/          # Stub — "Coming soon" placeholder
     ├── CharactersSection/     # Stub — "Coming soon" placeholder
-    └── StatblockDrawer/       # Always-visible statblock panel (flex: 1)
+    └── StatblockDrawer/       # Always-visible statblock panel
         ├── StatblockDrawer.tsx
         ├── StatblockDrawer.module.css
         └── statblockHelpers.ts  # Data extraction + Foundry macro stripping
@@ -145,16 +145,15 @@ Steps 1–3 same, then diff `fileShas` to find only changed/added/removed files,
 │  ⚔ Seneschal  [⚔ GM Assistant] [📖 Rules] [✦ Characters]  [⚙] │
 ├──────────────┬──────────────┬──────────────────┬───────────────┤
 │ SearchPanel  │ ResultsList  │ EncounterManager  │StatblockDrawer│
-│ (collapsible │ (260px,      │ (280px, fixed)    │(flex: 1)      │
-│  220px)      │  fixed)      │                   │               │
+│ (collapsible)│              │                   │               │
 └──────────────┴──────────────┴──────────────────┴───────────────┘
 ```
 
 - **TopBar** — full-width `<header>` with props `{ activeSection: Section, onSectionChange }`. Section nav pills switch between `'gm'`, `'rules'`, `'characters'`.
-- **SearchPanel** — collapsible; toggled by filter button in ResultsList toolbar. Width 220px when open, 0 when closed (CSS transition).
-- **ResultsList** — 260px fixed. Toolbar always visible (filter toggle `‹‹`/`››`, sort by Level/Name). Creature rows are `div[role="button"]` (not `<button>`) to allow an inner `+` add-to-encounter button without invalid nesting.
-- **EncounterManager** — 280px fixed. Manages multiple named encounters via tabs. XP budget bar + difficulty label. Combat mode with initiative order, round tracker, and HP ±1/±5/±10 buttons.
-- **StatblockDrawer** — `flex: 1` (takes remaining space). Always rendered; shows empty state prompt when no creature is selected. Not a slide-in drawer.
+- **SearchPanel** — collapsible; toggled by filter button in ResultsList toolbar.
+- **ResultsList** — toolbar always visible (filter toggle `‹‹`/`››`, sort by Level/Name). Creature rows are `div[role="button"]` (not `<button>`) to allow an inner `+` add-to-encounter button without invalid nesting.
+- **EncounterManager** — manages multiple named encounters via tabs. XP budget bar + difficulty label. Combat mode with initiative order, round tracker, and HP ±1/±5/±10 buttons.
+- **StatblockDrawer** — always rendered; shows empty state prompt when no creature is selected. Not a slide-in drawer.
 
 **Rules and Characters** render centered stub panels ("Coming soon") when those nav sections are active. The 4-column GM layout is hidden when those sections are active.
 
@@ -194,9 +193,9 @@ Trait chip default background: `#8b4513`. Statblock body background: `var(--parc
 
 ## Encounter Manager Logic
 
-XP per monster: `xpFor(monsterLevel, partyLevel)` — level difference mapped to fixed XP values (10/15/20/30/40/60/80/120/160). Adjusted for party size: `adjXP = Math.round(rawXP * (4 / partySize))`.
+XP per monster: `xpFor(monsterLevel, partyLevel)` — level difference mapped to fixed XP values (10/15/20/30/40/60/80/120/160). Anything more than 4 levels below party level returns 0 XP. The raw total XP is displayed as-is; party size does NOT change the XP values of monsters.
 
-Difficulty thresholds: Trivial (<40), Low (40–59), Moderate (60–79), Severe (80–119), Extreme (120+).
+Difficulty thresholds (Table 10-1, GM Core) assume a party of 4. For each party member above or below 4, the thresholds shift by the Character Adjustment for each tier: Low ±20, Moderate ±20, Severe ±30, Extreme ±40. Formula: `threshold = base + (adjustment * (partySize - 4))`. Base thresholds: Trivial (<60), Low (60), Moderate (80), Severe (120), Extreme (160).
 
 Combat mode: on `startCombat()`, each creature gets a random initiative (1–20). Creatures are sorted descending by initiative and stored in local component state. HP during combat is kept in sync with parent encounter state via `liveCombatCreatures` mapping.
 

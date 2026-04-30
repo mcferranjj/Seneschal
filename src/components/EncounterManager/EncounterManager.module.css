@@ -1,6 +1,6 @@
 .manager {
-  width: 280px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   border-right: 1px solid var(--border);
   background: var(--bg);
   display: flex;
@@ -501,4 +501,65 @@
 .hpBtnHeal {
   background: #0e2a0e;
   color: #66aa66;
+}
+
+/* ── Inline editing ── */
+.initBadgeClickable {
+  cursor: pointer;
+}
+
+.initBadgeClickable:hover {
+  opacity: 0.75;
+}
+
+.initInput {
+  width: 34px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid var(--crimson);
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 2px;
+  flex-shrink: 0;
+  /* hide number input spin buttons */
+  -moz-appearance: textfield;
+}
+
+.initInput::-webkit-inner-spin-button,
+.initInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+.hpDisplayClickable {
+  cursor: pointer;
+  border-bottom: 1px dashed currentColor;
+}
+
+.hpDisplayClickable:hover {
+  opacity: 0.75;
+}
+
+.hpInput {
+  width: 60px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid var(--crimson);
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 2px;
+  flex-shrink: 0;
+  -moz-appearance: textfield;
+}
+
+.hpInput::-webkit-inner-spin-button,
+.hpInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
 }

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Seneschal — PF2E</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="sen-gm.jsx"></script>
+<script type="text/babel" src="sen-rules.jsx"></script>
+<script type="text/babel" src="sen-chars.jsx"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; overflow: hidden; }
+  body { font-family: 'DM Sans', sans-serif; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #d4c0a0; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #b8a080; }
+  button { font-family: inherit; }
+  input, textarea, select { font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+// ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "crimson",
+  "density": "balanced"
+}/*EDITMODE-END*/;
+
+const T = {
+  bg:       '#f4ead6',
+  parchment:'#faf4e8',
+  crimson:  '#5c1414',
+  brown:    '#7a5c2e',
+  gold:     '#9a7228',
+  border:   '#d8c8a4',
+  borderL:  '#ecddc4',
+  text:     '#2a1a0e',
+  textMid:  '#5a3a20',
+  textMute: '#8a6a4a',
+};
+
+// ─── CREATURE DATA ────────────────────────────────────────────────────────────
+const CREATURES = [
+  { id:1,  name:'Adept',            level:-1, rarity:'common',   size:'medium', traits:['human','humanoid'],             ac:14, hp:8,   source:'NPC Core',     perception:'+4', languages:'Common', skills:'Arcana +5, Occultism +5, Society +3', str:'+0',dex:'+2',con:'+0',int:'+3',wis:'+2',cha:'+1', fort:'+2',ref:'+4',will:'+6', speed:'25 ft.', melee:'◆ Fist +6 (agile, nonlethal)', ranged:'◆ Journal +6 (thrown-10)', actions:[{name:'Focused Thinker',cost:'◆',trait:'concentrate',desc:'The adept concentrates to muster knowledge. They gain +2 to Recall Knowledge but −2 to Perception until dismissed.'}] },
+  { id:2,  name:'Animated Broom',   level:-1, rarity:'common',   size:'small',  traits:['construct','mindless'],          ac:13, hp:8,   source:'Monster Core', perception:'+3', languages:'None',   skills:'Athletics +5, Stealth +5', str:'+2',dex:'+2',con:'+1',int:'-5',wis:'+0',cha:'-5', fort:'+4',ref:'+5',will:'+1', speed:'20 ft.', melee:'◆ Broom Handle +5 (reach 10 ft.)', actions:[{name:'Sweep',cost:'◆',trait:'attack',desc:'The broom sweeps creatures in a 10-foot line. Each creature must succeed on a DC 16 Reflex save or be tripped.'}] },
+  { id:3,  name:'Goblin Warrior',   level:1,  rarity:'common',   size:'small',  traits:['goblin','humanoid'],             ac:16, hp:12,  source:'Monster Core', perception:'+5', languages:'Common, Goblin', skills:'Acrobatics +7, Athletics +3, Stealth +7, Thievery +5', str:'+0',dex:'+3',con:'+1',int:'-1',wis:'+0',cha:'+1', fort:'+6',ref:'+8',will:'+3', speed:'25 ft.', melee:'◆ Dogslicer +8 (agile, finesse)', ranged:'◆ Shortbow +8 (range 60 ft.)', actions:[{name:'Goblin Scuttle',cost:'Reaction',trait:'',desc:'Trigger: A goblin ally ends a move adjacent to the warrior. Effect: The warrior Strides up to its speed.'}] },
+  { id:4,  name:'Skeleton Guard',   level:1,  rarity:'common',   size:'medium', traits:['mindless','skeleton','undead'],  ac:16, hp:10,  source:'Monster Core', perception:'+5', languages:'None',   skills:'Athletics +6, Stealth +5', str:'+3',dex:'+2',con:'+0',int:'-5',wis:'+0',cha:'+0', fort:'+5',ref:'+5',will:'+3', speed:'25 ft.', melee:'◆ Scimitar +8 (forceful, sweep)', actions:[{name:'Bone Toss',cost:'◆',trait:'attack',desc:'The skeleton hurls a bone fragment as a ranged attack: +6 to hit, 1d6 bludgeoning, range 30 ft.'}] },
+  { id:5,  name:'Wolf',             level:1,  rarity:'common',   size:'medium', traits:['animal'],                        ac:15, hp:20,  source:'Monster Core', perception:'+7', languages:'None',   skills:'Athletics +7, Stealth +5, Survival +7', str:'+4',dex:'+2',con:'+2',int:'-4',wis:'+2',cha:'+0', fort:'+7',ref:'+5',will:'+5', speed:'35 ft.', melee:'◆ Jaws +9 (trip)', actions:[{name:'Pack Attack',cost:'Passive',desc:'The wolf\'s Strikes deal 1d4 extra damage against creatures within reach of an ally of the wolf.'}] },
+  { id:6,  name:'Zombie Shambler',  level:1,  rarity:'common',   size:'medium', traits:['mindless','undead','zombie'],    ac:13, hp:20,  source:'Monster Core', perception:'+2', languages:'None',   skills:'Athletics +8', str:'+4',dex:'-2',con:'+3',int:'-5',wis:'+0',cha:'-2', fort:'+6',ref:'+1',will:'+3', speed:'20 ft.', melee:'◆ Fist +9 (agile)', actions:[{name:'Slow',cost:'Passive',desc:'A zombie is permanently slowed 1 and cannot use reactions.'}] },
+  { id:7,  name:'Harpy',            level:3,  rarity:'uncommon', size:'medium', traits:['harpy','humanoid'],              ac:19, hp:38,  source:'Monster Core', perception:'+9', languages:'Common', skills:'Acrobatics +11, Deception +9, Performance +9', str:'+3',dex:'+4',con:'+2',int:'+0',wis:'+2',cha:'+2', fort:'+7',ref:'+11',will:'+9', speed:'20 ft., fly 60 ft.', melee:'◆ Talon +11 (agile)', ranged:'◆ Shortbow +11 (range 60 ft.)', actions:[{name:'Captivating Song',cost:'◆◆',trait:'auditory, concentrate',desc:'The harpy cries out a captivating melody. Non-harpies within 300 feet must succeed at a DC 21 Will save or become fascinated until the start of the harpy\'s next turn.'}] },
+  { id:8,  name:'Ogre',             level:3,  rarity:'common',   size:'large',  traits:['giant','humanoid'],              ac:17, hp:50,  source:'Monster Core', perception:'+7', languages:'Common, Jotun', skills:'Athletics +13, Intimidation +8', str:'+5',dex:'-1',con:'+4',int:'-2',wis:'+0',cha:'+1', fort:'+11',ref:'+6',will:'+7', speed:'30 ft.', melee:'◆ Greatclub +12 (backswing, reach 10 ft.)', actions:[{name:'Sweep',cost:'◆',desc:'The ogre makes two Strikes against different adjacent foes.'}] },
+  { id:9,  name:'Troll',            level:5,  rarity:'uncommon', size:'large',  traits:['giant','humanoid','troll'],      ac:22, hp:115, source:'Monster Core', perception:'+11', languages:'Jotun', skills:'Athletics +16, Intimidation +11', str:'+7',dex:'+2',con:'+6',int:'-2',wis:'+2',cha:'-1', fort:'+15',ref:'+11',will:'+11', speed:'30 ft.', melee:'◆ Jaws +16 (reach 10 ft.)', actions:[{name:'Regeneration',cost:'Passive',desc:'The troll regains 15 HP at the start of each turn. This regeneration is deactivated for 1 round if the troll takes fire or acid damage.'}] },
+  { id:10, name:'Hill Giant',       level:7,  rarity:'uncommon', size:'huge',   traits:['giant','humanoid'],              ac:25, hp:150, source:'Monster Core', perception:'+13', languages:'Common, Jotun', skills:'Athletics +20, Intimidation +15', str:'+7',dex:'+0',con:'+5',int:'-2',wis:'+2',cha:'+0', fort:'+18',ref:'+13',will:'+13', speed:'35 ft.', melee:'◆ Greatclub +20 (backswing, reach 15 ft.)', ranged:'◆ Rock +16 (brutal, range 120 ft.)', actions:[{name:'Throw Rock',cost:'◆',desc:'The giant throws a rock dealing 2d8+13 bludgeoning to all creatures in a 10-foot burst (DC 27 Reflex save).'}] },
+  { id:11, name:'Young Red Dragon', level:10, rarity:'uncommon', size:'large',  traits:['dragon','fire'],                 ac:30, hp:195, source:'Monster Core', perception:'+20', languages:'Common, Draconic', skills:'Acrobatics +18, Arcana +18, Athletics +24, Deception +22, Diplomacy +20, Intimidation +22, Stealth +17', str:'+8',dex:'+2',con:'+5',int:'+3',wis:'+3',cha:'+5', fort:'+21',ref:'+18',will:'+19', speed:'40 ft., fly 80 ft.', melee:'◆ Jaws +24 (fire, reach 10 ft.)', actions:[{name:'Breath Weapon',cost:'◆◆',trait:'fire',desc:'The dragon breathes a 30-foot cone of fire dealing 11d6 fire damage (DC 29 Reflex). Cannot use again for 1d4 rounds.'}] },
+  { id:12, name:'Vampire Count',    level:10, rarity:'uncommon', size:'medium', traits:['undead','vampire'],              ac:31, hp:170, source:'Monster Core', perception:'+21', languages:'Common, Necril', skills:'Acrobatics +21, Arcana +19, Athletics +21, Deception +23, Diplomacy +21, Intimidation +23, Occultism +19, Stealth +21', str:'+5',dex:'+5',con:'+4',int:'+3',wis:'+4',cha:'+7', fort:'+18',ref:'+21',will:'+22', speed:'25 ft., climb 25 ft.', melee:'◆ Fangs +23', actions:[{name:'Drink Blood',cost:'◆',trait:'necromancy',desc:'Requires grabbed or willing creature. The vampire drinks blood, dealing 2d6 persistent bleed. If victim dies, they rise as a vampire spawn.'}] },
+  { id:13, name:'Lich',             level:17, rarity:'rare',     size:'medium', traits:['lich','undead','wizard'],        ac:42, hp:305, source:'Monster Core', perception:'+31', languages:'Common, Necril, Draconic, Abyssal', skills:'Arcana +33, Deception +30, Intimidation +30, Occultism +33, Religion +29, Society +29', str:'+4',dex:'+5',con:'+5',int:'+9',wis:'+7',cha:'+7', fort:'+28',ref:'+28',will:'+32', speed:'25 ft.', melee:'◆ Finger of Death +30 (negative)', actions:[{name:'Drain Phylactery',cost:'◆◆◆',trait:'arcane, necromancy',desc:'The lich draws on the life stored within its phylactery, regaining 5d10+30 HP and gaining 1 action. Can only be used once per day.'}] },
+  { id:14, name:'Kobold Scout',     level:1,  rarity:'common',   size:'small',  traits:['humanoid','kobold'],             ac:16, hp:14,  source:'Monster Core', perception:'+8', languages:'Common, Draconic', skills:'Acrobatics +7, Stealth +7, Survival +6, Thievery +5', str:'+0',dex:'+3',con:'+1',int:'+0',wis:'+2',cha:'+0', fort:'+5',ref:'+8',will:'+5', speed:'25 ft.', melee:'◆ Shortsword +8 (agile, finesse)', ranged:'◆ Shortbow +8', actions:[{name:'Hurried Retreat',cost:'◆',desc:'The kobold Strides, gaining a +2 circumstance bonus to AC against reactions triggered by this movement.'}] },
+  { id:15, name:'Giant Spider',     level:1,  rarity:'common',   size:'medium', traits:['animal','spider'],               ac:16, hp:16,  source:'Monster Core', perception:'+6', languages:'None',   skills:'Athletics +7, Stealth +7', str:'+3',dex:'+2',con:'+1',int:'-5',wis:'+1',cha:'-4', fort:'+6',ref:'+7',will:'+4', speed:'25 ft., climb 25 ft.', melee:'◆ Fangs +9', actions:[{name:'Venom',cost:'Passive',desc:'A creature bitten must succeed at DC 17 Fortitude or take 1d6 poison damage and become enfeebled 1 (or enfeebled 2 on a critical failure).'}] },
+];
+
+// ─── RULES DATA ───────────────────────────────────────────────────────────────
+const RULES_DATA = {
+  conditions: [
+    { name:'Blinded',      value:false, icon:'◉', desc:'You cannot see. You automatically critically fail Perception checks requiring sight and take a –4 status penalty to Perception. You are immune to visual effects. When targeting a creature you can\'t see, you must succeed at DC 11 flat check or your attack doesn\'t affect that creature.' },
+    { name:'Clumsy',       value:true,  icon:'⚠', desc:'Your movements become awkward and unwieldy. Clumsy always includes a value. You take a status penalty equal to the clumsy value to Dexterity-based checks and DCs, including AC, Reflex saves, ranged attack rolls, and skill checks using Dexterity.' },
+    { name:'Confused',     value:false, icon:'?', desc:'You don\'t have your wits about you. You use all your actions to Strike or cast offensive cantrips. At the start of your turn, attempt DC 11 flat check. On a success, you act normally this turn.' },
+    { name:'Dazzled',      value:false, icon:'✦', desc:'Your vision is compromised. All creatures and objects are concealed from you.' },
+    { name:'Deafened',     value:false, icon:'🔇', desc:'You cannot hear. You automatically critically fail sound-based Perception checks. You take a –2 penalty to Perception and DCs, and can\'t benefit from or perform auditory actions or effects.' },
+    { name:'Doomed',       value:true,  icon:'💀', desc:'A powerful force has gripped your soul. Doomed always includes a value. The dying value at which you die is reduced by your doomed value. If your maximum dying value is reduced to 0, you die immediately.' },
+    { name:'Drained',      value:true,  icon:'⬇', desc:'Your life force has been depleted. Drained always includes a value. You take a status penalty equal to your drained value to Constitution-based checks and DCs, and to your maximum Hit Points equal to drained value × level.' },
+    { name:'Encumbered',   value:false, icon:'⚖', desc:'You are carrying more weight than you can manage. While encumbered, you\'re clumsy 1 and take a –10-foot penalty to all your speeds. This clumsy value can\'t be reduced below 1.' },
+    { name:'Enfeebled',    value:true,  icon:'💪', desc:'Physical weakening has affected you. Enfeebled always includes a value. You take a status penalty equal to the enfeebled value to Strength-based checks and DCs, including Strikes, Fortitude saving throws, and Athletics checks.' },
+    { name:'Fascinated',   value:false, icon:'★', desc:'You are captivated by something. You take a –2 status penalty to Perception and skill checks, and can\'t use actions with the concentrate trait unless they are related to the subject of your fascination.' },
+    { name:'Fatigued',     value:false, icon:'Z', desc:'You are tired and can\'t put your full effort into defense and activities. You take a –1 status penalty to AC and saving throws. While exploring, you can\'t choose an exploration activity.' },
+    { name:'Flat-Footed',  value:false, icon:'!', desc:'You\'re distracted or unable to focus fully on defense. You take a –2 circumstance penalty to AC. Some effects give you this condition only to certain creatures or against certain attacks.' },
+    { name:'Frightened',   value:true,  icon:'😨', desc:'You are gripped by fear. Frightened always includes a value. You take a status penalty equal to this value to all your checks and DCs. At the end of each of your turns, the frightened value decreases by 1.' },
+    { name:'Grabbed',      value:false, icon:'✊', desc:'A creature, object, or magic has you firmly in its grasp. You\'re immobilized and flat-footed. If you attempt a concentrate action while grabbed, you must succeed at DC 5 flat check or the action is lost; this DC is higher for some effects.' },
+    { name:'Hidden',       value:false, icon:'👤', desc:'You are not detected but your position is known. Creatures that you\'re hidden from are flat-footed to you, but they can still see you dimly—attempting to affect you has a DC 11 flat check.' },
+    { name:'Immobilized',  value:false, icon:'🔒', desc:'You cannot use any action with the move trait. If an external force would move you out of your space, the force must succeed at a check against the DC of the effect holding you in place.' },
+    { name:'Invisible',    value:false, icon:'👻', desc:'Creatures can\'t see you. You can still be heard, smelled, or detected by senses other than sight. You are undetected to all creatures relying on sight as their only precise sense. Creatures can attempt to find you.' },
+    { name:'Off-Guard',    value:false, icon:'!', desc:'(Replaces flat-footed in the Remaster.) You take a –2 circumstance penalty to AC.' },
+    { name:'Paralyzed',    value:false, icon:'⛔', desc:'You are frozen in place. You have the flat-footed condition and can\'t act except to use abilities that require only your mind. Your Speed is 0, and you can\'t benefit from movement bonuses.' },
+    { name:'Prone',        value:false, icon:'⬇', desc:'You are lying on the ground. You are flat-footed. The only move actions you can use are Crawl and Stand. You take a –2 penalty on attack rolls. Melee attacks against you gain a +2 circumstance bonus to hit; ranged attacks take a –2 penalty.' },
+    { name:'Quickened',    value:false, icon:'⚡', desc:'You\'re moving faster than normal. You gain 1 additional action at the start of each turn, which can only be used for the specific action noted in the effect that granted you this condition.' },
+    { name:'Sickened',     value:true,  icon:'🤢', desc:'You feel ill. Sickened always includes a value. You take a status penalty equal to your sickened value to all checks and DCs. You can\'t willingly ingest anything while sickened. You can attempt to reduce sickened each round with a Fortitude save.' },
+    { name:'Slowed',       value:true,  icon:'⏸', desc:'You have fewer actions. Slowed always includes a value. At the start of your turn, reduce the number of actions you regain by your slowed value.' },
+    { name:'Stunned',      value:true,  icon:'💫', desc:'You\'ve become senseless. Stunned always includes a value. At the start of your turn, reduce the number of actions you regain by your stunned value, then reduce stunned by the number of actions lost. Also gives the flat-footed condition.' },
+    { name:'Stupefied',    value:true,  icon:'🌀', desc:'Your mental faculties are impaired. Stupefied always includes a value. You take a status penalty equal to your stupefied value to Int, Wis, and Cha-based checks and DCs, including spell attack rolls, spell DCs, and Perception.' },
+    { name:'Unconscious',  value:false, icon:'💤', desc:'You\'ve been knocked out. You can\'t act. You are blinded and flat-footed. When unconscious, you fall prone. At the start of each turn while unconscious, you must succeed at a DC 15 Flat check or the dying condition increases by 1.' },
+  ],
+  actions: [
+    { name:'Strike',            cost:1, traits:['attack'],                    desc:'You attack with a weapon or unarmed attack. Roll the attack roll for the weapon and compare to target\'s AC. Each subsequent attack in a turn takes a –5 penalty (–10 for a third attack), unless the agile trait applies (–4/–8).' },
+    { name:'Move',              cost:1, traits:['move'],                      desc:'You move up to your Speed.' },
+    { name:'Step',              cost:1, traits:['move'],                      desc:'You carefully move 5 feet. Unlike most movement, Stepping doesn\'t trigger reactions triggered by movement. You can\'t Step into difficult terrain.' },
+    { name:'Stride',            cost:1, traits:['move'],                      desc:'You move up to your Speed. As a special kind of move action, you can use this to move through areas of difficult terrain or to take other special movements.' },
+    { name:'Raise a Shield',    cost:1, traits:[],                            desc:'You position your shield to protect yourself. You gain the shield\'s circumstance bonus to AC and on Reflex saves until the start of your next turn, or until you no longer hold the shield.' },
+    { name:'Seek',              cost:1, traits:['concentrate','secret'],      desc:'You scan an area for signs of creatures or objects. Choose a 30-foot cone or a 15-foot burst within line of sight. The GM rolls a secret Perception check and compares to Stealth DC of each hidden creature in the area.' },
+    { name:'Interact',          cost:1, traits:['manipulate'],                desc:'You use your hand or hands to manipulate an object or the terrain. You can grab an unattended or stored object, open a door, or produce some similar effect. You might have to attempt a skill check.' },
+    { name:'Ready',             cost:2, traits:['concentrate'],               desc:'You prepare to use an action that will occur outside your turn. Choose a single action or free action you can use, and designate a trigger. If the trigger occurs before the start of your next turn, you can use the chosen action as a reaction.',  trigger:'You designate a trigger when using Ready.' },
+    { name:'Aid',               cost:0, traits:['auditory','concentrate'],    desc:'You try to help your ally with a task. To use this action, you must first prepare to help as a reaction, then on their turn attempt a skill check to Assist. The DC is usually 20, but the GM may adjust it.', trigger:'An ally is about to use a skill or make an attack roll.' },
+    { name:'Grapple',           cost:1, traits:['attack'],                    desc:'You attempt to grab a creature or object with your free hand. Attempt an Athletics check against the target\'s Fortitude DC. Success: Target is grabbed. Critical Success: Target is restrained. Failure: Nothing. Critical Failure: You\'re off-guard.' },
+    { name:'Trip',              cost:1, traits:['attack'],                    desc:'You try to knock a creature to the ground. Attempt an Athletics check against the target\'s Reflex DC. Success: Target is knocked prone. Critical Success: Target is knocked prone and takes 1d6 bludgeoning. Critical Failure: You\'re off-guard until next turn.' },
+    { name:'Shove',             cost:1, traits:['attack'],                    desc:'You try to push a creature away from you. Attempt an Athletics check against the target\'s Fortitude DC. Success: Push target 5 feet. Critical Success: Push target 10 feet and stride after it. Critical Failure: You\'re off-guard until next turn.' },
+    { name:'Disarm',            cost:1, traits:['attack'],                    desc:'You try to knock something out of a creature\'s grasp. Attempt an Athletics check against the target\'s Reflex DC. Success: Target is off-guard until they Interact to pick up the item. Critical Success: Item falls to the ground.' },
+    { name:'Tumble Through',    cost:1, traits:['move'],                      desc:'You Stride up to your Speed and move through the space of a single enemy. Attempt an Acrobatics check against the enemy\'s Reflex DC. Success: Move through. Failure: Movement stops, you\'re off-guard until next turn.' },
+    { name:'Take Cover',        cost:1, traits:[],                            desc:'You press yourself against a wall or cringe behind an obstacle to protect yourself from ranged attacks. You gain cover, or if you already have cover, you gain greater cover (+4 circumstance bonus to AC and Reflex) until you move or attack.' },
+    { name:'Arrest a Fall',     cost:0, traits:['manipulate'],                desc:'If you are adjacent to a wall and would fall more than 5 feet, you can grab the wall. Attempt an Athletics check (DC 15 normally). Success: Arrest your fall and remain in your current space, clinging to the wall.', trigger:'You fall from or adjacent to a surface you could grab.' },
+    { name:'Point Out',         cost:1, traits:['auditory','concentrate','visual'], desc:'You point out a creature you can see to all allies within 30 feet who can see and hear you. Those allies become aware of the creature. Once pointed out, the creature is observed to those allies.' },
+    { name:'Escape',            cost:1, traits:['attack'],                    desc:'You attempt to escape from being grabbed, immobilized, or restrained. Attempt a check using your unarmed attack bonus (or Acrobatics or Athletics, if higher) against the DC of the effect holding you in place.', requirements:'You are grabbed, immobilized, or restrained.' },
+  ],
+  skills: [],
+  spells: [],
+  feats: [],
+  equipment: [],
+  traits: [],
+};
+
+// ─── CHARACTER DATA ───────────────────────────────────────────────────────────
+const CHAR_DATA = {
+  ANCESTRIES: [
+    { name:'Human',    hp:8,  size:'medium', speed:25, ability:'+2 to any two',           traits:['human','humanoid'],    desc:'Humans are the most adaptive of the common ancestries, hailing from disparate regions and with origins as varied as the world itself.' },
+    { name:'Elf',      hp:6,  size:'medium', speed:30, ability:'+2 Dex, +2 Int, −2 Con',  traits:['elf','humanoid'],      desc:'Elves are svelte, long-lived, and possess an inherent mastery of magic that manifests as an aura of grace.' },
+    { name:'Dwarf',    hp:10, size:'medium', speed:20, ability:'+2 Con, +2 Wis, −2 Cha',  traits:['dwarf','humanoid'],    desc:'Dwarves are a stoic and stern people, ensconced within citadels beneath the mountains.' },
+    { name:'Gnome',    hp:8,  size:'small',  speed:25, ability:'+2 Con, +2 Cha, −2 Str',  traits:['gnome','humanoid'],    desc:'Long ago, gnomes were creatures of the First World, and they retain the ability to tap into primal magic.' },
+    { name:'Halfling', hp:6,  size:'small',  speed:25, ability:'+2 Dex, +2 Wis, −2 Str',  traits:['halfling','humanoid'], desc:'Claiming no place as their own, halflings frequently live among humans, adapting readily to their environment.' },
+    { name:'Goblin',   hp:6,  size:'small',  speed:25, ability:'+2 Dex, +2 Cha, −2 Wis',  traits:['goblin','humanoid'],   desc:'Goblins are a short, slight, and scrappy ancestry who have grown beyond their violent past.' },
+    { name:'Leshy',    hp:8,  size:'small',  speed:25, ability:'+2 Con, +2 Wis, −2 Int',  traits:['leshy','plant'],       desc:'Leshies are intelligent minor spirits of nature that inhabit small plant bodies, created originally by druids.' },
+    { name:'Orc',      hp:10, size:'medium', speed:25, ability:'+2 Str, +2 Con, −2 Wis',  traits:['humanoid','orc'],      desc:'Orcs are forged in the fires of violence and conflict, but many have found their own path in the world.' },
+  ],
+  BACKGROUNDS: [
+    { name:'Acolyte',   ability:'+2 Int or Wis', skills:'Religion, Scribing Lore',    desc:'You spent your early days in a religious institution, as a devotee or student of divine texts.' },
+    { name:'Criminal',  ability:'+2 Dex or Int', skills:'Stealth, Underworld Lore',   desc:'As an underground operative, you learned to move in shadows and handle illegal enterprises.' },
+    { name:'Merchant',  ability:'+2 Int or Cha', skills:'Diplomacy, Mercantile Lore', desc:'You grew up in a family that ran a business or managed trade caravans.' },
+    { name:'Nomad',     ability:'+2 Con or Wis', skills:'Survival, Geography Lore',   desc:'You hail from a family that traveled constantly — herders, wanderers, or caravan traders.' },
+    { name:'Sailor',    ability:'+2 Str or Dex', skills:'Athletics, Sailing Lore',    desc:'You worked aboard a ship as a laborer, marine, or navigator.' },
+    { name:'Scholar',   ability:'+2 Con or Int', skills:'Arcana, Academia Lore',      desc:'You attended a school for the study of magic and related topics.' },
+    { name:'Guard',     ability:'+2 Str or Con', skills:'Intimidation, Legal Lore',   desc:'You served as a soldier, city guard, or bounty hunter.' },
+    { name:'Artisan',   ability:'+2 Str or Cha', skills:'Crafting, Guild Lore',       desc:'You learned the basics of a trade, studying under a master craftsperson or in a guild.' },
+    { name:'Hunter',    ability:'+2 Dex or Wis', skills:'Survival, Terrain Lore',     desc:'You stalked and hunted game to feed your family or community in the wild.' },
+    { name:'Entertainer', ability:'+2 Dex or Cha', skills:'Performance, Theater Lore', desc:'You worked as a performer, traveling from city to city and relying on your talents.' },
+  ],
+  CLASSES: [
+    { name:'Fighter',   hp:10, keyAbility:'Str or Dex', role:'Martial', trainedSkills:5,  desc:'Fighters are the most adaptive combatants, trained in a wide array of weapons and tactics.' },
+    { name:'Wizard',    hp:6,  keyAbility:'Int',         role:'Caster',  trainedSkills:4,  desc:'Wizards spend their lives in pursuit of magical knowledge, studying spellbooks and arcane tomes.' },
+    { name:'Cleric',    hp:8,  keyAbility:'Wis',         role:'Caster',  trainedSkills:4,  desc:'Clerics are the chief religious practitioners of their faith, channeling divine power.' },
+    { name:'Rogue',     hp:8,  keyAbility:'Dex',         role:'Skill',   trainedSkills:8,  desc:'Rogues blend stealth and skill with combat, excelling at finding weaknesses in their enemies.' },
+    { name:'Ranger',    hp:10, keyAbility:'Str or Dex', role:'Martial', trainedSkills:5,  desc:'Rangers are skilled hunters who use martial prowess and a connection to nature.' },
+    { name:'Bard',      hp:8,  keyAbility:'Cha',         role:'Caster',  trainedSkills:5,  desc:'Bards use performance to harness magical power, inspiring allies and debilitating foes with occult magic.' },
+    { name:'Barbarian', hp:12, keyAbility:'Str',         role:'Martial', trainedSkills:4,  desc:'Barbarians are mighty warriors who enter a state of pure rage, performing superhuman feats of strength.' },
+    { name:'Druid',     hp:8,  keyAbility:'Wis',         role:'Caster',  trainedSkills:4,  desc:'Druids are devotees of nature who call upon the power of the natural world to heal, summon, and shape.' },
+    { name:'Champion',  hp:10, keyAbility:'Str or Dex', role:'Martial', trainedSkills:4,  desc:'Champions are holy warriors devoted to a deity, wielding divine power to protect allies and smite foes.' },
+    { name:'Monk',      hp:10, keyAbility:'Str or Dex', role:'Martial', trainedSkills:4,  desc:'Monks perfect their bodies and minds through rigorous training, fighting with powerful unarmed techniques.' },
+    { name:'Witch',     hp:6,  keyAbility:'Int/Wis/Cha', role:'Caster',  trainedSkills:3,  desc:'Witches make pacts with mysterious patrons, learning spells through a familiar.' },
+    { name:'Sorcerer',  hp:6,  keyAbility:'Cha',         role:'Caster',  trainedSkills:3,  desc:'Sorcerers have innate magical power that surges through their blood.' },
+  ],
+  ALL_SKILLS: ['Acrobatics','Arcana','Athletics','Crafting','Deception','Diplomacy','Intimidation',
+    'Medicine','Nature','Occultism','Performance','Religion','Society','Stealth','Survival','Thievery'],
+};
+
+// ─── APP ──────────────────────────────────────────────────────────────────────
+const App = () => {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [section, setSection] = React.useState('gm');
+  const [selectedCreature, setSelectedCreature] = React.useState(null);
+
+  const { crimson, border, parchment, bg, text, textMid, textMute, brown } = T;
+
+  const NAV = [
+    { id:'gm',    icon:'⚔', label:'GM Assistant',      sub:'Encounters & Combat' },
+    { id:'rules', icon:'📖', label:'Rules Reference',   sub:'Lookup & Browse' },
+    { id:'chars', icon:'✦',  label:'Characters',         sub:'PC Builder & Sheets' },
+  ];
+
+  return (
+    <div style={{ height:'100%', display:'flex', flexDirection:'column', fontFamily:"'DM Sans', sans-serif", background:bg, color:text, overflow:'hidden' }}>
+
+      {/* ── Top bar: full width crimson ── */}
+      <div style={{ display:'flex', flexShrink:0, height:44, background:crimson, alignItems:'center', padding:'0 16px', gap:12 }}>
+        {/* Brand */}
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+          <div style={{ width:26, height:26, borderRadius:5, background:'rgba(240,230,204,0.15)', border:'1px solid rgba(240,230,204,0.25)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <span style={{ fontFamily:'Cinzel,serif', fontSize:13, fontWeight:700, color:'#f0e6cc' }}>S</span>
+          </div>
+          <span style={{ fontFamily:'Cinzel,serif', fontSize:14, fontWeight:700, color:'#f0e6cc', letterSpacing:'0.04em', whiteSpace:'nowrap' }}>Seneschal</span>
+        </div>
+        <div style={{ width:1, height:18, background:'rgba(240,230,204,0.2)', flexShrink:0 }}></div>
+        {/* Nav pills */}
+        <div style={{ display:'flex', gap:2 }}>
+          {NAV.map(item => {
+            const active = section === item.id;
+            return (
+              <button key={item.id} onClick={()=>setSection(item.id)}
+                style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:5, cursor:'pointer', border:`1px solid ${active?'rgba(240,230,204,0.28)':'transparent'}`,
+                  background:active?'rgba(240,230,204,0.18)':'transparent', color:active?'#f0e6cc':'rgba(240,230,204,0.55)', fontSize:12, fontWeight:active?600:400, whiteSpace:'nowrap', fontFamily:'inherit' }}>
+                <span style={{ fontSize:12 }}>{item.icon}</span>
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+        {/* Spacer */}
+        <div style={{ flex:1 }}></div>
+        {/* Right actions */}
+        <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+          <button title="Share" style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:5, cursor:'pointer',
+            background:'rgba(240,230,204,0.12)', border:'1px solid rgba(240,230,204,0.2)', color:'rgba(240,230,204,0.8)', fontSize:12, fontFamily:'inherit' }}>
+            <span style={{ fontSize:13 }}>↗</span> Share
+          </button>
+          <button title="Settings" style={{ width:32, height:32, borderRadius:5, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+            background:'rgba(240,230,204,0.12)', border:'1px solid rgba(240,230,204,0.2)', color:'rgba(240,230,204,0.7)', fontSize:16 }}>
+            ⚙
+          </button>
+        </div>
+      </div>
+
+      {/* ── Section content ── */}
+      <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+        {section === 'gm'    && <GMAssistant T={T} CREATURES={CREATURES} selectedCreature={selectedCreature} setSelectedCreature={setSelectedCreature} />}
+        {section === 'rules' && <RulesReference T={T} RULES_DATA={RULES_DATA} />}
+        {section === 'chars' && <CharacterSection T={T} CHAR_DATA={CHAR_DATA} />}
+      </div>
+
+      {/* Tweaks */}
+      <TweaksPanel>
+        <TweakSection title="Accent" />
+        <TweakRadio id="accentColor" label="Color" options={['crimson','gold','forest']} />
+        <TweakSection title="Density" />
+        <TweakRadio id="density" label="Layout" options={['compact','balanced','spacious']} />
+      </TweaksPanel>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
