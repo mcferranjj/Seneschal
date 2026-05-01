@@ -27,7 +27,7 @@ export function TopBar({ activeSection, onSectionChange }: TopBarProps) {
           className={`${styles.navPill} ${activeSection === 'gm' ? styles.navPillActive : ''}`}
           onClick={() => onSectionChange('gm')}
         >
-          ⚔ GM Assistant
+          ⚔ Encounters
         </button>
         <button
           className={`${styles.navPill} ${activeSection === 'rules' ? styles.navPillActive : ''}`}

@@ -36,8 +36,6 @@
 
 .resultsCol {
   flex: 0 0 260px;
-  transition: flex 0.4s ease;
-  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   background: var(--parchment);
@@ -46,10 +44,23 @@
 
 .encounterCol {
   flex: 0 0 280px;
-  transition: flex 0.4s ease;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.resizeHandle {
+  flex: 0 0 4px;
+  background: var(--border);
+  cursor: col-resize;
+  transition: background 0.15s;
+  position: relative;
+  z-index: 10;
+}
+
+.resizeHandle:hover,
+.resizeHandle:active {
+  background: var(--crimson);
 }
 
 .statblockCol {

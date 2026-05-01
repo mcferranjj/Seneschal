@@ -52,12 +52,13 @@ function packDisplayName(packName: string): string {
     .join(' ');
 }
 
-const ERAS: PackEra[] = ['remaster', 'legacy'];
+const ERAS: PackEra[] = ['remaster', 'legacy', 'sf2e'];
 const CATEGORIES: PackCategory[] = ['core', 'supplemental', 'misc'];
 
 const ERA_LABELS: Record<PackEra, string> = {
   remaster: 'Remaster',
   legacy: 'Legacy',
+  sf2e: 'Starfinder 2E',
 };
 
 const CATEGORY_LABELS: Record<PackCategory, string> = {
@@ -72,6 +73,7 @@ function groupPacks(packs: PackSourceInfo[]): EraGroups {
   const result: EraGroups = {
     remaster: { core: [], supplemental: [], misc: [] },
     legacy:   { core: [], supplemental: [], misc: [] },
+    sf2e:     { core: [], supplemental: [], misc: [] },
   };
   for (const p of packs) {
     result[p.era][p.category].push(p);
@@ -137,7 +139,7 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
         if (!packsInitialized.current) {
           packsInitialized.current = true;
           if (filters.packSources.length === 0) {
-            const remaster = packs.filter(p => p.era === 'remaster' && (p.category === 'core' || p.category === 'supplemental')).map(p => p.name);
+            const remaster = packs.filter(p => p.era === 'remaster' && (p.category === 'core' || p.category === 'supplemental') ).map(p => p.name);
             if (remaster.length > 0) onChange({ ...filters, packSources: remaster });
           }
         }
@@ -150,16 +152,35 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
     onChange({ ...filters, ...partial });
   }
 
-  function addTrait(trait: string) {
+  function addTrait(trait: string, mode: 'include' | 'exclude' = 'include') {
     const t = trait.trim().toLowerCase();
-    if (t && !filters.traits.includes(t)) {
-      set({ traits: [...filters.traits, t] });
+    if (!t) return setTraitInput('');
+    if (mode === 'include') {
+      if (!filters.traits.includes(t)) {
+        set({ traits: [...filters.traits, t], excludeTraits: filters.excludeTraits.filter(x => x !== t) });
+      }
+    } else {
+      if (!filters.excludeTraits.includes(t)) {
+        set({ excludeTraits: [...filters.excludeTraits, t], traits: filters.traits.filter(x => x !== t) });
+      }
     }
     setTraitInput('');
   }
 
   function removeTrait(trait: string) {
-    set({ traits: filters.traits.filter(t => t !== trait) });
+    set({ traits: filters.traits.filter(t => t !== trait), excludeTraits: filters.excludeTraits.filter(t => t !== trait) });
+  }
+
+  function toggleTraitMode(trait: string) {
+    if (filters.traits.includes(trait)) {
+      set({ traits: filters.traits.filter(t => t !== trait), excludeTraits: [...filters.excludeTraits, trait] });
+    } else {
+      set({ excludeTraits: filters.excludeTraits.filter(t => t !== trait), traits: [...filters.traits, trait] });
+    }
+  }
+
+  function toggleEntityType(value: string, checked: boolean) {
+    set({ entityTypes: checked ? [...filters.entityTypes, value] : filters.entityTypes.filter(x => x !== value) });
   }
 
   function toggleCreatureType(value: string, checked: boolean) {
@@ -215,8 +236,9 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
 
   const groups = groupPacks(allPacksWithMeta);
 
+  const allActiveTraits = [...filters.traits, ...filters.excludeTraits];
   const filteredTraits = allTraits
-    .filter(t => t.includes(traitInput.toLowerCase()) && !filters.traits.includes(t))
+    .filter(t => t.includes(traitInput.toLowerCase()) && !allActiveTraits.includes(t))
     .slice(0, 12);
 
   return (
@@ -275,7 +297,29 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
         <label className={styles.label}>Traits</label>
         <div className={styles.traitChips}>
           {filters.traits.map(t => (
-            <span key={t} className={styles.traitChip}>
+            <span
+              key={t}
+              className={`${styles.traitChip} ${styles.traitChipInclude}`}
+              onContextMenu={e => { e.preventDefault(); toggleTraitMode(t); }}
+              title="Right-click to exclude instead"
+            >
+              {t}
+              <button
+                className={styles.removeBtn}
+                onClick={() => removeTrait(t)}
+                aria-label={`Remove trait ${t}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          {filters.excludeTraits.map(t => (
+            <span
+              key={t}
+              className={`${styles.traitChip} ${styles.traitChipExclude}`}
+              onContextMenu={e => { e.preventDefault(); toggleTraitMode(t); }}
+              title="Right-click to include instead"
+            >
               {t}
               <button
                 className={styles.removeBtn}
@@ -295,24 +339,61 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
             value={traitInput}
             onChange={e => setTraitInput(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter') addTrait(traitInput);
+              if (e.key === 'Enter') addTrait(traitInput, 'include');
             }}
             onBlur={() => setTraitInput('')}
             disabled={disabled}
           />
+          <button
+            className={styles.traitAddBtn}
+            style={{ background: 'var(--trait-include)' }}
+            onMouseDown={e => { e.preventDefault(); addTrait(traitInput, 'include'); }}
+            disabled={disabled || !traitInput.trim()}
+            title="Filter in (include)"
+            type="button"
+          >
+            +
+          </button>
+          <button
+            className={styles.traitAddBtn}
+            style={{ background: 'var(--trait-exclude)' }}
+            onMouseDown={e => { e.preventDefault(); addTrait(traitInput, 'exclude'); }}
+            disabled={disabled || !traitInput.trim()}
+            title="Filter out (exclude)"
+            type="button"
+          >
+            −
+          </button>
           {filteredTraits.length > 0 && traitInput.length > 0 && (
             <ul className={styles.traitSuggestions}>
               {filteredTraits.map(t => (
                 <li
                   key={t}
                   className={styles.traitSuggestion}
-                  onMouseDown={e => { e.preventDefault(); addTrait(t); }}
+                  onMouseDown={e => { e.preventDefault(); addTrait(t, 'include'); }}
                 >
                   {t}
                 </li>
               ))}
             </ul>
           )}
+        </div>
+      </div>
+
+      <div className={styles.section}>
+        <span className={styles.label}>Entity Type</span>
+        <div className={styles.checkGroup}>
+          {[{ value: 'npc', label: 'Creature' }, { value: 'hazard', label: 'Hazard' }].map(e => (
+            <label key={e.value} className={styles.checkLabel}>
+              <input
+                type="checkbox"
+                checked={filters.entityTypes.includes(e.value)}
+                onChange={ev => toggleEntityType(e.value, ev.target.checked)}
+                disabled={disabled}
+              />
+              {e.label}
+            </label>
+          ))}
         </div>
       </div>
 
@@ -463,8 +544,10 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
           onChange({
             name: '',
             traits: [],
+            excludeTraits: [],
             levelMin: -1,
             levelMax: 25,
+            entityTypes: [],
             creatureTypes: [],
             sizes: [],
             rarities: [],

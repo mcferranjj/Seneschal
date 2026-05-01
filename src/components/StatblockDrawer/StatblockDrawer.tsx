@@ -1,5 +1,7 @@
+import { useState, useCallback } from 'react';
 import type { CreatureRecord } from '../../db/schema';
 import type { PF2ECreature, PF2EItem } from '../../types/pf2e';
+import { DiceRoller } from '../DiceRoller/DiceRoller';
 import {
   getLevel,
   getSize,
@@ -14,7 +16,13 @@ import {
   getPassives,
   getDamageString,
   stripFoundryMacros,
+  linkKeywords,
+  linkRolls,
 } from './statblockHelpers';
+
+function processHtml(raw: string): string {
+  return linkRolls(linkKeywords(stripFoundryMacros(raw)));
+}
 import styles from './StatblockDrawer.module.css';
 
 const TRAIT_RARITY_COLORS: Record<string, string> = {
@@ -92,6 +100,16 @@ function StatblockContent({
   onClose: () => void;
   onAddToEncounter: (creature: CreatureRecord) => void;
 }) {
+  const [diceRoll, setDiceRoll] = useState<{ expr: string; x: number; y: number } | null>(null);
+
+  const handleBodyClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('pf2roll')) {
+      const expr = target.dataset.expr ?? '';
+      if (expr) setDiceRoll({ expr, x: e.clientX, y: e.clientY - 160 });
+    }
+  }, []);
+
   const c = creature.data as PF2ECreature;
   const level = getLevel(c);
   const size = getSize(c);
@@ -138,19 +156,37 @@ function StatblockContent({
   const publicNotes = c.system?.details?.publicNotes ?? '';
   const publication = c.system?.details?.publication?.title;
 
+  // Construct GitHub raw URL for creature image; skip generic default icons
+  const imgPath = c.img;
+  const isDefaultIcon = !imgPath || imgPath.includes('default-icons') || imgPath.endsWith('mystery-man.webp');
+  const imageUrl = isDefaultIcon
+    ? null
+    : `https://raw.githubusercontent.com/foundryvtt/pf2e/v14-dev/static/${imgPath.replace('systems/pf2e/', '')}`;
+
   return (
-    <div className={styles.content}>
+    <div className={styles.content} onClick={handleBodyClick}>
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerMain}>
           <span className={styles.creatureName}>{c.name}</span>
           <span className={styles.creatureLevel}>
-            Creature {level} · {size}
+            {creature.entityType === 'hazard' ? 'Hazard' : 'Creature'} {level}{creature.entityType !== 'hazard' && ` · ${size}`}
           </span>
         </div>
-        <button className={styles.closeBtn} onClick={onClose} aria-label="Close statblock">
-          ✕
-        </button>
+        <div className={styles.headerActions}>
+          <a
+            className={styles.aonLink}
+            href={`https://2e.aonprd.com/Search.aspx?query=${encodeURIComponent(c.name)}&type=Monster`}
+            target="_blank"
+            rel="noreferrer"
+            title="View on Archives of Nethys"
+          >
+            AoN ↗
+          </a>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close statblock">
+            ✕
+          </button>
+        </div>
       </div>
 
       {/* Traits */}
@@ -165,6 +201,17 @@ function StatblockContent({
           </span>
         ))}
       </div>
+
+      {imageUrl && (
+        <div className={styles.imageContainer}>
+          <img
+            src={imageUrl}
+            alt={c.name}
+            className={styles.creatureImage}
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        </div>
+      )}
 
       <div className={styles.body}>
         {/* Source */}
@@ -266,10 +313,12 @@ function StatblockContent({
         {publicNotes && (
           <>
             <hr className={styles.divider} />
-            <div
-              className={styles.publicNotes}
-              dangerouslySetInnerHTML={{ __html: stripFoundryMacros(publicNotes) }}
-            />
+            <div className={styles.flavorBox}>
+              <div
+                className={styles.publicNotes}
+                dangerouslySetInnerHTML={{ __html: processHtml(publicNotes) }}
+              />
+            </div>
           </>
         )}
 
@@ -278,6 +327,15 @@ function StatblockContent({
           + Add to Encounter
         </button>
       </div>
+
+      {diceRoll && (
+        <DiceRoller
+          expression={diceRoll.expr}
+          anchorX={diceRoll.x}
+          anchorY={diceRoll.y}
+          onClose={() => setDiceRoll(null)}
+        />
+      )}
     </div>
   );
 }
@@ -363,7 +421,7 @@ function ItemBlock({ item }: { item: PF2EItem }) {
       {desc && (
         <div
           className={styles.itemDesc}
-          dangerouslySetInnerHTML={{ __html: stripFoundryMacros(desc) }}
+          dangerouslySetInnerHTML={{ __html: processHtml(desc) }}
         />
       )}
     </div>

@@ -1,6 +1,207 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Encounter, EncounterCreature } from '../../types/encounter';
+import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbility } from '../../types/encounter';
 import styles from './EncounterManager.module.css';
+
+// Source: GM Core Remaster Tables 9-2 through 9-4 via 2e.aonprd.com/Rules.aspx?ID=2874
+// HP uses midpoints of the per-level ranges; level 25 is extrapolated.
+
+type HpTier   = 'low' | 'moderate' | 'high';
+type AcTier   = 'low' | 'moderate' | 'high' | 'extreme';
+type SaveTier = 'terrible' | 'low' | 'moderate' | 'high' | 'extreme';
+
+interface AttackDraft {
+  name: string;
+  type: 'melee' | 'ranged';
+  bonus: number;
+  bonusTier: AcTier;
+  damage: string;
+  damageTier: AcTier;
+  range?: number;
+}
+
+const HP_TIERS:   HpTier[]   = ['low', 'moderate', 'high'];
+const AC_TIERS:   AcTier[]   = ['low', 'moderate', 'high', 'extreme'];
+const SAVE_TIERS: SaveTier[] = ['terrible', 'low', 'moderate', 'high', 'extreme'];
+
+const TIER_ABBREV: Record<HpTier | AcTier | SaveTier, string> = {
+  terrible: 'T', low: 'L', moderate: 'M', high: 'H', extreme: 'E',
+};
+
+const HP_TABLE: Record<number, Record<HpTier, number>> = {
+  [-1]: { high: 9,   moderate: 8,   low: 6   },
+  [0]:  { high: 19,  moderate: 15,  low: 12  },
+  [1]:  { high: 25,  moderate: 20,  low: 15  },
+  [2]:  { high: 38,  moderate: 30,  low: 23  },
+  [3]:  { high: 56,  moderate: 45,  low: 34  },
+  [4]:  { high: 75,  moderate: 60,  low: 45  },
+  [5]:  { high: 94,  moderate: 75,  low: 56  },
+  [6]:  { high: 119, moderate: 95,  low: 71  },
+  [7]:  { high: 144, moderate: 115, low: 86  },
+  [8]:  { high: 169, moderate: 135, low: 101 },
+  [9]:  { high: 194, moderate: 155, low: 116 },
+  [10]: { high: 219, moderate: 175, low: 131 },
+  [11]: { high: 244, moderate: 195, low: 146 },
+  [12]: { high: 269, moderate: 215, low: 161 },
+  [13]: { high: 294, moderate: 235, low: 176 },
+  [14]: { high: 319, moderate: 255, low: 191 },
+  [15]: { high: 344, moderate: 275, low: 206 },
+  [16]: { high: 369, moderate: 295, low: 221 },
+  [17]: { high: 394, moderate: 315, low: 236 },
+  [18]: { high: 419, moderate: 335, low: 251 },
+  [19]: { high: 444, moderate: 355, low: 266 },
+  [20]: { high: 469, moderate: 375, low: 281 },
+  [21]: { high: 500, moderate: 400, low: 300 },
+  [22]: { high: 538, moderate: 430, low: 323 },
+  [23]: { high: 575, moderate: 460, low: 345 },
+  [24]: { high: 625, moderate: 500, low: 375 },
+  [25]: { high: 660, moderate: 540, low: 405 },
+};
+
+const AC_TABLE: Record<number, Record<AcTier, number>> = {
+  [-1]: { extreme: 18, high: 15, moderate: 14, low: 12 },
+  [0]:  { extreme: 19, high: 16, moderate: 15, low: 13 },
+  [1]:  { extreme: 19, high: 16, moderate: 15, low: 13 },
+  [2]:  { extreme: 21, high: 18, moderate: 17, low: 15 },
+  [3]:  { extreme: 22, high: 19, moderate: 18, low: 16 },
+  [4]:  { extreme: 24, high: 21, moderate: 20, low: 18 },
+  [5]:  { extreme: 25, high: 22, moderate: 21, low: 19 },
+  [6]:  { extreme: 27, high: 24, moderate: 23, low: 21 },
+  [7]:  { extreme: 28, high: 25, moderate: 24, low: 22 },
+  [8]:  { extreme: 30, high: 27, moderate: 26, low: 24 },
+  [9]:  { extreme: 31, high: 28, moderate: 27, low: 25 },
+  [10]: { extreme: 33, high: 30, moderate: 29, low: 27 },
+  [11]: { extreme: 34, high: 31, moderate: 30, low: 28 },
+  [12]: { extreme: 36, high: 33, moderate: 32, low: 30 },
+  [13]: { extreme: 37, high: 34, moderate: 33, low: 31 },
+  [14]: { extreme: 39, high: 36, moderate: 35, low: 33 },
+  [15]: { extreme: 40, high: 37, moderate: 36, low: 34 },
+  [16]: { extreme: 42, high: 39, moderate: 38, low: 36 },
+  [17]: { extreme: 43, high: 40, moderate: 39, low: 37 },
+  [18]: { extreme: 45, high: 42, moderate: 41, low: 39 },
+  [19]: { extreme: 46, high: 43, moderate: 42, low: 40 },
+  [20]: { extreme: 48, high: 45, moderate: 44, low: 42 },
+  [21]: { extreme: 49, high: 46, moderate: 45, low: 43 },
+  [22]: { extreme: 51, high: 48, moderate: 47, low: 45 },
+  [23]: { extreme: 52, high: 49, moderate: 48, low: 46 },
+  [24]: { extreme: 54, high: 51, moderate: 50, low: 48 },
+  [25]: { extreme: 55, high: 52, moderate: 51, low: 49 },
+};
+
+const SAVE_TABLE: Record<number, Record<SaveTier, number>> = {
+  [-1]: { extreme: 9,  high: 8,  moderate: 5,  low: 2,  terrible: 0  },
+  [0]:  { extreme: 10, high: 9,  moderate: 6,  low: 3,  terrible: 1  },
+  [1]:  { extreme: 11, high: 10, moderate: 7,  low: 4,  terrible: 2  },
+  [2]:  { extreme: 12, high: 11, moderate: 8,  low: 5,  terrible: 3  },
+  [3]:  { extreme: 14, high: 12, moderate: 9,  low: 6,  terrible: 4  },
+  [4]:  { extreme: 15, high: 14, moderate: 11, low: 8,  terrible: 6  },
+  [5]:  { extreme: 17, high: 15, moderate: 12, low: 9,  terrible: 7  },
+  [6]:  { extreme: 18, high: 17, moderate: 14, low: 11, terrible: 8  },
+  [7]:  { extreme: 20, high: 18, moderate: 15, low: 12, terrible: 10 },
+  [8]:  { extreme: 21, high: 19, moderate: 16, low: 13, terrible: 11 },
+  [9]:  { extreme: 23, high: 21, moderate: 18, low: 15, terrible: 12 },
+  [10]: { extreme: 24, high: 22, moderate: 19, low: 16, terrible: 14 },
+  [11]: { extreme: 26, high: 24, moderate: 21, low: 18, terrible: 15 },
+  [12]: { extreme: 27, high: 25, moderate: 22, low: 19, terrible: 16 },
+  [13]: { extreme: 29, high: 26, moderate: 23, low: 20, terrible: 18 },
+  [14]: { extreme: 30, high: 28, moderate: 25, low: 22, terrible: 19 },
+  [15]: { extreme: 32, high: 29, moderate: 26, low: 23, terrible: 20 },
+  [16]: { extreme: 33, high: 30, moderate: 28, low: 25, terrible: 22 },
+  [17]: { extreme: 35, high: 32, moderate: 29, low: 26, terrible: 23 },
+  [18]: { extreme: 36, high: 33, moderate: 30, low: 27, terrible: 24 },
+  [19]: { extreme: 38, high: 35, moderate: 32, low: 29, terrible: 26 },
+  [20]: { extreme: 39, high: 36, moderate: 33, low: 30, terrible: 27 },
+  [21]: { extreme: 41, high: 38, moderate: 35, low: 32, terrible: 28 },
+  [22]: { extreme: 43, high: 39, moderate: 36, low: 33, terrible: 30 },
+  [23]: { extreme: 44, high: 40, moderate: 37, low: 34, terrible: 31 },
+  [24]: { extreme: 46, high: 42, moderate: 38, low: 36, terrible: 32 },
+  [25]: { extreme: 47, high: 43, moderate: 39, low: 37, terrible: 33 },
+};
+
+const ATTACK_TABLE: Record<number, Record<AcTier, number>> = {
+  [-1]: { extreme: 10, high: 8,  moderate: 6,  low: 4  },
+  [0]:  { extreme: 10, high: 8,  moderate: 6,  low: 4  },
+  [1]:  { extreme: 11, high: 9,  moderate: 7,  low: 5  },
+  [2]:  { extreme: 13, high: 11, moderate: 9,  low: 7  },
+  [3]:  { extreme: 14, high: 12, moderate: 10, low: 8  },
+  [4]:  { extreme: 16, high: 14, moderate: 12, low: 9  },
+  [5]:  { extreme: 17, high: 15, moderate: 13, low: 11 },
+  [6]:  { extreme: 19, high: 17, moderate: 15, low: 12 },
+  [7]:  { extreme: 20, high: 18, moderate: 16, low: 13 },
+  [8]:  { extreme: 22, high: 20, moderate: 18, low: 15 },
+  [9]:  { extreme: 23, high: 21, moderate: 19, low: 16 },
+  [10]: { extreme: 25, high: 23, moderate: 21, low: 17 },
+  [11]: { extreme: 27, high: 24, moderate: 22, low: 19 },
+  [12]: { extreme: 28, high: 26, moderate: 24, low: 20 },
+  [13]: { extreme: 29, high: 27, moderate: 25, low: 21 },
+  [14]: { extreme: 31, high: 29, moderate: 27, low: 23 },
+  [15]: { extreme: 32, high: 30, moderate: 28, low: 24 },
+  [16]: { extreme: 34, high: 32, moderate: 30, low: 25 },
+  [17]: { extreme: 35, high: 33, moderate: 31, low: 27 },
+  [18]: { extreme: 37, high: 35, moderate: 33, low: 28 },
+  [19]: { extreme: 38, high: 36, moderate: 34, low: 29 },
+  [20]: { extreme: 40, high: 38, moderate: 36, low: 31 },
+  [21]: { extreme: 41, high: 39, moderate: 37, low: 32 },
+  [22]: { extreme: 43, high: 41, moderate: 39, low: 33 },
+  [23]: { extreme: 44, high: 42, moderate: 40, low: 35 },
+  [24]: { extreme: 46, high: 44, moderate: 42, low: 36 },
+  [25]: { extreme: 47, high: 45, moderate: 43, low: 37 },
+};
+
+const DAMAGE_TABLE: Record<number, Record<AcTier, string>> = {
+  [-1]: { extreme: '1d6+1', high: '1d4+1', moderate: '1d4',   low: '1d4'   },
+  [0]:  { extreme: '1d6+3', high: '1d6+2', moderate: '1d4+2', low: '1d4+1' },
+  [1]:  { extreme: '1d8+4', high: '1d6+3', moderate: '1d6+2', low: '1d4+2' },
+  [2]:  { extreme: '1d12+4',  high: '1d10+4',  moderate: '1d8+4',  low: '1d6+3'  },
+  [3]:  { extreme: '1d12+8',  high: '1d10+6',  moderate: '1d8+6',  low: '1d6+5'  },
+  [4]:  { extreme: '2d10+7',  high: '2d8+5',   moderate: '2d6+5',  low: '2d4+4'  },
+  [5]:  { extreme: '2d12+7',  high: '2d8+7',   moderate: '2d6+6',  low: '2d4+6'  },
+  [6]:  { extreme: '2d12+10', high: '2d8+9',   moderate: '2d6+8',  low: '2d4+7'  },
+  [7]:  { extreme: '2d12+12', high: '2d10+9',  moderate: '2d8+8',  low: '2d6+6'  },
+  [8]:  { extreme: '2d12+15', high: '2d10+11', moderate: '2d8+9',  low: '2d6+8'  },
+  [9]:  { extreme: '2d12+17', high: '2d10+13', moderate: '2d8+11', low: '2d6+9'  },
+  [10]: { extreme: '2d12+20', high: '2d12+13', moderate: '2d10+11', low: '2d6+10' },
+  [11]: { extreme: '2d12+22', high: '2d12+15', moderate: '2d10+12', low: '2d8+10' },
+  [12]: { extreme: '3d12+19', high: '3d10+14', moderate: '3d8+12',  low: '3d6+10' },
+  [13]: { extreme: '3d12+21', high: '3d10+16', moderate: '3d8+14',  low: '3d6+11' },
+  [14]: { extreme: '3d12+24', high: '3d10+18', moderate: '3d8+15',  low: '3d6+13' },
+  [15]: { extreme: '3d12+26', high: '3d12+17', moderate: '3d10+14', low: '3d6+14' },
+  [16]: { extreme: '3d12+29', high: '3d12+18', moderate: '3d10+15', low: '3d6+15' },
+  [17]: { extreme: '3d12+31', high: '3d12+19', moderate: '3d10+16', low: '3d6+16' },
+  [18]: { extreme: '3d12+34', high: '3d12+20', moderate: '3d10+17', low: '3d6+17' },
+  [19]: { extreme: '4d12+29', high: '4d10+20', moderate: '4d8+17',  low: '4d6+14' },
+  [20]: { extreme: '4d12+32', high: '4d10+22', moderate: '4d8+19',  low: '4d6+15' },
+  [21]: { extreme: '4d12+34', high: '4d10+24', moderate: '4d8+20',  low: '4d6+17' },
+  [22]: { extreme: '4d12+37', high: '4d10+26', moderate: '4d8+22',  low: '4d6+18' },
+  [23]: { extreme: '4d12+39', high: '4d12+24', moderate: '4d10+20', low: '4d6+19' },
+  [24]: { extreme: '4d12+42', high: '4d12+26', moderate: '4d10+22', low: '4d6+21' },
+  [25]: { extreme: '4d12+45', high: '4d12+28', moderate: '4d10+24', low: '4d6+22' },
+};
+
+function lookupHp(level: number, tier: HpTier): number {
+  const l = Math.max(-1, Math.min(25, level));
+  return (HP_TABLE[l] ?? HP_TABLE[0])[tier];
+}
+function lookupAc(level: number, tier: AcTier): number {
+  const l = Math.max(-1, Math.min(25, level));
+  return (AC_TABLE[l] ?? AC_TABLE[0])[tier];
+}
+function lookupSave(level: number, tier: SaveTier): number {
+  const l = Math.max(-1, Math.min(25, level));
+  return (SAVE_TABLE[l] ?? SAVE_TABLE[0])[tier];
+}
+function lookupAttack(level: number, tier: AcTier): number {
+  const l = Math.max(-1, Math.min(25, level));
+  return (ATTACK_TABLE[l] ?? ATTACK_TABLE[0])[tier];
+}
+function lookupDamage(level: number, tier: AcTier): string {
+  const l = Math.max(-1, Math.min(25, level));
+  return (DAMAGE_TABLE[l] ?? DAMAGE_TABLE[0])[tier];
+}
+
+const AUTO_REDUCE_CONDITIONS = new Set([
+  'frightened', 'sickened', 'stunned', 'slowed', 'quickened', 'drained', 'doomed',
+  'enfeebled', 'clumsy', 'stupefied',
+]);
 
 interface CombatCreature extends EncounterCreature {
   init: number;
@@ -17,7 +218,9 @@ interface EncounterManagerProps {
   onAddEncounter: () => void;
   onRemoveCreature: (uid: string) => void;
   onUpdateHP: (uid: string, delta: number) => void;
-  onAddCustomCreature: (name: string, level: number) => void;
+  onAddCustomCreature: (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: CustomAttack[], abilities?: CustomAbility[]) => void;
+  onSelectCreature: (id: string) => void;
+  onUpdateConditions: (uid: string, conditions: Condition[]) => void;
 }
 
 function xpFor(monsterLevel: number, partyLevel: number): number {
@@ -59,14 +262,31 @@ export function EncounterManager({
   onRemoveCreature,
   onUpdateHP,
   onAddCustomCreature,
+  onSelectCreature,
+  onUpdateConditions,
 }: EncounterManagerProps) {
   const [combatMode, setCombatMode] = useState(false);
   const [round, setRound] = useState(1);
   const [activeTurn, setActiveTurn] = useState(0);
   const [combatCreatures, setCombatCreatures] = useState<CombatCreature[]>([]);
   const [showCustomForm, setShowCustomForm] = useState(false);
+  const [wizardStep, setWizardStep] = useState(0); // 0=name/level, 1=stats
   const [customName, setCustomName] = useState('');
   const [customLevel, setCustomLevel] = useState(1);
+  const [customHp, setCustomHp] = useState(20);
+  const [customAc, setCustomAc] = useState(15);
+  const [customFort, setCustomFort] = useState(7);
+  const [customRef, setCustomRef] = useState(7);
+  const [customWill, setCustomWill] = useState(7);
+  const [hpTier, setHpTier] = useState<HpTier>('moderate');
+  const [acTier, setAcTier] = useState<AcTier>('moderate');
+  const [fortTier, setFortTier] = useState<SaveTier>('moderate');
+  const [refTier, setRefTier] = useState<SaveTier>('moderate');
+  const [willTier, setWillTier] = useState<SaveTier>('moderate');
+  const [customAttacks, setCustomAttacks] = useState<AttackDraft[]>([]);
+  const [customAbilities, setCustomAbilities] = useState<CustomAbility[]>([]);
+  const [conditionTarget, setConditionTarget] = useState<string | null>(null); // uid
+  const [conditionInput, setConditionInput] = useState('');
 
   // Inline editing
   const [editingInit, setEditingInit] = useState<string | null>(null);
@@ -118,7 +338,7 @@ export function EncounterManager({
   // During combat, look up live HP from encounter state
   const liveCombatCreatures: CombatCreature[] = combatCreatures.map(cc => {
     const live = enc.creatures.find(c => c.uid === cc.uid);
-    return live ? { ...cc, hp: live.hp } : cc;
+    return live ? { ...cc, hp: live.hp, conditions: live.conditions } : cc;
   });
 
   function startCombat() {
@@ -139,16 +359,115 @@ export function EncounterManager({
   }
 
   function nextTurn() {
+    // Auto-reduce valued conditions on the creature ending their turn
+    const ending = liveCombatCreatures[activeTurn];
+    if (ending) {
+      const updated = ending.conditions
+        .map(cond => {
+          if (cond.value != null && AUTO_REDUCE_CONDITIONS.has(cond.name.toLowerCase())) {
+            return { ...cond, value: cond.value - 1 };
+          }
+          return cond;
+        })
+        .filter(cond => cond.value == null || cond.value > 0);
+      if (updated.length !== ending.conditions.length || updated.some((c, i) => c.value !== ending.conditions[i]?.value)) {
+        onUpdateConditions(ending.uid, updated);
+      }
+    }
     const next = (activeTurn + 1) % liveCombatCreatures.length;
     if (next === 0) setRound(r => r + 1);
     setActiveTurn(next);
   }
 
-  function handleAddCustom() {
-    if (!customName.trim()) return;
-    onAddCustomCreature(customName.trim(), customLevel);
+  function addCondition(uid: string, input: string) {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    // Parse "Frightened 2" or "Prone" or "Stunned 1"
+    const m = trimmed.match(/^([a-zA-Z\s-]+?)(\s+(\d+))?$/);
+    if (!m) return;
+    const name = m[1].trim();
+    const value = m[3] ? parseInt(m[3]) : undefined;
+    const creature = enc.creatures.find(c => c.uid === uid);
+    if (!creature) return;
+    const existing = creature.conditions.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
+    let next: Condition[];
+    if (existing >= 0) {
+      next = creature.conditions.map((c, i) => i === existing ? { ...c, value } : c);
+    } else {
+      next = [...creature.conditions, { name, value }];
+    }
+    onUpdateConditions(uid, next);
+    setConditionInput('');
+    setConditionTarget(null);
+  }
+
+  function removeCondition(uid: string, condName: string) {
+    const creature = enc.creatures.find(c => c.uid === uid);
+    if (!creature) return;
+    onUpdateConditions(uid, creature.conditions.filter(c => c.name !== condName));
+  }
+
+  function defaultAttack(level: number): AttackDraft {
+    return {
+      name: 'Strike',
+      type: 'melee',
+      bonus: lookupAttack(level, 'moderate'),
+      bonusTier: 'moderate',
+      damage: lookupDamage(level, 'moderate'),
+      damageTier: 'moderate',
+    };
+  }
+
+  function applyTiers(level: number) {
+    setCustomHp(lookupHp(level, 'moderate'));
+    setCustomAc(lookupAc(level, 'moderate'));
+    setCustomFort(lookupSave(level, 'moderate'));
+    setCustomRef(lookupSave(level, 'moderate'));
+    setCustomWill(lookupSave(level, 'moderate'));
+    setHpTier('moderate');
+    setAcTier('moderate');
+    setFortTier('moderate');
+    setRefTier('moderate');
+    setWillTier('moderate');
+    setCustomAttacks([defaultAttack(level)]);
+    setCustomAbilities([]);
+  }
+
+  function openWizard() {
     setCustomName('');
+    setCustomLevel(partyLevel);
+    applyTiers(partyLevel);
+    setWizardStep(0);
+    setShowCustomForm(true);
+  }
+
+  function wizardNext() {
+    if (wizardStep === 0) {
+      if (!customName.trim()) return;
+      applyTiers(customLevel);
+      setWizardStep(1);
+    } else {
+      const attacks: CustomAttack[] = customAttacks
+        .filter(a => a.name.trim())
+        .map(({ name, type, bonus, damage, range }) => ({ name: name.trim(), type, bonus, damage, range }));
+      const abilities: CustomAbility[] = customAbilities
+        .filter(a => a.name.trim())
+        .map(({ name, description }) => ({ name: name.trim(), description }));
+      onAddCustomCreature(customName.trim(), customLevel, customHp, customAc, customFort, customRef, customWill,
+        attacks.length ? attacks : undefined,
+        abilities.length ? abilities : undefined,
+      );
+      setShowCustomForm(false);
+    }
+  }
+
+  function closeWizard() {
     setShowCustomForm(false);
+    setWizardStep(0);
+  }
+
+  function handleAddCustom() {
+    wizardNext();
   }
 
   function commitInit(uid: string) {
@@ -175,6 +494,134 @@ export function EncounterManager({
       onUpdateHP(uid, val - currentHp);
     }
     setEditingHp(null);
+  }
+
+  function updateAttack(i: number, patch: Partial<AttackDraft>) {
+    setCustomAttacks(prev => prev.map((a, idx) => idx === i ? { ...a, ...patch } : a));
+  }
+
+  function renderWizardStats() {
+    return (
+      <div className={styles.wizardStatList}>
+        {/* ── Defenses ── */}
+        <div className={styles.wizardSectionHead}>Defenses</div>
+        {([
+          { label: 'HP',   tiers: HP_TIERS,   tier: hpTier,   setTier: (t: HpTier)   => { setHpTier(t);   setCustomHp(lookupHp(customLevel, t));   }, val: customHp,   setVal: setCustomHp,   min: 1,   max: 9999, type: 'number' as const },
+          { label: 'AC',   tiers: AC_TIERS,   tier: acTier,   setTier: (t: AcTier)   => { setAcTier(t);   setCustomAc(lookupAc(customLevel, t));   }, val: customAc,   setVal: setCustomAc,   min: 1,   max: 99,   type: 'number' as const },
+          { label: 'Fort', tiers: SAVE_TIERS, tier: fortTier, setTier: (t: SaveTier) => { setFortTier(t); setCustomFort(lookupSave(customLevel, t)); }, val: customFort, setVal: setCustomFort, min: -10, max: 60,   type: 'number' as const },
+          { label: 'Ref',  tiers: SAVE_TIERS, tier: refTier,  setTier: (t: SaveTier) => { setRefTier(t);  setCustomRef(lookupSave(customLevel, t));  }, val: customRef,  setVal: setCustomRef,  min: -10, max: 60,   type: 'number' as const },
+          { label: 'Will', tiers: SAVE_TIERS, tier: willTier, setTier: (t: SaveTier) => { setWillTier(t); setCustomWill(lookupSave(customLevel, t)); }, val: customWill, setVal: setCustomWill, min: -10, max: 60,   type: 'number' as const },
+        ] as const).map(({ label, tiers, tier, setTier, val, setVal, min, max }) => (
+          <div key={label} className={styles.wizardStatRow}>
+            <span className={styles.wizardStatLabel}>{label}</span>
+            <div className={styles.tierBtns}>
+              {(tiers as readonly string[]).map(t => (
+                <button
+                  key={t}
+                  title={t.charAt(0).toUpperCase() + t.slice(1)}
+                  className={`${styles.tierBtn} ${tier === t ? styles.tierBtnActive : ''}`}
+                  onClick={() => (setTier as (t: string) => void)(t)}
+                >{TIER_ABBREV[t as keyof typeof TIER_ABBREV]}</button>
+              ))}
+            </div>
+            <input
+              className={styles.wizardStatInput}
+              type="number" min={min} max={max}
+              value={val}
+              onChange={e => setVal(Number(e.target.value))}
+            />
+          </div>
+        ))}
+
+        {/* ── Attacks ── */}
+        <div className={styles.wizardSectionHead}>
+          Attacks
+          <button
+            className={styles.wizardAddBtn}
+            onClick={() => setCustomAttacks(prev => [...prev, defaultAttack(customLevel)])}
+          >+ Add</button>
+        </div>
+        {customAttacks.map((atk, i) => (
+          <div key={i} className={styles.attackDraft}>
+            <div className={styles.attackDraftRow1}>
+              <button
+                className={`${styles.typeToggle} ${atk.type === 'melee' ? styles.typeToggleMelee : styles.typeToggleRanged}`}
+                title={atk.type === 'melee' ? 'Melee (click to switch)' : 'Ranged (click to switch)'}
+                onClick={() => updateAttack(i, { type: atk.type === 'melee' ? 'ranged' : 'melee', range: atk.type === 'melee' ? 30 : undefined })}
+              >{atk.type === 'melee' ? '⚔' : '🏹'}</button>
+              <input
+                className={styles.attackNameInput}
+                value={atk.name}
+                onChange={e => updateAttack(i, { name: e.target.value })}
+                placeholder="Name…"
+              />
+              <button className={styles.removeAttackBtn} onClick={() => setCustomAttacks(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+            </div>
+            <div className={styles.attackDraftRow2}>
+              <span className={styles.attackSubLabel}>Atk</span>
+              <div className={styles.tierBtns}>
+                {AC_TIERS.map(t => (
+                  <button key={t} title={t} className={`${styles.tierBtn} ${atk.bonusTier === t ? styles.tierBtnActive : ''}`}
+                    onClick={() => updateAttack(i, { bonusTier: t, bonus: lookupAttack(customLevel, t) })}
+                  >{TIER_ABBREV[t]}</button>
+                ))}
+              </div>
+              <input className={styles.wizardStatInput} type="number" min={-10} max={70}
+                value={atk.bonus} onChange={e => updateAttack(i, { bonus: Number(e.target.value) })} />
+              <span className={styles.attackSubLabel}>Dmg</span>
+              <div className={styles.tierBtns}>
+                {AC_TIERS.map(t => (
+                  <button key={t} title={t} className={`${styles.tierBtn} ${atk.damageTier === t ? styles.tierBtnActive : ''}`}
+                    onClick={() => updateAttack(i, { damageTier: t, damage: lookupDamage(customLevel, t) })}
+                  >{TIER_ABBREV[t]}</button>
+                ))}
+              </div>
+              <input className={styles.wizardDmgInput} type="text"
+                value={atk.damage} onChange={e => updateAttack(i, { damage: e.target.value })}
+                placeholder="2d8+9" />
+            </div>
+            {atk.type === 'ranged' && (
+              <div className={styles.attackDraftRow3}>
+                <span className={styles.attackSubLabel}>Range</span>
+                <input className={styles.wizardStatInput} type="number" min={5} max={500} step={5}
+                  value={atk.range ?? 30}
+                  onChange={e => updateAttack(i, { range: Number(e.target.value) })} />
+                <span className={styles.attackSubLabel}>ft</span>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* ── Abilities ── */}
+        <div className={styles.wizardSectionHead}>
+          Abilities
+          <button
+            className={styles.wizardAddBtn}
+            onClick={() => setCustomAbilities(prev => [...prev, { name: '', description: '' }])}
+          >+ Add</button>
+        </div>
+        {customAbilities.map((ab, i) => (
+          <div key={i} className={styles.abilityDraft}>
+            <div className={styles.abilityDraftRow1}>
+              <input
+                className={styles.abilityNameInput}
+                value={ab.name}
+                onChange={e => setCustomAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, name: e.target.value } : a))}
+                placeholder="Ability name…"
+              />
+              <button className={styles.removeAttackBtn} onClick={() => setCustomAbilities(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+            </div>
+            <textarea
+              className={styles.abilityDescInput}
+              value={ab.description}
+              onChange={e => setCustomAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, description: e.target.value } : a))}
+              placeholder="Description (optional)…"
+              rows={2}
+            />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -257,7 +704,13 @@ export function EncounterManager({
             {enc.creatures.map(c => (
               <div key={c.uid} className={styles.creatureCard}>
                 <div className={styles.creatureInfo}>
-                  <span className={styles.creatureName}>{c.name}</span>
+                  <span
+                    className={`${styles.creatureName} ${c.creatureId ? styles.creatureNameClickable : ''}`}
+                    onClick={() => c.creatureId && onSelectCreature(c.creatureId)}
+                    title={c.creatureId ? 'View statblock' : undefined}
+                  >
+                    {c.name}
+                  </span>
                   <span className={styles.creatureMeta}>
                     Lvl {c.level} · {xpFor(c.level, partyLevel)} XP
                   </span>
@@ -270,45 +723,49 @@ export function EncounterManager({
 
             {showCustomForm ? (
               <div className={styles.customForm}>
-                <div className={styles.sectionLabel}>Custom Creature</div>
-                <input
-                  className={styles.customInput}
-                  value={customName}
-                  onChange={e => setCustomName(e.target.value)}
-                  placeholder="Name…"
-                  onKeyDown={e => e.key === 'Enter' && handleAddCustom()}
-                />
-                <div className={styles.customLevelRow}>
-                  <span className={styles.partyLabel}>Level</span>
-                  <button
-                    className={styles.stepBtn}
-                    onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}
-                  >
-                    −
-                  </button>
-                  <span className={styles.partyVal}>{customLevel}</span>
-                  <button
-                    className={styles.stepBtn}
-                    onClick={() => setCustomLevel(l => Math.min(25, l + 1))}
-                  >
-                    +
-                  </button>
-                </div>
-                <div className={styles.customActions}>
-                  <button className={styles.addCustomBtn} onClick={handleAddCustom}>
-                    Add
-                  </button>
-                  <button className={styles.cancelBtn} onClick={() => setShowCustomForm(false)}>
-                    Cancel
-                  </button>
-                </div>
+                {wizardStep === 0 ? (
+                  <>
+                    <div className={styles.wizardTitle}>Custom Creature — Name & Level</div>
+                    <input
+                      className={styles.customInput}
+                      value={customName}
+                      autoFocus
+                      onChange={e => setCustomName(e.target.value)}
+                      placeholder="Name…"
+                      onKeyDown={e => e.key === 'Enter' && wizardNext()}
+                    />
+                    <div className={styles.customLevelRow}>
+                      <span className={styles.partyLabel}>Level</span>
+                      <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}>−</button>
+                      <span className={styles.partyVal}>{customLevel}</span>
+                      <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.min(25, l + 1))}>+</button>
+                    </div>
+                    <div className={styles.customActions}>
+                      <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>Next →</button>
+                      <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className={styles.wizardTitle}>
+                      {customName} (Lvl {customLevel}) — Stats
+                    </div>
+                    <div className={styles.wizardHint}>Click a tier to prefill · T=Terrible L=Low M=Moderate H=High E=Extreme</div>
+                    {renderWizardStats()}
+                    <div className={styles.customActions}>
+                      <button className={styles.cancelBtn} onClick={() => setWizardStep(0)}>← Back</button>
+                      <button className={styles.addCustomBtn} onClick={wizardNext}>Add</button>
+                      <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <button
                 className={styles.addPlaceholderBtn}
-                onClick={() => setShowCustomForm(true)}
+                onClick={openWizard}
               >
-                ＋ Add Placeholder Creature
+                ＋ Add Custom Creature
               </button>
             )}
           </div>
@@ -369,12 +826,76 @@ export function EncounterManager({
                     )}
                     <div className={styles.combatCreatureInfo}>
                       <span
-                        className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''}`}
+                        className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''} ${c.creatureId ? styles.creatureNameClickable : ''}`}
+                        onClick={() => c.creatureId && onSelectCreature(c.creatureId)}
+                        title={c.creatureId ? 'View statblock' : undefined}
                       >
                         {c.name}
                         {isActive && <span className={styles.activePill}>ACTIVE</span>}
                       </span>
                       <span className={styles.combatAC}>AC {c.ac}</span>
+                    </div>
+                    {(c.fort != null || c.ref != null || c.will != null) && (
+                      <div className={styles.combatSaves}>
+                        {c.fort != null && <span>F {c.fort >= 0 ? `+${c.fort}` : c.fort}</span>}
+                        {c.ref  != null && <span>R {c.ref  >= 0 ? `+${c.ref}`  : c.ref}</span>}
+                        {c.will != null && <span>W {c.will >= 0 ? `+${c.will}` : c.will}</span>}
+                      </div>
+                    )}
+                    {c.attacks && c.attacks.length > 0 && (
+                      <div className={styles.combatAttacks}>
+                        {c.attacks.map((atk, ai) => (
+                          <div key={ai} className={styles.combatAtkRow}>
+                            <span className={styles.combatAtkIcon}>{atk.type === 'melee' ? '⚔' : '🏹'}</span>
+                            <span className={styles.combatAtkName}>{atk.name}</span>
+                            <span className={styles.combatAtkBonus}>{atk.bonus >= 0 ? `+${atk.bonus}` : atk.bonus}</span>
+                            <span className={styles.combatAtkDmg}>{atk.damage}</span>
+                            {atk.range != null && <span className={styles.combatAtkRange}>{atk.range}ft</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {c.abilities && c.abilities.length > 0 && (
+                      <div className={styles.combatAbilities}>
+                        {c.abilities.map((ab, ai) => (
+                          <span key={ai} className={styles.combatAbilityChip} title={ab.description || undefined}>{ab.name}</span>
+                        ))}
+                      </div>
+                    )}
+                    {/* Conditions */}
+                    <div className={styles.conditionRow}>
+                      {c.conditions.map(cond => (
+                        <span
+                          key={cond.name}
+                          className={styles.conditionChip}
+                          title={`Remove ${cond.name}`}
+                          onClick={() => removeCondition(c.uid, cond.name)}
+                        >
+                          {cond.name}{cond.value != null ? ` ${cond.value}` : ''} ×
+                        </span>
+                      ))}
+                      {conditionTarget === c.uid ? (
+                        <input
+                          className={styles.conditionInput}
+                          autoFocus
+                          placeholder="e.g. Prone, Frightened 2"
+                          value={conditionInput}
+                          onChange={e => setConditionInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') addCondition(c.uid, conditionInput);
+                            if (e.key === 'Escape') { setConditionTarget(null); setConditionInput(''); }
+                          }}
+                          onBlur={() => { setConditionTarget(null); setConditionInput(''); }}
+                        />
+                      ) : (
+                        <button
+                          className={styles.addConditionBtn}
+                          onClick={() => setConditionTarget(c.uid)}
+                          title="Add condition"
+                        >
+                          + cond
+                        </button>
+                      )}
                     </div>
                     {editingHp === c.uid ? (
                       <input
@@ -424,43 +945,45 @@ export function EncounterManager({
             {/* Add creatures during combat */}
             {showCustomForm ? (
               <div className={styles.customForm}>
-                <div className={styles.sectionLabel}>Add to Combat</div>
-                <input
-                  className={styles.customInput}
-                  value={customName}
-                  onChange={e => setCustomName(e.target.value)}
-                  placeholder="Name…"
-                  onKeyDown={e => e.key === 'Enter' && handleAddCustom()}
-                />
-                <div className={styles.customLevelRow}>
-                  <span className={styles.partyLabel}>Level</span>
-                  <button
-                    className={styles.stepBtn}
-                    onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}
-                  >
-                    −
-                  </button>
-                  <span className={styles.partyVal}>{customLevel}</span>
-                  <button
-                    className={styles.stepBtn}
-                    onClick={() => setCustomLevel(l => Math.min(25, l + 1))}
-                  >
-                    +
-                  </button>
-                </div>
-                <div className={styles.customActions}>
-                  <button className={styles.addCustomBtn} onClick={handleAddCustom}>
-                    Add
-                  </button>
-                  <button className={styles.cancelBtn} onClick={() => setShowCustomForm(false)}>
-                    Cancel
-                  </button>
-                </div>
+                {wizardStep === 0 ? (
+                  <>
+                    <div className={styles.wizardTitle}>Add to Combat — Name & Level</div>
+                    <input
+                      className={styles.customInput}
+                      value={customName}
+                      autoFocus
+                      onChange={e => setCustomName(e.target.value)}
+                      placeholder="Name…"
+                      onKeyDown={e => e.key === 'Enter' && wizardNext()}
+                    />
+                    <div className={styles.customLevelRow}>
+                      <span className={styles.partyLabel}>Level</span>
+                      <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}>−</button>
+                      <span className={styles.partyVal}>{customLevel}</span>
+                      <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.min(25, l + 1))}>+</button>
+                    </div>
+                    <div className={styles.customActions}>
+                      <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>Next →</button>
+                      <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className={styles.wizardTitle}>{customName} (Lvl {customLevel})</div>
+                    <div className={styles.wizardHint}>Click a tier to prefill · T=Terrible L=Low M=Moderate H=High E=Extreme</div>
+                    {renderWizardStats()}
+                    <div className={styles.customActions}>
+                      <button className={styles.cancelBtn} onClick={() => setWizardStep(0)}>← Back</button>
+                      <button className={styles.addCustomBtn} onClick={wizardNext}>Add</button>
+                      <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <button
                 className={styles.addPlaceholderBtn}
-                onClick={() => setShowCustomForm(true)}
+                onClick={openWizard}
               >
                 ＋ Add Creature
               </button>

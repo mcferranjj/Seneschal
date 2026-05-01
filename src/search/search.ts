@@ -12,24 +12,28 @@ export interface PackSourceInfo {
 export interface SearchFilters {
   name: string;
   traits: string[];
+  excludeTraits: string[];
   levelMin: number;
   levelMax: number;
   creatureTypes: string[];
   sizes: string[];
   rarities: string[];
   packSources: string[];
+  entityTypes: string[]; // [] = all; ['npc'] = creatures only; ['hazard'] = hazards only
   sortBy: 'name' | 'level';
 }
 
 export const DEFAULT_FILTERS: SearchFilters = {
   name: '',
   traits: [],
+  excludeTraits: [],
   levelMin: -1,
   levelMax: 25,
   creatureTypes: [],
   sizes: [],
   rarities: [],
   packSources: [],
+  entityTypes: [],
   sortBy: 'level',
 };
 
@@ -39,7 +43,7 @@ export interface SearchResult {
 }
 
 export async function searchCreatures(filters: SearchFilters): Promise<SearchResult> {
-  const { name, traits, levelMin, levelMax, creatureTypes, sizes, rarities, packSources } = filters;
+  const { name, traits, excludeTraits, levelMin, levelMax, creatureTypes, sizes, rarities, packSources, entityTypes } = filters;
   const nameLower = name.trim().toLowerCase();
   const hasNameFilter = nameLower.length > 0;
   const hasLevelFilter = levelMin !== -1 || levelMax !== 25;
@@ -48,6 +52,8 @@ export async function searchCreatures(filters: SearchFilters): Promise<SearchRes
   const hasRarityFilter = rarities.length > 0;
   const hasPackFilter = packSources.length > 0;
   const hasTraitFilter = traits.length > 0;
+  const hasExcludeTraitFilter = excludeTraits.length > 0;
+  const hasEntityTypeFilter = entityTypes.length > 0;
 
   // Choose the most selective indexed query to start from
   let collection;
@@ -79,6 +85,8 @@ export async function searchCreatures(filters: SearchFilters): Promise<SearchRes
       if (hasSizeFilter && !sizes.includes(c.size)) return false;
       if (hasRarityFilter && !rarities.includes(c.rarity)) return false;
       if (hasPackFilter && !packSources.includes(c.packSource)) return false;
+      if (hasExcludeTraitFilter && excludeTraits.some(t => c.traits.includes(t))) return false;
+      if (hasEntityTypeFilter && !entityTypes.includes(c.entityType)) return false;
       return true;
     })
     .toArray();

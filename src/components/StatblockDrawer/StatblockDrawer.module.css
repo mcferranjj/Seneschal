@@ -37,6 +37,22 @@
   font-size: 0.78rem;
 }
 
+.imageContainer {
+  background: var(--parchment);
+  display: flex;
+  justify-content: center;
+  border-bottom: 1px solid var(--border-l);
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.creatureImage {
+  max-height: 160px;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
 /* Scrollable content */
 .content {
   flex: 1;
@@ -76,6 +92,30 @@
   color: rgba(255, 255, 255, 0.6);
   margin-top: 1px;
   display: block;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.aonLink {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.65);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 4px;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.aonLink:hover {
+  color: #fff;
+  border-color: rgba(255,255,255,0.6);
 }
 
 .closeBtn {
@@ -224,10 +264,19 @@
   margin: 6px 0;
 }
 
+.flavorBox {
+  background: rgba(122, 92, 46, 0.07);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 4px 4px 0;
+  padding: 8px 12px;
+  margin: 2px 0 4px;
+}
+
 .publicNotes {
-  font-size: 0.78rem;
+  font-size: 0.77rem;
+  font-style: italic;
   color: var(--text-mid);
-  line-height: 1.55;
+  line-height: 1.6;
 }
 
 .publicNotes p {

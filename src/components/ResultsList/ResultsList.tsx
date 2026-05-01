@@ -111,8 +111,9 @@ export function ResultsList({
   }
 
   return (
-    <div className={styles.list} role="listbox" aria-label="Creature results">
+    <>
       {toolbar}
+      <div className={styles.list} role="listbox" aria-label="Creature results">
       {results.map(c => (
         <CreatureRow
           key={c.id}
@@ -122,6 +123,7 @@ export function ResultsList({
           onAddToEncounter={onAddToEncounter}
         />
       ))}
-    </div>
+      </div>
+    </>
   );
 }

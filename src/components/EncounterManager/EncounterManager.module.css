@@ -191,6 +191,15 @@
   white-space: nowrap;
 }
 
+.creatureNameClickable {
+  cursor: pointer;
+}
+
+.creatureNameClickable:hover {
+  color: var(--crimson);
+  text-decoration: underline;
+}
+
 .creatureMeta {
   font-size: 0.67rem;
   color: var(--text-mute);
@@ -249,6 +258,362 @@
   display: flex;
   align-items: center;
   gap: 5px;
+}
+
+.wizardTitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.wizardHint {
+  font-size: 0.68rem;
+  color: var(--text-mute);
+  margin-top: -2px;
+}
+
+.wizardStatList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wizardStatRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.wizardStatLabel {
+  font-size: 0.63rem;
+  font-weight: 700;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  width: 26px;
+  flex-shrink: 0;
+}
+
+.tierBtns {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+
+.tierBtn {
+  flex: 1;
+  padding: 2px 0;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-mute);
+  font-size: 0.6rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  line-height: 1.4;
+}
+
+.tierBtn:hover {
+  border-color: var(--brown);
+  color: var(--text-mid);
+}
+
+.tierBtnActive {
+  background: var(--crimson);
+  border-color: var(--crimson);
+  color: #f0e6cc;
+}
+
+.wizardStatInput {
+  width: 44px;
+  flex-shrink: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-family: 'DM Mono', monospace;
+  text-align: center;
+}
+
+.wizardStatInput:focus {
+  outline: 2px solid var(--crimson);
+  outline-offset: 1px;
+}
+
+.wizardDmgInput {
+  width: 70px;
+  flex-shrink: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-family: 'DM Mono', monospace;
+  text-align: center;
+}
+
+.wizardDmgInput:focus {
+  outline: 2px solid var(--crimson);
+  outline-offset: 1px;
+}
+
+/* ── Wizard section headers ── */
+.wizardSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-mute);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-l);
+}
+
+.wizardSectionHead:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.wizardAddBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-mute);
+  font-size: 0.63rem;
+  padding: 1px 6px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.wizardAddBtn:hover {
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+/* ── Attack draft card ── */
+.attackDraft {
+  background: var(--bg);
+  border: 1px solid var(--border-l);
+  border-radius: 5px;
+  padding: 5px 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.attackDraftRow1 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.attackDraftRow2 {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.attackDraftRow3 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.typeToggle {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--parchment);
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.typeToggleMelee {
+  border-color: #7a5c2e;
+}
+
+.typeToggleRanged {
+  border-color: #2a4a7a;
+}
+
+.attackNameInput {
+  flex: 1;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--text);
+  font-size: 0.75rem;
+  min-width: 0;
+}
+
+.attackNameInput:focus {
+  outline: 2px solid var(--crimson);
+  outline-offset: 1px;
+}
+
+.attackSubLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.removeAttackBtn {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-mute);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.removeAttackBtn:hover {
+  background: #3a1a1a;
+  color: #f0e6cc;
+  border-color: #3a1a1a;
+}
+
+/* ── Ability draft card ── */
+.abilityDraft {
+  background: var(--bg);
+  border: 1px solid var(--border-l);
+  border-radius: 5px;
+  padding: 5px 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.abilityDraftRow1 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.abilityNameInput {
+  flex: 1;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--text);
+  font-size: 0.75rem;
+  min-width: 0;
+}
+
+.abilityNameInput:focus {
+  outline: 2px solid var(--crimson);
+  outline-offset: 1px;
+}
+
+.abilityDescInput {
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--text);
+  font-size: 0.72rem;
+  resize: vertical;
+  line-height: 1.4;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.abilityDescInput:focus {
+  outline: 2px solid var(--crimson);
+  outline-offset: 1px;
+}
+
+/* ── Combat card attack/ability display ── */
+.combatAttacks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.combatAtkRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.67rem;
+  font-family: 'DM Mono', monospace;
+}
+
+.combatAtkIcon {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.combatAtkName {
+  color: var(--text-mid);
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 0.7rem;
+}
+
+.combatAtkBonus {
+  color: var(--crimson);
+  font-weight: 700;
+}
+
+.combatAtkDmg {
+  color: var(--text-mid);
+}
+
+.combatAtkRange {
+  color: var(--text-mute);
+  font-size: 0.6rem;
+}
+
+.combatAbilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+.combatAbilityChip {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1px 7px;
+  font-size: 0.63rem;
+  font-weight: 600;
+  color: var(--text-mid);
+  cursor: default;
+}
+
+.combatAbilityChip[title] {
+  cursor: help;
 }
 
 .customActions {
@@ -455,6 +820,68 @@
 .combatAC {
   font-size: 0.67rem;
   color: var(--text-mute);
+}
+
+.combatSaves {
+  display: flex;
+  gap: 8px;
+  font-size: 0.63rem;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-mute);
+  padding-top: 1px;
+}
+
+.conditionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 3px;
+  align-items: center;
+}
+
+.conditionChip {
+  display: inline-flex;
+  align-items: center;
+  background: #5a3a8a;
+  color: #fff;
+  border-radius: 8px;
+  padding: 1px 7px;
+  font-size: 0.63rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.1s;
+}
+
+.conditionChip:hover {
+  opacity: 0.75;
+}
+
+.addConditionBtn {
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-mute);
+  font-size: 0.63rem;
+  cursor: pointer;
+  padding: 1px 6px;
+  line-height: 1.4;
+}
+
+.addConditionBtn:hover {
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+.conditionInput {
+  font-size: 0.68rem;
+  padding: 1px 6px;
+  border: 1px solid var(--crimson);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  width: 150px;
+  outline: none;
 }
 
 .hpDisplay {

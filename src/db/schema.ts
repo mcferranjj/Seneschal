@@ -2,6 +2,7 @@ import type { PF2ECreature } from '../types/pf2e';
 
 export interface CreatureRecord {
   id: string;
+  entityType: string; // 'npc' | 'hazard'
   name: string;
   nameLower: string;
   level: number;

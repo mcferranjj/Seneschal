@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 import type { CreatureRecord } from './db/schema';
 import { searchCreatures, DEFAULT_FILTERS } from './search/search';
 import type { SearchFilters } from './search/search';
 import { runSync, getLastSynced, getCreatureCount } from './sync/sync';
 import type { SyncProgress } from './sync/sync';
 import type { PF2ECreature } from './types/pf2e';
-import type { Section, Encounter, EncounterCreature } from './types/encounter';
+import type { Section, Encounter, EncounterCreature, Condition } from './types/encounter';
+import { db, loadEncounterState, saveEncounterState } from './db/db';
 import { TopBar } from './components/TopBar/TopBar';
 import { SearchPanel } from './components/SearchPanel/SearchPanel';
 import { ResultsList } from './components/ResultsList/ResultsList';
@@ -41,6 +42,37 @@ export default function App() {
   const [activeEnc, setActiveEnc] = useState(0);
   const [partySize, setPartySize] = useState(4);
   const [partyLevel, setPartyLevel] = useState(3);
+  const encounterStateLoaded = useRef(false);
+
+  // Column widths (px); statblock takes remaining flex space
+  const [resultsWidth, setResultsWidth] = useState(260);
+  const [encounterWidth, setEncounterWidth] = useState(280);
+  const dragRef = useRef<{ col: 'results' | 'encounter'; startX: number; startW: number } | null>(null);
+
+  const onHandlePointerDown = useCallback(
+    (col: 'results' | 'encounter') => (e: PointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      dragRef.current = {
+        col,
+        startX: e.clientX,
+        startW: col === 'results' ? resultsWidth : encounterWidth,
+      };
+    },
+    [resultsWidth, encounterWidth]
+  );
+
+  const onHandlePointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current) return;
+    const delta = e.clientX - dragRef.current.startX;
+    const newW = Math.max(160, dragRef.current.startW + delta);
+    if (dragRef.current.col === 'results') setResultsWidth(newW);
+    else setEncounterWidth(newW);
+  }, []);
+
+  const onHandlePointerUp = useCallback(() => {
+    dragRef.current = null;
+  }, []);
 
   const syncingRef = useRef(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -102,8 +134,22 @@ export default function App() {
   useEffect(() => {
     refreshCount();
     triggerSync();
+    loadEncounterState().then(saved => {
+      if (saved) {
+        setEncounters(saved.encounters);
+        setActiveEnc(saved.activeEnc);
+        setPartySize(saved.partySize);
+        setPartyLevel(saved.partyLevel);
+      }
+      encounterStateLoaded.current = true;
+    }).catch(() => { encounterStateLoaded.current = true; });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!encounterStateLoaded.current) return;
+    saveEncounterState({ encounters, activeEnc, partySize, partyLevel }).catch(() => {});
+  }, [encounters, activeEnc, partySize, partyLevel]);
 
   // ── Encounter management ──
   const addToEncounter = useCallback(
@@ -112,14 +158,22 @@ export default function App() {
       const level = pf2e.system?.details?.level?.value ?? 0;
       const maxHp = pf2e.system?.attributes?.hp?.max ?? 10;
       const ac = pf2e.system?.attributes?.ac?.value ?? 10;
+      const fort = pf2e.system?.saves?.fortitude?.value;
+      const ref = pf2e.system?.saves?.reflex?.value;
+      const will = pf2e.system?.saves?.will?.value;
       const entry: EncounterCreature = {
         uid: `${c.id}-${Date.now()}-${Math.random()}`,
+        creatureId: c.id,
         name: c.name,
         level,
         hp: maxHp,
         maxHp,
         ac,
+        fort,
+        ref,
+        will,
         init: 0,
+        conditions: [],
       };
       setEncounters(prev =>
         prev.map((enc, i) =>
@@ -172,16 +226,41 @@ export default function App() {
     [activeEnc]
   );
 
+  const updateConditions = useCallback(
+    (uid: string, conditions: Condition[]) => {
+      setEncounters(prev =>
+        prev.map((enc, i) =>
+          i === activeEnc
+            ? { ...enc, creatures: enc.creatures.map(c => c.uid === uid ? { ...c, conditions } : c) }
+            : enc
+        )
+      );
+    },
+    [activeEnc]
+  );
+
+  const selectCreatureById = useCallback(async (id: string) => {
+    const creature = await db.creatures.get(id);
+    if (creature) setSelected(creature);
+  }, []);
+
   const addCustomCreature = useCallback(
-    (name: string, level: number) => {
+    (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: import('./types/encounter').CustomAttack[], abilities?: import('./types/encounter').CustomAbility[]) => {
+      const maxHp = hp ?? 20;
       const entry: EncounterCreature = {
         uid: `custom-${Date.now()}`,
         name,
         level,
-        hp: 20,
-        maxHp: 20,
-        ac: 15,
+        hp: maxHp,
+        maxHp,
+        ac: ac ?? 15,
+        fort,
+        ref,
+        will,
+        attacks,
+        abilities,
         init: 0,
+        conditions: [],
         custom: true,
       };
       setEncounters(prev =>
@@ -210,7 +289,7 @@ export default function App() {
                 partyLevel={partyLevel}
               />
             </div>
-            <div className={styles.resultsCol}>
+            <div className={styles.resultsCol} style={{ flexBasis: resultsWidth, flexGrow: 0, flexShrink: 0 }}>
               {isSyncing && <SyncProgressBar progress={syncProgress} />}
               <ResultsList
                 results={results}
@@ -227,7 +306,13 @@ export default function App() {
                 onToggleFilters={() => setFiltersOpen(o => !o)}
               />
             </div>
-            <div className={styles.encounterCol}>
+            <div
+              className={styles.resizeHandle}
+              onPointerDown={onHandlePointerDown('results')}
+              onPointerMove={onHandlePointerMove}
+              onPointerUp={onHandlePointerUp}
+            />
+            <div className={styles.encounterCol} style={{ flexBasis: encounterWidth, flexGrow: 0, flexShrink: 0 }}>
               <EncounterManager
                 encounters={encounters}
                 activeEnc={activeEnc}
@@ -240,8 +325,16 @@ export default function App() {
                 onRemoveCreature={removeCreature}
                 onUpdateHP={updateHP}
                 onAddCustomCreature={addCustomCreature}
+                onSelectCreature={selectCreatureById}
+                onUpdateConditions={updateConditions}
               />
             </div>
+            <div
+              className={styles.resizeHandle}
+              onPointerDown={onHandlePointerDown('encounter')}
+              onPointerMove={onHandlePointerMove}
+              onPointerUp={onHandlePointerUp}
+            />
             <div className={styles.statblockCol}>
               <StatblockDrawer
                 creature={selected}

@@ -33,6 +33,7 @@ function getSize(creature: PF2ECreature): string {
 export function toRecord(creature: PF2ECreature, packSource: string, blobSha: string): CreatureRecord {
   return {
     id: creature._id,
+    entityType: creature.type ?? 'npc',
     name: creature.name,
     nameLower: creature.name.toLowerCase(),
     level: getLevel(creature),
@@ -124,7 +125,7 @@ export async function runSync(onProgress?: ProgressCallback): Promise<void> {
       async ({ packName, fileName, blobSha }) => {
         try {
           const raw = (await fetchCreatureRaw(latestCommitSha, `${packName}/${fileName}`)) as PF2ECreature;
-          if (raw?._id && raw?.name && raw?.type === 'npc') {
+          if (raw?._id && raw?.name && (raw?.type === 'npc' || raw?.type === 'hazard')) {
             records.push(toRecord(raw, packName, blobSha));
           }
         } catch {

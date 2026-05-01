@@ -9,7 +9,6 @@ const EXCLUDED_PACKS = new Set([
 
 export function isCreaturePack(packName: string): boolean {
   if (EXCLUDED_PACKS.has(packName)) return false;
-  if (packName.startsWith('sf2e')) return false;
   return true;
 }
 
@@ -17,7 +16,7 @@ export function isCorePack(packName: string): boolean {
   return packName.startsWith('pathfinder-') || packName === 'npc-gallery';
 }
 
-export type PackEra = 'remaster' | 'legacy';
+export type PackEra = 'remaster' | 'legacy' | 'sf2e';
 export type PackCategory = 'core' | 'supplemental' | 'misc';
 export interface PackMeta { era: PackEra; category: PackCategory; }
 
@@ -110,7 +109,9 @@ export function packRegistryHas(packName: string): boolean {
 
 /** Returns metadata for a pack. `isRemasterFromDb` is used only for packs absent from PACK_REGISTRY. */
 export function getPackMeta(packName: string, isRemasterFromDb?: boolean): PackMeta {
-  return PACK_REGISTRY[packName] ?? {
+  if (PACK_REGISTRY[packName]) return PACK_REGISTRY[packName];
+  if (packName.startsWith('sf2e')) return { era: 'sf2e', category: inferCategory(packName) };
+  return {
     era: isRemasterFromDb ? 'remaster' : 'legacy',
     category: inferCategory(packName),
   };
