@@ -47,10 +47,27 @@ interface RollResult {
   total: number;
 }
 
+// Cryptographically random integer in [1, sides] using Web Crypto API.
+// crypto.getRandomValues() is seeded from OS-level entropy and is not
+// predictable, unlike Math.random() (xorshift128+ PRNG).
+const _buf = new Uint32Array(1);
+export function cryptoD(sides: number): number {
+  crypto.getRandomValues(_buf);
+  // Use modulo rejection sampling to avoid bias when sides doesn't divide 2^32 evenly.
+  // The bias from plain modulo on a 32-bit value is at most 1 in 2^32 / sides,
+  // which is negligible for any die size we'll ever use, but rejection sampling
+  // is the correct approach.
+  const limit = 2 ** 32 - ((2 ** 32) % sides);
+  let val = _buf[0];
+  while (val >= limit) {
+    crypto.getRandomValues(_buf);
+    val = _buf[0];
+  }
+  return (val % sides) + 1;
+}
+
 function rollDice(parsed: ParsedDice): RollResult {
-  const rolls = Array.from({ length: parsed.count }, () =>
-    Math.floor(Math.random() * parsed.sides) + 1
-  );
+  const rolls = Array.from({ length: parsed.count }, () => cryptoD(parsed.sides));
   const total = rolls.reduce((a, b) => a + b, 0) + parsed.modifier;
   return { rolls, modifier: parsed.modifier, total };
 }
@@ -91,9 +108,7 @@ export function rollCrit(parsed: ParsedDice, traits: string[]): CritResult {
 
   // Step 1: roll damage dice (fatal replaces die size)
   const dieSides = fatalDice?.sides ?? parsed.sides;
-  const baseDice = Array.from({ length: parsed.count }, () =>
-    Math.floor(Math.random() * dieSides) + 1
-  );
+  const baseDice = Array.from({ length: parsed.count }, () => cryptoD(dieSides));
   const baseSum = baseDice.reduce((a, b) => a + b, 0);
 
   // Step 2: double (dice + modifier)
@@ -105,13 +120,11 @@ export function rollCrit(parsed: ParsedDice, traits: string[]): CritResult {
 
   if (fatalDice != null) {
     // One extra fatal die added after doubling (always 1 die, just the upsized sides)
-    extraDice = [Math.floor(Math.random() * fatalDice.sides) + 1];
+    extraDice = [cryptoD(fatalDice.sides)];
     extraLabel = `Fatal d${fatalDice.sides}`;
   } else if (deadlyDice != null) {
     // Roll all deadly dice (count from the trait, e.g. deadly-2d10 = 2 extra d10)
-    extraDice = Array.from({ length: deadlyDice.count }, () =>
-      Math.floor(Math.random() * deadlyDice.sides) + 1
-    );
+    extraDice = Array.from({ length: deadlyDice.count }, () => cryptoD(deadlyDice.sides));
     extraLabel = `Deadly ${deadlyDice.count > 1 ? `${deadlyDice.count}d` : 'd'}${deadlyDice.sides}`;
   }
 

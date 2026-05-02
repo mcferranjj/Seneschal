@@ -1,0 +1,35 @@
+Encounters:
+    - make sure dice roller is properly random/pseudo random and add a small animation to it (make the result bubble out slightly, then update with new value, then shrink back to normal, with the damage roll of combined attack/damage rolls doing the same on a very slight delay)
+    - add clickable/hoverable links to keywords (shove, brutal, etc.)
+        - need an updated database of relevant traits and their descriptions - probably from AoN
+    - for encounter management, need to make it so clicking anywhere else on the screen during the delete encounter confirmation counts as canceling the delete
+    - for custom creatures:
+        - need to set the "custom" source to be turned on by default
+        - need a way to edit a saved creature
+        - need to be able to add flavor text/description section
+        - need to be able to set size
+    - add hazards to the tracked database:
+        - does not appear to be functional - no hazards can be found when I filter for them
+        - also need to add a "hazard type" set of filters that has "trap", "haunt", etc.
+        - also need to add custom hazard creation, adding to the custom creature wizard
+    - pictures?
+        - not implemented
+    - link to AoN?
+        - links don't seem to be consistent. Need to plan this one out more carefully to find solution
+    - is it legal to include these plus the flavor descriptions in a public product if I make someone prove they own the pdf first?
+        - unanswered
+    
+    - placeholder creatures:
+        - enemy checkbox should be checked by default
+        - align the T/L/M/H/E grid so that every row is centered on M (aligning the rows with each other)
+        - the text box for the numbers is too small for three digit values (e.g. health) - let's make that bigger
+
+    - make creatures click and draggable into, out of, and around the combat tracker (dragging creatures in the tracker should automatically update their initiative)
+    - give search results a similar << minimize functionality as teh filters column
+    - add recall knowledge applicable skills and DCs based on creature to the right hand stat block, remove it from the quick reference, and make sure it's sourced with the recall knowledge DCs in the foundry github info
+
+Rules:
+    - needs to be verified by user
+
+Characters:
+    - needs to be verified by user

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbility } from '../../types/encounter';
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
-import { DiceRoller } from '../DiceRoller/DiceRoller';
+import { DiceRoller, cryptoD } from '../DiceRoller/DiceRoller';
 import styles from './EncounterManager.module.css';
 
 interface ConditionCategory {
@@ -456,7 +456,7 @@ export function EncounterManager({
 
     const newOnes = enc.creatures
       .filter(c => !prevUids.has(c.uid))
-      .map(c => ({ ...c, init: Math.floor(Math.random() * 20) + 1 }));
+      .map(c => ({ ...c, init: cryptoD(20) }));
     const kept = prev.filter(c => encUids.has(c.uid));
 
     if (newOnes.length === 0 && kept.length === prev.length) return;
@@ -485,7 +485,7 @@ export function EncounterManager({
 
   function startCombat() {
     const rolled: CombatCreature[] = enc.creatures
-      .map(c => ({ ...c, init: Math.floor(Math.random() * 20) + 1 }))
+      .map(c => ({ ...c, init: cryptoD(20) }))
       .sort((a, b) => b.init - a.init);
     setCombatCreatures(rolled);
     setCombatMode(true);
