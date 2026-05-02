@@ -343,21 +343,19 @@ export function DiceRoller({
         <div className={styles.damageSection}>
           <div className={styles.damageSectionHeader}>
             <span className={styles.damageSectionLabel}>{damageLabel ?? 'Damage'}</span>
-            <span className={styles.damageSectionExpr}>{damageParsed.raw}</span>
-            {(fatalT || deadlyT) && (
-              <span className={styles.traitTags}>
-                {fatalT && (
-                  <span className={styles.traitTag} title="On a crit: all dice become this size + one extra die added">
-                    Fatal {traitDieLbl(fatalT, 'fatal')}
-                  </span>
-                )}
-                {deadlyT && (
-                  <span className={styles.traitTag} title="On a crit: add extra dice of this size">
-                    Deadly {traitDieLbl(deadlyT, 'deadly')}
-                  </span>
-                )}
-              </span>
-            )}
+            <span className={styles.damageSectionExprRow}>
+              <span className={styles.damageSectionExpr}>{damageParsed.raw}</span>
+              {fatalT && (
+                <span className={styles.traitTag} title="On a crit: all dice become this size + one extra die added">
+                  Fatal {traitDieLbl(fatalT, 'fatal')}
+                </span>
+              )}
+              {deadlyT && (
+                <span className={styles.traitTag} title="On a crit: add extra dice of this size">
+                  Deadly {traitDieLbl(deadlyT, 'deadly')}
+                </span>
+              )}
+            </span>
             {critResult && <span className={styles.critBanner}>✦ Critical Hit</span>}
           </div>
 
@@ -529,21 +527,19 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
       <div className={`${styles.header} ${styles.rollerDragHandle}`} onPointerDown={onDragHandlePointerDown}>
         <div className={styles.headerLeft}>
           {label && <span className={styles.label}>{label}</span>}
-          <span className={styles.expr}>{parsed.raw}</span>
-          {(fatalTrait || deadlyTrait) && (
-            <span className={styles.traitTags}>
-              {fatalTrait && (
-                <span className={styles.traitTag} title="On a crit: all dice become this size + one extra die added">
-                  Fatal {traitDieLabel(fatalTrait, 'fatal')}
-                </span>
-              )}
-              {deadlyTrait && (
-                <span className={styles.traitTag} title="On a crit: add extra dice of this size">
-                  Deadly {traitDieLabel(deadlyTrait, 'deadly')}
-                </span>
-              )}
-            </span>
-          )}
+          <span className={styles.damageSectionExprRow}>
+            <span className={styles.expr}>{parsed.raw}</span>
+            {fatalTrait && (
+              <span className={styles.traitTag} title="On a crit: all dice become this size + one extra die added">
+                Fatal {traitDieLabel(fatalTrait, 'fatal')}
+              </span>
+            )}
+            {deadlyTrait && (
+              <span className={styles.traitTag} title="On a crit: add extra dice of this size">
+                Deadly {traitDieLabel(deadlyTrait, 'deadly')}
+              </span>
+            )}
+          </span>
           {critResult && <span className={styles.critBanner}>✦ Critical Hit</span>}
         </div>
         <button className={styles.closeBtn} onClick={onClose} aria-label="Close">✕</button>

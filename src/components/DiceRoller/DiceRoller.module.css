@@ -149,17 +149,19 @@
   opacity: 0.65;
 }
 
-/* ── Weapon trait tags (Fatal / Deadly) ── */
-.traitTags {
+/* ── Inline expr + trait tags row ── */
+.damageSectionExprRow {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 3px;
-  margin-top: 3px;
+  gap: 4px;
 }
 
+/* ── Weapon trait tags (Fatal / Deadly) ── */
 .traitTag {
-  display: inline-block;
-  font-size: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.58rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -169,6 +171,7 @@
   border-radius: 3px;
   padding: 1px 5px;
   cursor: help;
+  line-height: 1.4;
 }
 
 /* ── Damage sub-section ── */
