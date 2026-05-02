@@ -260,15 +260,17 @@ export function DiceRoller({
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     const rect = ref.current.getBoundingClientRect();
-    const currentX = pos ? pos.x : rect.left + rect.width / 2;
-    const currentY = pos ? pos.y : clampedY;
+    // Always use the actual rendered left edge so the transition from
+    // translateX(-50%) to transform:none doesn't cause a jump.
+    const currentX = rect.left;
+    const currentY = rect.top;
     dragRef.current = {
       startMouseX: e.clientX,
       startMouseY: e.clientY,
       startPanelX: currentX,
       startPanelY: currentY,
     };
-  }, [pos, clampedY]);
+  }, []);
 
   const onDragPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragRef.current) return;
@@ -441,10 +443,8 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     const rect = ref.current.getBoundingClientRect();
-    const currentX = pos ? pos.x : rect.left + rect.width / 2;
-    const currentY = pos ? pos.y : clampedY;
-    dragRef.current = { startMouseX: e.clientX, startMouseY: e.clientY, startPanelX: currentX, startPanelY: currentY };
-  }, [pos, clampedY]);
+    dragRef.current = { startMouseX: e.clientX, startMouseY: e.clientY, startPanelX: rect.left, startPanelY: rect.top };
+  }, []);
 
   const onDragPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragRef.current) return;
