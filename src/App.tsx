@@ -270,16 +270,8 @@ export default function App() {
                 ...enc,
                 creatures: enc.creatures.map(c => {
                   if (c.uid !== uid) return c;
-                  const newHp = Math.max(0, c.hp + delta);
-                  // Placeholder creatures: maxHp always expands to match hp if exceeded
-                  if (c.custom && newHp > c.maxHp) {
-                    return { ...c, hp: newHp, maxHp: newHp };
-                  }
-                  if (c.custom) {
-                    // Allow healing back up to current maxHp but not below 0
-                    return { ...c, hp: Math.min(c.maxHp, newHp) };
-                  }
-                  return { ...c, hp: Math.min(c.maxHp, newHp) };
+                  const newHp = Math.max(0, Math.min(c.maxHp, c.hp + delta));
+                  return { ...c, hp: newHp };
                 }),
               }
             : enc
