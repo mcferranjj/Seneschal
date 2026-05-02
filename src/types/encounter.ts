@@ -11,11 +11,15 @@ export interface CustomAttack {
   bonus: number;
   damage: string;
   range?: number; // feet, ranged only
+  traits?: string[];
 }
+
+export type AbilityActionType = 'single' | 'two' | 'three' | 'reaction' | 'free' | 'passive';
 
 export interface CustomAbility {
   name: string;
   description: string;
+  actionType?: AbilityActionType;
 }
 
 export interface EncounterCreature {
@@ -34,6 +38,7 @@ export interface EncounterCreature {
   init: number;
   conditions: Condition[];
   custom?: boolean;
+  isEnemy?: boolean; // false = ally/neutral placeholder; doesn't count toward XP budget
 }
 
 export interface Encounter {

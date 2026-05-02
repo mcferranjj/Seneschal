@@ -41,7 +41,7 @@ export function CreatureRow({ creature, isSelected, onClick, onAddToEncounter }:
   const rarityColor = RARITY_COLORS[creature.rarity] ?? null;
   const shownTraits = creature.traits.slice(0, 3);
   const sizeLabel = SIZE_LABELS[creature.size] ?? creature.size;
-  const levelLabel = creature.level >= 0 ? `+${creature.level}` : `${creature.level}`;
+  const levelLabel = `Lv ${creature.level}`;
 
   return (
     <div

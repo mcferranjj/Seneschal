@@ -1,4 +1,5 @@
 import type { PF2ECreature } from '../types/pf2e';
+import type { CustomAttack, CustomAbility } from '../types/encounter';
 
 export interface CreatureRecord {
   id: string;
@@ -12,6 +13,10 @@ export interface CreatureRecord {
   packSource: string;
   blobSha: string;
   data: PF2ECreature;
+  customData?: {
+    attacks?: CustomAttack[];
+    abilities?: CustomAbility[];
+  };
 }
 
 export interface MetaRecord {

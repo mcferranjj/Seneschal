@@ -80,6 +80,27 @@
   background: var(--crimson);
 }
 
+/* ── Add custom creature ── */
+.addCustomBtn {
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--crimson);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: left;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.1s;
+}
+
+.addCustomBtn:hover {
+  background: rgba(92, 20, 20, 0.06);
+}
+
 /* ── Creature row ── */
 .row {
   display: flex;

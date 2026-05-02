@@ -95,7 +95,7 @@ src/
 │   ├── pf2e.ts                # TypeScript interfaces for creature JSON
 │   └── encounter.ts           # Section, EncounterCreature (with conditions, attacks, abilities), Encounter, Condition, CustomAttack, CustomAbility
 ├── db/
-│   ├── schema.ts              # CreatureRecord (with entityType) + MetaRecord interfaces
+│   ├── schema.ts              # CreatureRecord (with entityType, customData) + MetaRecord interfaces
 │   └── db.ts                  # Dexie v4 instance; CharacterRecord, EncounterStateRecord, helpers
 ├── sync/
 │   ├── github.ts              # GitHub API client
@@ -106,13 +106,14 @@ src/
 └── components/
     ├── TopBar/                # Header: brand + "Encounters / Rules / Characters" nav pills
     ├── SearchPanel/           # Filters: name, level, trait include/exclude, size, rarity, entity type, source
-    ├── ResultsList/           # Creature list; sticky toolbar with filter toggle + sort
+    ├── ResultsList/           # Creature list; sticky toolbar with filter toggle + sort; scrollable "＋ Custom Creature" button
     ├── EncounterManager/      # XP tracker + combat tracker with conditions and creature wizard
     ├── RulesSection/          # Tabbed conditions + basic actions reference with accordion + search
     ├── CharactersSection/     # PC party tracker: card grid, HP tracking, persistent Dexie storage
     ├── DiceRoller/            # Floating dice roller; triggered by clicking .pf2roll spans
-    └── StatblockDrawer/       # Always-visible statblock panel
-        ├── StatblockDrawer.tsx  # AoN link, creature image, keyword tooltips, dice roller trigger
+    ├── CustomCreatureWizard/  # Two-step wizard for building persistent custom creatures; saves to db.creatures
+    └── StatblockDrawer/       # Always-visible statblock panel; also hosts CustomCreatureWizard when wizardOpen
+        ├── StatblockDrawer.tsx  # AoN link, creature image, keyword tooltips, dice roller trigger; custom statblock for packSource='custom'
         ├── StatblockDrawer.module.css
         └── statblockHelpers.ts  # stripFoundryMacros + linkKeywords + linkRolls
 ```
@@ -126,6 +127,8 @@ src/
 **Table `encounterState`** — key `"encounter_state"` stores `{ encounters, activeEnc, partySize, partyLevel }` — auto-persisted on every change
 
 **Table `characters`** — key `id` stores `CharacterRecord` — PC party members
+
+`CreatureRecord.customData?: { attacks?: CustomAttack[]; abilities?: CustomAbility[] }` — present only on custom creatures (`packSource === 'custom'`); holds the wizard-authored attacks and abilities since those don't live in the PF2E items array.
 
 Schema migration history:
 - v1: creatures + meta
@@ -160,9 +163,9 @@ Steps 1–2 same, then diff `fileShas` to find only changed/added/removed files,
 
 - **TopBar** — section nav pills: `'gm'` → "Encounters", `'rules'` → "Rules", `'characters'` → "Characters".
 - **SearchPanel** — collapsible; includes trait include/exclude (green/red chips), entity type filter (Creature/Hazard), SF2E source section.
-- **ResultsList** — sticky toolbar (filter toggle, sort). Creature rows are `div[role="button"]`.
-- **EncounterManager** — multi-encounter tabs; XP budget + difficulty; combat mode with conditions, saves display, auto-reducing conditions, clickable creature names (jumps to statblock), custom creature wizard.
-- **StatblockDrawer** — AoN link in header, creature image (from GitHub raw URL), flavor text box, keyword tooltips on hover (`.pf2kw`), clickable dice/modifiers (`.pf2roll`) that open DiceRoller.
+- **ResultsList** — sticky toolbar (filter toggle, sort). Creature rows are `div[role="button"]`. A non-sticky "＋ Custom Creature" button sits at the top of the scrollable list and opens the wizard in the statblock column.
+- **EncounterManager** — multi-encounter tabs; XP budget + difficulty; combat mode with conditions, saves display, auto-reducing conditions, clickable creature names (jumps to statblock), custom creature wizard (separate use case from the persistent wizard).
+- **StatblockDrawer** — three display modes: (1) normal PF2E statblock, (2) custom creature statblock (when `packSource === 'custom'`), (3) `CustomCreatureWizard` (when `wizardOpen`). Custom statblock shows AC/HP/saves/attacks/abilities with a delete button (confirm step). AoN link in header, creature image (from GitHub raw URL), flavor text box, keyword tooltips on hover (`.pf2kw`), clickable dice/modifiers (`.pf2roll`) that open DiceRoller.
 - **DiceRoller** — floating panel; `parseDice()` handles `NdM±mod` expressions; keyboard: `Escape` closes, `R` re-rolls; crit/fumble highlighting.
 - **RulesSection** — tabbed (Conditions / Basic Actions), searchable, accordion-expand entries.
 - **CharactersSection** — card grid of PCs; modal add/edit form; HP ±1/±5/±10 buttons; HP bar; persists to `characters` Dexie table.
@@ -210,7 +213,7 @@ Global `.pf2kw` spans have `::after` tooltips via `content: attr(data-tip)`. Glo
 - `resultsWidth: number`, `encounterWidth: number` — column widths in px
 - `selectedCreature: CreatureRecord | null`
 
-Key callbacks: `addToEncounter(c)`, `addCustomCreature(name, level, hp?, ac?, fort?, ref?, will?, attacks?, abilities?)`, `updateConditions(uid, conditions)`, `selectCreatureById(id)`.
+Key callbacks: `addToEncounter(c)`, `updateConditions(uid, conditions)`, `selectCreatureById(id)`, `openWizard()`, `handleWizardSave(creature)`, `handleDeleteCreature(id)`.
 
 ## Encounter Manager Logic
 
@@ -220,7 +223,7 @@ Difficulty thresholds (Table 10-1, GM Core) assume a party of 4. For each party 
 
 Combat mode: random initiative (1–20) on `startCombat()`. `nextTurn()` auto-reduces valued conditions (Frightened, Stunned, Slowed, etc.) by 1 on the ending creature. Condition chips shown on each combat card; `+ cond` button with text input to add. Clicking a creature's name (when `creatureId` exists) calls `onSelectCreature` to jump to its statblock.
 
-Custom creature wizard: two-step form — Step 1: name + level; Step 2: stats + attacks + abilities. All stats use tier buttons (T/L/M/H/E) that prefill values from GM Core Remaster tables (source: `2e.aonprd.com/Rules.aspx?ID=2874`). Values can be freely edited after picking a tier.
+EncounterManager also contains a quick inline custom creature wizard (separate from the persistent one) — kept for a different use case TBD.
 
 **Stat tiers by category:**
 - HP: Low / Moderate / High (Table 9-7, HP uses midpoints of per-level ranges)
@@ -236,6 +239,33 @@ All tables cover levels -1..24 from the source; level 25 is extrapolated.
 **Abilities:** Free-form entries with name + description text. Stored as `CustomAbility[]` on `EncounterCreature`. Description shows as tooltip on combat card.
 
 **Combat card display:** Custom creatures show attacks as rows (icon · name · bonus · damage · range) and ability names as chips with description tooltips.
+
+## Custom Creature System
+
+Custom creatures are authored via `CustomCreatureWizard` and **permanently stored in `db.creatures`** (not just in encounter state). This distinguishes them from the EncounterManager's inline wizard which adds temporary entries to the active encounter.
+
+**Entry point:** "＋ Custom Creature" button at the top of the ResultsList scrollable area (not sticky). Clicking it sets `wizardOpen = true` in App.tsx and clears the selected creature, causing StatblockDrawer to render the wizard.
+
+**Wizard flow (two steps):**
+1. Name + level
+2. Stats (HP/AC/Fort/Ref/Will with tier buttons) + attacks + abilities — same tier system as the EncounterManager wizard
+
+**On save:** wizard calls `db.creatures.put(record)` directly, then calls `onWizardSave(record)` which closes the wizard, sets the new creature as selected (showing the custom statblock), and refreshes search results.
+
+**Custom creature record shape:**
+- `packSource: 'custom'` — used to detect custom creatures throughout the app and will appear as a filterable source in SearchPanel
+- `entityType: 'npc'`, `rarity: 'common'`, `size: 'med'`, `traits: []`, `blobSha: ''`
+- `data.system` — minimal PF2E shape with `attributes.hp/ac` and `saves.fortitude/reflex/will` so `addToEncounter` can read stats normally
+- `customData: { attacks?, abilities? }` — wizard-authored attacks/abilities stored here since the PF2E items array is empty
+
+**Custom statblock:** StatblockDrawer detects `packSource === 'custom'` and renders `CustomStatblock` instead of the normal PF2E renderer. Shows AC, HP, saves, attacks, abilities, "+ Add to Encounter", and a "Delete Custom Creature" button with a confirmation step. Deletion calls `db.creatures.delete(id)` and refreshes search.
+
+**Stat tiers (in `CustomCreatureWizard`):**
+- HP: Low / Moderate / High (Table 9-7, midpoints)
+- AC: Low / Moderate / High / Extreme (Table 9-5)
+- Saves (Fort/Ref/Will): Terrible / Low / Moderate / High / Extreme (Table 9-6)
+- Attack bonus: Low / Moderate / High / Extreme (Table 9-9)
+- Damage: Low / Moderate / High / Extreme (Table 9-10, dice expression string)
 
 ## Search Filters
 
@@ -263,7 +293,7 @@ All tables cover levels -1..24 from the source; level 25 is extrapolated.
 | `runInBatches` | `sync/sync.ts` | Concurrency/progress logic |
 | `formatTimestamp` | `components/TopBar/TopBar.tsx` | Date formatting utility |
 | `traitColor` | `components/StatblockDrawer/StatblockDrawer.tsx` | Trait chip color logic |
-| `HP_TABLE`, `AC_TABLE`, `SAVE_TABLE`, `ATTACK_TABLE`, `DAMAGE_TABLE` | `components/EncounterManager/EncounterManager.tsx` | GM Core Remaster stat tables, all tiers, levels -1..25 |
+| `HP_TABLE`, `AC_TABLE`, `SAVE_TABLE`, `ATTACK_TABLE`, `DAMAGE_TABLE` | `components/CustomCreatureWizard/CustomCreatureWizard.tsx` | GM Core Remaster stat tables, all tiers, levels -1..25 |
 | `linkRolls` | `components/StatblockDrawer/statblockHelpers.ts` | Wraps dice/modifiers in `.pf2roll` spans |
 | `linkKeywords` | `components/StatblockDrawer/statblockHelpers.ts` | Wraps ~40 PF2E terms in `.pf2kw` tooltip spans |
 
@@ -280,7 +310,7 @@ Tests were removed during the Phase 2 UI redesign. Vitest + React Testing Librar
 
 ## Current Phase
 
-**Phase 3 complete.** All 19 planned features implemented:
+**Phase 3 complete + post-phase additions.** Core 19 planned features plus:
 - Resizable columns (drag handles between ResultsList / EncounterManager / StatblockDrawer)
 - Encounter state persistence (auto-saved to IndexedDB)
 - SF2E sources synced and filterable in their own era section
@@ -294,3 +324,4 @@ Tests were removed during the Phase 2 UI redesign. Vitest + React Testing Librar
 - Clickable creature names in combat (jumps to statblock)
 - Rules Reference section (Conditions + Basic Actions, searchable accordion)
 - Party tracker / Characters section (card grid, HP tracking, Dexie persistence)
+- Persistent custom creature builder (wizard in StatblockDrawer column, saves to IndexedDB, custom statblock view, delete with confirmation)

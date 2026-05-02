@@ -110,6 +110,7 @@ export function packRegistryHas(packName: string): boolean {
 /** Returns metadata for a pack. `isRemasterFromDb` is used only for packs absent from PACK_REGISTRY. */
 export function getPackMeta(packName: string, isRemasterFromDb?: boolean): PackMeta {
   if (PACK_REGISTRY[packName]) return PACK_REGISTRY[packName];
+  if (packName === 'custom') return { era: 'remaster', category: 'misc' };
   if (packName.startsWith('sf2e')) return { era: 'sf2e', category: inferCategory(packName) };
   return {
     era: isRemasterFromDb ? 'remaster' : 'legacy',

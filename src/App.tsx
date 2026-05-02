@@ -6,6 +6,7 @@ import { runSync, getLastSynced, getCreatureCount } from './sync/sync';
 import type { SyncProgress } from './sync/sync';
 import type { PF2ECreature } from './types/pf2e';
 import type { Section, Encounter, EncounterCreature, Condition } from './types/encounter';
+import type { RollHistoryEntry } from './types/diceHistory';
 import { db, loadEncounterState, saveEncounterState } from './db/db';
 import { TopBar } from './components/TopBar/TopBar';
 import { SearchPanel } from './components/SearchPanel/SearchPanel';
@@ -14,6 +15,7 @@ import { StatblockDrawer } from './components/StatblockDrawer/StatblockDrawer';
 import { EncounterManager } from './components/EncounterManager/EncounterManager';
 import { RulesSection } from './components/RulesSection/RulesSection';
 import { CharactersSection } from './components/CharactersSection/CharactersSection';
+import { RollHistory } from './components/RollHistory/RollHistory';
 import styles from './App.module.css';
 
 const SEARCH_DEBOUNCE_MS = 200;
@@ -35,6 +37,18 @@ export default function App() {
   // Filter sidebar
   const [filtersOpen, setFiltersOpen] = useState(true);
 
+  // Custom creature wizard
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  // Roll history
+  const [rollHistory, setRollHistory] = useState<RollHistoryEntry[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const rollIdRef = useRef(0);
+
+  const addRollEntry = useCallback((entry: Omit<RollHistoryEntry, 'id'>) => {
+    setRollHistory(prev => [{ ...entry, id: ++rollIdRef.current }, ...prev]);
+  }, []);
+
   // Encounter state
   const [encounters, setEncounters] = useState<Encounter[]>([
     { id: 1, name: 'Encounter 1', creatures: [] },
@@ -45,28 +59,30 @@ export default function App() {
   const encounterStateLoaded = useRef(false);
 
   // Column widths (px); statblock takes remaining flex space
+  const [filtersWidth, setFiltersWidth] = useState(220);
   const [resultsWidth, setResultsWidth] = useState(260);
   const [encounterWidth, setEncounterWidth] = useState(280);
-  const dragRef = useRef<{ col: 'results' | 'encounter'; startX: number; startW: number } | null>(null);
+  const dragRef = useRef<{ col: 'filters' | 'results' | 'encounter'; startX: number; startW: number } | null>(null);
 
   const onHandlePointerDown = useCallback(
-    (col: 'results' | 'encounter') => (e: PointerEvent<HTMLDivElement>) => {
+    (col: 'filters' | 'results' | 'encounter') => (e: PointerEvent<HTMLDivElement>) => {
       e.preventDefault();
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       dragRef.current = {
         col,
         startX: e.clientX,
-        startW: col === 'results' ? resultsWidth : encounterWidth,
+        startW: col === 'filters' ? filtersWidth : col === 'results' ? resultsWidth : encounterWidth,
       };
     },
-    [resultsWidth, encounterWidth]
+    [filtersWidth, resultsWidth, encounterWidth]
   );
 
   const onHandlePointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current) return;
     const delta = e.clientX - dragRef.current.startX;
     const newW = Math.max(160, dragRef.current.startW + delta);
-    if (dragRef.current.col === 'results') setResultsWidth(newW);
+    if (dragRef.current.col === 'filters') setFiltersWidth(Math.min(400, newW));
+    else if (dragRef.current.col === 'results') setResultsWidth(newW);
     else setEncounterWidth(newW);
   }, []);
 
@@ -193,6 +209,22 @@ export default function App() {
     setActiveEnc(newIdx);
   }, [encounters.length]);
 
+  const renameEncounter = useCallback((idx: number, name: string) => {
+    setEncounters(prev => prev.map((enc, i) => i === idx ? { ...enc, name } : enc));
+  }, []);
+
+  const deleteEncounter = useCallback((idx: number) => {
+    setEncounters(prev => {
+      if (prev.length <= 1) return prev; // never delete the last encounter
+      return prev.filter((_, i) => i !== idx);
+    });
+    setActiveEnc(prev => {
+      if (idx < prev) return prev - 1;
+      if (idx === prev) return Math.max(0, idx - 1);
+      return prev;
+    });
+  }, []);
+
   const removeCreature = useCallback(
     (uid: string) => {
       setEncounters(prev =>
@@ -213,11 +245,39 @@ export default function App() {
           i === activeEnc
             ? {
                 ...enc,
-                creatures: enc.creatures.map(c =>
-                  c.uid === uid
-                    ? { ...c, hp: Math.max(0, Math.min(c.maxHp, c.hp + delta)) }
-                    : c
-                ),
+                creatures: enc.creatures.map(c => {
+                  if (c.uid !== uid) return c;
+                  const newHp = Math.max(0, c.hp + delta);
+                  // For placeholder creatures with no stats (maxHp=0), manually setting HP
+                  // via delta expands maxHp if newHp exceeds it
+                  if (c.custom && c.maxHp === 0) {
+                    return { ...c, hp: newHp, maxHp: newHp };
+                  }
+                  return { ...c, hp: Math.min(c.maxHp, newHp) };
+                }),
+              }
+            : enc
+        )
+      );
+    },
+    [activeEnc]
+  );
+
+  const setHPDirect = useCallback(
+    (uid: string, newHp: number) => {
+      setEncounters(prev =>
+        prev.map((enc, i) =>
+          i === activeEnc
+            ? {
+                ...enc,
+                creatures: enc.creatures.map(c => {
+                  if (c.uid !== uid) return c;
+                  // Placeholder creature: expand maxHp if new value exceeds it
+                  if (c.custom && newHp > c.maxHp) {
+                    return { ...c, hp: newHp, maxHp: newHp };
+                  }
+                  return { ...c, hp: Math.max(0, Math.min(c.maxHp, newHp)) };
+                }),
               }
             : enc
         )
@@ -244,16 +304,41 @@ export default function App() {
     if (creature) setSelected(creature);
   }, []);
 
+  const openWizard = useCallback(() => {
+    setSelected(null);
+    setWizardOpen(true);
+  }, []);
+
+  const handleWizardSave = useCallback(async (creature: import('./db/schema').CreatureRecord) => {
+    setWizardOpen(false);
+    setSelected(creature);
+    // Refresh search so the new creature appears in results
+    const { results: r, totalCount: tc } = await searchCreatures(filtersRef.current);
+    setResults(r);
+    setTotalCount(tc);
+    await refreshCount();
+  }, [refreshCount]);
+
+  const handleDeleteCreature = useCallback(async (id: string) => {
+    await db.creatures.delete(id);
+    setSelected(null);
+    const { results: r, totalCount: tc } = await searchCreatures(filtersRef.current);
+    setResults(r);
+    setTotalCount(tc);
+    await refreshCount();
+  }, [refreshCount]);
+
   const addCustomCreature = useCallback(
-    (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: import('./types/encounter').CustomAttack[], abilities?: import('./types/encounter').CustomAbility[]) => {
-      const maxHp = hp ?? 20;
+    (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: import('./types/encounter').CustomAttack[], abilities?: import('./types/encounter').CustomAbility[], isEnemy?: boolean) => {
+      const isPlaceholder = hp == null && ac == null;
+      const maxHp = hp ?? 0;
       const entry: EncounterCreature = {
         uid: `custom-${Date.now()}`,
         name,
         level,
         hp: maxHp,
         maxHp,
-        ac: ac ?? 15,
+        ac: ac ?? 0,
         fort,
         ref,
         will,
@@ -262,6 +347,7 @@ export default function App() {
         init: 0,
         conditions: [],
         custom: true,
+        isEnemy: isEnemy ?? !isPlaceholder,
       };
       setEncounters(prev =>
         prev.map((enc, i) =>
@@ -277,11 +363,24 @@ export default function App() {
 
   return (
     <div className={styles.app}>
-      <TopBar activeSection={activeSection} onSectionChange={setActiveSection} />
+      <TopBar
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+        historyCount={rollHistory.length}
+        historyOpen={historyOpen}
+        onToggleHistory={() => setHistoryOpen(o => !o)}
+      />
+      {historyOpen && (
+        <RollHistory
+          entries={rollHistory}
+          onClear={() => setRollHistory([])}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
       <div className={styles.content}>
         {activeSection === 'gm' && (
           <div className={`${styles.gmLayout} ${!filtersOpen ? styles.gmLayoutCollapsed : ''}`}>
-            <div className={`${styles.filterCol} ${filtersOpen ? styles.filterColOpen : ''}`}>
+            <div className={`${styles.filterCol} ${filtersOpen ? styles.filterColOpen : ''}`} style={filtersOpen ? { width: filtersWidth } : {}}>
               <SearchPanel
                 filters={filters}
                 onChange={setFilters}
@@ -304,8 +403,17 @@ export default function App() {
                 onSortChange={s => setFilters(f => ({ ...f, sortBy: s }))}
                 filtersOpen={filtersOpen}
                 onToggleFilters={() => setFiltersOpen(o => !o)}
+                onOpenWizard={openWizard}
               />
             </div>
+            {filtersOpen && (
+              <div
+                className={styles.resizeHandle}
+                onPointerDown={onHandlePointerDown('filters')}
+                onPointerMove={onHandlePointerMove}
+                onPointerUp={onHandlePointerUp}
+              />
+            )}
             <div
               className={styles.resizeHandle}
               onPointerDown={onHandlePointerDown('results')}
@@ -322,11 +430,15 @@ export default function App() {
                 onPartySizeChange={setPartySize}
                 onPartyLevelChange={setPartyLevel}
                 onAddEncounter={addEncounter}
+                onRenameEncounter={renameEncounter}
+                onDeleteEncounter={deleteEncounter}
                 onRemoveCreature={removeCreature}
                 onUpdateHP={updateHP}
+                onSetHP={setHPDirect}
                 onAddCustomCreature={addCustomCreature}
                 onSelectCreature={selectCreatureById}
                 onUpdateConditions={updateConditions}
+                onRoll={addRollEntry}
               />
             </div>
             <div
@@ -340,6 +452,12 @@ export default function App() {
                 creature={selected}
                 onClose={() => setSelected(null)}
                 onAddToEncounter={addToEncounter}
+                wizardOpen={wizardOpen}
+                partyLevel={partyLevel}
+                onWizardSave={handleWizardSave}
+                onWizardCancel={() => setWizardOpen(false)}
+                onDeleteCreature={handleDeleteCreature}
+                onRoll={addRollEntry}
               />
             </div>
           </div>

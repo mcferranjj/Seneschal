@@ -13,9 +13,12 @@ export function formatTimestamp(ts: number): string {
 interface TopBarProps {
   activeSection: Section;
   onSectionChange: (section: Section) => void;
+  historyCount: number;
+  historyOpen: boolean;
+  onToggleHistory: () => void;
 }
 
-export function TopBar({ activeSection, onSectionChange }: TopBarProps) {
+export function TopBar({ activeSection, onSectionChange, historyCount, historyOpen, onToggleHistory }: TopBarProps) {
   return (
     <header className={styles.topBar}>
       <div className={styles.brand}>
@@ -42,9 +45,22 @@ export function TopBar({ activeSection, onSectionChange }: TopBarProps) {
           ✦ Characters
         </button>
       </nav>
-      <button className={styles.settingsBtn} aria-label="Settings" disabled>
-        ⚙
-      </button>
+      <div className={styles.rightButtons}>
+        <button
+          className={`${styles.iconBtn} ${historyOpen ? styles.iconBtnActive : ''}`}
+          onClick={onToggleHistory}
+          aria-label="Roll history"
+          title="Roll history"
+        >
+          🎲
+          {historyCount > 0 && (
+            <span className={styles.historyBadge}>{historyCount > 99 ? '99+' : historyCount}</span>
+          )}
+        </button>
+        <button className={styles.iconBtn} aria-label="Settings" disabled title="Settings">
+          ⚙
+        </button>
+      </div>
     </header>
   );
 }

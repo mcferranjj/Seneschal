@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
 import type { CreatureRecord } from '../../db/schema';
 import type { PF2ECreature, PF2EItem } from '../../types/pf2e';
-import { DiceRoller } from '../DiceRoller/DiceRoller';
+import type { RollHistoryEntry } from '../../types/diceHistory';
+import { DiceRoller, DamageRoller } from '../DiceRoller/DiceRoller';
+import { CustomCreatureWizard } from '../CustomCreatureWizard/CustomCreatureWizard';
 import {
   getLevel,
   getSize,
@@ -73,13 +75,44 @@ interface DrawerProps {
   creature: CreatureRecord | null;
   onClose: () => void;
   onAddToEncounter: (creature: CreatureRecord) => void;
+  wizardOpen?: boolean;
+  partyLevel?: number;
+  onWizardSave?: (creature: CreatureRecord) => void;
+  onWizardCancel?: () => void;
+  onDeleteCreature?: (id: string) => void;
+  onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
 }
 
-export function StatblockDrawer({ creature, onClose, onAddToEncounter }: DrawerProps) {
+export function StatblockDrawer({
+  creature,
+  onClose,
+  onAddToEncounter,
+  wizardOpen,
+  partyLevel = 1,
+  onWizardSave,
+  onWizardCancel,
+  onDeleteCreature,
+  onRoll,
+}: DrawerProps) {
   return (
     <aside className={styles.drawer} aria-label="Creature statblock">
-      {creature ? (
-        <StatblockContent creature={creature} onClose={onClose} onAddToEncounter={onAddToEncounter} />
+      {wizardOpen ? (
+        <CustomCreatureWizard
+          partyLevel={partyLevel}
+          onSave={onWizardSave ?? (() => {})}
+          onCancel={onWizardCancel ?? (() => {})}
+        />
+      ) : creature ? (
+        creature.packSource === 'custom' ? (
+          <CustomStatblock
+            creature={creature}
+            onClose={onClose}
+            onAddToEncounter={onAddToEncounter}
+            onDelete={onDeleteCreature}
+          />
+        ) : (
+          <StatblockContent creature={creature} onClose={onClose} onAddToEncounter={onAddToEncounter} onRoll={onRoll} />
+        )
       ) : (
         <div className={styles.emptyState}>
           <span className={styles.emptyIcon}>⚔</span>
@@ -91,22 +124,165 @@ export function StatblockDrawer({ creature, onClose, onAddToEncounter }: DrawerP
   );
 }
 
+function CustomStatblock({
+  creature,
+  onClose,
+  onAddToEncounter,
+  onDelete,
+}: {
+  creature: CreatureRecord;
+  onClose: () => void;
+  onAddToEncounter: (c: CreatureRecord) => void;
+  onDelete?: (id: string) => void;
+}) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const c = creature.data as PF2ECreature;
+  const hp = c.system?.attributes?.hp?.max ?? creature.customData?.attacks?.length ?? '—';
+  const ac = c.system?.attributes?.ac?.value ?? '—';
+  const fort = (c.system as any)?.saves?.fortitude?.value;
+  const ref  = (c.system as any)?.saves?.reflex?.value;
+  const will = (c.system as any)?.saves?.will?.value;
+  const attacks = creature.customData?.attacks ?? [];
+  const abilities = creature.customData?.abilities ?? [];
+
+  function fmtMod(v?: number) {
+    if (v == null) return '—';
+    return v >= 0 ? `+${v}` : String(v);
+  }
+
+  return (
+    <div className={styles.content}>
+      <div className={styles.header}>
+        <div className={styles.headerMain}>
+          <span className={styles.creatureName}>{creature.name}</span>
+          <span className={styles.creatureLevel}>Custom Creature {creature.level}</span>
+        </div>
+        <div className={styles.headerActions}>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close statblock">✕</button>
+        </div>
+      </div>
+
+      <div className={styles.body}>
+        <p className={styles.sourceLine}><em>Custom</em></p>
+
+        <hr className={styles.divider} />
+
+        <p className={styles.defenseLine}>
+          <strong>AC</strong> {ac};{' '}
+          <strong>Fort</strong> {fmtMod(fort)},{' '}
+          <strong>Ref</strong> {fmtMod(ref)},{' '}
+          <strong>Will</strong> {fmtMod(will)}
+        </p>
+        <p className={styles.defenseLine}>
+          <strong>HP</strong> {hp}
+        </p>
+
+        {attacks.length > 0 && (
+          <>
+            <hr className={styles.divider} />
+            {attacks.map((atk, i) => (
+              <p key={i} className={styles.attackLine}>
+                <span className={styles.attackTypeLabel}>{atk.type === 'melee' ? 'Melee' : 'Ranged'}</span>
+                {' ◆ '}
+                <strong>{atk.name}</strong>
+                {' '}{fmtMod(atk.bonus)}
+                {atk.range != null && <span className={styles.attackTraits}> (range {atk.range} ft)</span>}
+                {', '}<strong>Damage</strong> {atk.damage}
+              </p>
+            ))}
+          </>
+        )}
+
+        {abilities.length > 0 && (
+          <>
+            <hr className={styles.divider} />
+            {abilities.map((ab, i) => (
+              <div key={i} className={styles.itemBlock}>
+                <p className={styles.itemHeader}>
+                  <strong className={styles.itemName}>{ab.name}</strong>
+                </p>
+                {ab.description && (
+                  <p className={styles.itemDesc}>{ab.description}</p>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+
+        <button className={styles.addToEncBtn} onClick={() => onAddToEncounter(creature)}>
+          + Add to Encounter
+        </button>
+
+        {onDelete && (
+          confirmDelete ? (
+            <div className={styles.deleteConfirm}>
+              <span>Delete permanently?</span>
+              <button className={styles.deleteConfirmBtn} onClick={() => onDelete(creature.id)}>Yes, delete</button>
+              <button className={styles.deleteCancelBtn} onClick={() => setConfirmDelete(false)}>Cancel</button>
+            </div>
+          ) : (
+            <button className={styles.deleteBtn} onClick={() => setConfirmDelete(true)}>
+              Delete Custom Creature
+            </button>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StatblockContent({
   creature,
   onClose,
   onAddToEncounter,
+  onRoll,
 }: {
   creature: CreatureRecord;
   onClose: () => void;
   onAddToEncounter: (creature: CreatureRecord) => void;
+  onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
 }) {
-  const [diceRoll, setDiceRoll] = useState<{ expr: string; x: number; y: number } | null>(null);
+  const [diceRoll, setDiceRoll] = useState<{
+    expr: string; label?: string;
+    damageExpr?: string; damageLabel?: string; damageTraits?: string[];
+    x: number; y: number;
+  } | null>(null);
+  const [damageRoll, setDamageRoll] = useState<{
+    expr: string; label?: string; traits?: string[];
+    x: number; y: number;
+  } | null>(null);
+
+  const roll = useCallback((mod: number | undefined, label: string, e: React.MouseEvent) => {
+    if (mod == null) return;
+    e.stopPropagation();
+    const expr = `1d20${mod >= 0 ? `+${mod}` : mod}`;
+    setDiceRoll({ expr, label, x: e.clientX, y: e.clientY - 160 });
+    setDamageRoll(null);
+  }, []);
+
+  const rollAttack = useCallback((
+    mod: number, label: string,
+    damageExpr: string, damageLabel: string, damageTraits: string[],
+    e: React.MouseEvent,
+  ) => {
+    e.stopPropagation();
+    const expr = `1d20${mod >= 0 ? `+${mod}` : mod}`;
+    setDiceRoll({ expr, label, damageExpr, damageLabel, damageTraits, x: e.clientX, y: e.clientY - 160 });
+    setDamageRoll(null);
+  }, []);
+
+  const rollDamage = useCallback((expr: string, label: string, traits: string[], e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDamageRoll({ expr, label, traits, x: e.clientX, y: e.clientY - 160 });
+    setDiceRoll(null);
+  }, []);
 
   const handleBodyClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains('pf2roll')) {
       const expr = target.dataset.expr ?? '';
-      if (expr) setDiceRoll({ expr, x: e.clientX, y: e.clientY - 160 });
+      const label = target.dataset.label ?? undefined;
+      if (expr) setDiceRoll({ expr, label, x: e.clientX, y: e.clientY - 160 });
     }
   }, []);
 
@@ -176,7 +352,7 @@ function StatblockContent({
         <div className={styles.headerActions}>
           <a
             className={styles.aonLink}
-            href={`https://2e.aonprd.com/Search.aspx?query=${encodeURIComponent(c.name)}&type=Monster`}
+            href={`https://2e.aonprd.com/Search.aspx?q=${encodeURIComponent(c.name)}&include-types=${creature.entityType === 'hazard' ? 'hazard' : 'creature'}`}
             target="_blank"
             rel="noreferrer"
             title="View on Archives of Nethys"
@@ -222,7 +398,24 @@ function StatblockContent({
         )}
 
         {/* Perception / Senses */}
-        <p className={styles.infoLine}>{senses}</p>
+        <p className={styles.infoLine}>
+          {(() => {
+            const percMod = c.system?.perception?.mod ?? c.system?.perception?.value;
+            const rest = senses.replace(/^Perception [+-]?\d+;?\s*/, '').replace(/^Perception [+-]?\d+$/, '');
+            return (
+              <>
+                <span
+                  className={styles.rollMod}
+                  title="Roll Perception"
+                  onClick={e => roll(percMod, 'Perception', e)}
+                >
+                  <strong>Perception</strong> {formatMod(percMod)}
+                </span>
+                {rest ? `; ${rest}` : ''}
+              </>
+            );
+          })()}
+        </p>
 
         {/* Languages */}
         {langs && (
@@ -235,18 +428,42 @@ function StatblockContent({
         {skills.length > 0 && (
           <p className={styles.infoLine}>
             <strong>Skills</strong>{' '}
-            {skills.map(s => `${skillDisplayName(s.name)} ${formatMod(s.mod)}`).join(', ')}
+            {skills.map((s, i) => (
+              <span key={s.name}>
+                {i > 0 && ', '}
+                <span
+                  className={styles.rollMod}
+                  title={`Roll ${skillDisplayName(s.name)}`}
+                  onClick={e => roll(s.mod, skillDisplayName(s.name), e)}
+                >
+                  {skillDisplayName(s.name)} {formatMod(s.mod)}
+                </span>
+              </span>
+            ))}
           </p>
         )}
 
         {/* Ability scores */}
         <p className={styles.abilityLine}>
-          <strong>Str</strong> {formatMod(str)},{' '}
-          <strong>Dex</strong> {formatMod(dex)},{' '}
-          <strong>Con</strong> {formatMod(con)},{' '}
-          <strong>Int</strong> {formatMod(int_)},{' '}
-          <strong>Wis</strong> {formatMod(wis)},{' '}
-          <strong>Cha</strong> {formatMod(cha)}
+          {([
+            { label: 'Str', mod: str },
+            { label: 'Dex', mod: dex },
+            { label: 'Con', mod: con },
+            { label: 'Int', mod: int_ },
+            { label: 'Wis', mod: wis },
+            { label: 'Cha', mod: cha },
+          ] as const).map(({ label, mod }, i) => (
+            <span key={label}>
+              {i > 0 && ', '}
+              <span
+                className={styles.rollMod}
+                title={`Roll ${label} check`}
+                onClick={e => roll(mod, label, e)}
+              >
+                <strong>{label}</strong> {formatMod(mod)}
+              </span>
+            </span>
+          ))}
         </p>
 
         <hr className={styles.divider} />
@@ -255,11 +472,17 @@ function StatblockContent({
         <p className={styles.defenseLine}>
           <strong>AC</strong> <span>{ac}</span>
           {acDetail && ` (${acDetail})`};{' '}
-          <strong>Fort</strong> {formatMod(fort)}
+          <span className={styles.rollMod} title="Roll Fortitude" onClick={e => roll(fort, 'Fortitude', e)}>
+            <strong>Fort</strong> {formatMod(fort)}
+          </span>
           {fortDetail && `, ${fortDetail}`},{' '}
-          <strong>Ref</strong> {formatMod(ref)}
+          <span className={styles.rollMod} title="Roll Reflex" onClick={e => roll(ref, 'Reflex', e)}>
+            <strong>Ref</strong> {formatMod(ref)}
+          </span>
           {refDetail && `, ${refDetail}`},{' '}
-          <strong>Will</strong> {formatMod(will)}
+          <span className={styles.rollMod} title="Roll Will" onClick={e => roll(will, 'Will', e)}>
+            <strong>Will</strong> {formatMod(will)}
+          </span>
           {willDetail && `, ${willDetail}`}
           {allSaves && (
             <>
@@ -303,7 +526,7 @@ function StatblockContent({
         </p>
 
         {attacks.map(item => (
-          <AttackBlock key={item._id} item={item} />
+          <AttackBlock key={item._id} item={item} onRollAttack={rollAttack} onRollDamage={rollDamage} />
         ))}
 
         {offenseActions.map(item => (
@@ -331,22 +554,41 @@ function StatblockContent({
       {diceRoll && (
         <DiceRoller
           expression={diceRoll.expr}
+          label={diceRoll.label}
+          damageExpr={diceRoll.damageExpr}
+          damageLabel={diceRoll.damageLabel}
+          damageTraits={diceRoll.damageTraits}
           anchorX={diceRoll.x}
           anchorY={diceRoll.y}
           onClose={() => setDiceRoll(null)}
+          onRoll={onRoll}
+        />
+      )}
+      {damageRoll && (
+        <DamageRoller
+          expression={damageRoll.expr}
+          label={damageRoll.label}
+          traits={damageRoll.traits}
+          anchorX={damageRoll.x}
+          anchorY={damageRoll.y}
+          onClose={() => setDamageRoll(null)}
+          onRoll={onRoll}
         />
       )}
     </div>
   );
 }
 
-function AttackBlock({ item }: { item: PF2EItem }) {
+function AttackBlock({ item, onRollAttack, onRollDamage }: {
+  item: PF2EItem;
+  onRollAttack: (mod: number, label: string, damageExpr: string, damageLabel: string, damageTraits: string[], e: React.MouseEvent) => void;
+  onRollDamage: (expr: string, label: string, traits: string[], e: React.MouseEvent) => void;
+}) {
   const bonus = item.system?.bonus?.value;
   const damage = getDamageString(item.system?.damageRolls);
   const traits = item.system?.traits?.value ?? [];
   const effects = item.system?.attackEffects?.value ?? [];
-  // In PF2E Foundry v14 data, all NPC attacks use item.type === 'melee'.
-  // Ranged attacks are identified by a range increment field or a thrown-N trait.
+
   const isRanged =
     item.type === 'ranged' ||
     item.system?.category === 'ranged' ||
@@ -355,10 +597,8 @@ function AttackBlock({ item }: { item: PF2EItem }) {
   const typeLabel = isRanged ? 'Ranged' : 'Melee';
   const isAgile = traits.includes('agile');
 
-  const mapStr =
-    bonus != null
-      ? `[${formatMod(bonus - (isAgile ? 4 : 5))}/${formatMod(bonus - (isAgile ? 8 : 10))}]`
-      : '';
+  const map2 = bonus != null ? bonus - (isAgile ? 4 : 5) : null;
+  const map3 = bonus != null ? bonus - (isAgile ? 8 : 10) : null;
 
   const range = item.system?.range;
   const rangeDisplay =
@@ -370,28 +610,92 @@ function AttackBlock({ item }: { item: PF2EItem }) {
 
   const displayTraits = rangeDisplay ? [...traits, rangeDisplay] : traits;
   const traitStr = displayTraits.length > 0 ? `(${displayTraits.join(', ')})` : '';
+  // Traits get keyword tooltips only — no dice linking (trait names like "deadly-2d10" or "reload-0" are not rollable)
+  const traitHtml = traitStr ? linkKeywords(`<span>${traitStr}</span>`).replace(/^<span>/, '').replace(/<\/span>$/, '') : '';
   const fullDamage = [damage, ...effects].filter(Boolean).join(' plus ');
+
+  // Extract the first dice+modifier from fullDamage, tolerating spaces
+  const damageExprMatch = fullDamage.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
+  const damageExpr = damageExprMatch
+    ? (damageExprMatch[2]
+        ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}`
+        : damageExprMatch[1])
+    : '';
+  const damageLabel = `${item.name} damage`;
+
+  function fireAttack(mod: number, mapLabel: string, e: React.MouseEvent) {
+    if (!damageExpr) {
+      // No damage — just open a plain attack roll
+      const expr = `1d20${mod >= 0 ? `+${mod}` : mod}`;
+      e.stopPropagation();
+      // fall through to onRollAttack which handles no-damage gracefully
+    }
+    onRollAttack(mod, `${item.name}${mapLabel}`, damageExpr, damageLabel, traits, e);
+  }
 
   return (
     <p className={styles.attackLine}>
       <span className={styles.attackTypeLabel}>{typeLabel}</span>
       {' ◆ '}
-      <strong>{item.name}</strong>
-      {bonus != null && (
+      {bonus != null ? (
         <>
-          {' '}
-          {formatMod(bonus)} <span className={styles.mapBracket}>{mapStr}</span>
+          {/* Primary attack: name + bonus */}
+          <span
+            className={styles.rollMod}
+            title="Roll attack (1st action)"
+            onClick={e => fireAttack(bonus, '', e)}
+          >
+            <strong>{item.name}</strong> {formatMod(bonus)}
+          </span>
+          {/* MAP brackets — each individually clickable */}
+          {map2 != null && map3 != null && (
+            <span className={styles.mapBracket}>
+              {' ['}
+              <span
+                className={styles.mapRoll}
+                title="Roll attack (2nd action, MAP)"
+                onClick={e => fireAttack(map2, ' (MAP 2)', e)}
+              >
+                {formatMod(map2)}
+              </span>
+              {'/'}
+              <span
+                className={styles.mapRoll}
+                title="Roll attack (3rd action, MAP)"
+                onClick={e => fireAttack(map3, ' (MAP 3)', e)}
+              >
+                {formatMod(map3)}
+              </span>
+              {']'}
+            </span>
+          )}
         </>
+      ) : (
+        <strong>{item.name}</strong>
       )}
-      {traitStr && (
+      {traitHtml && (
         <>
           {' '}
-          <span className={styles.attackTraits}>{traitStr}</span>
+          <span
+            className={styles.attackTraits}
+            dangerouslySetInnerHTML={{ __html: traitHtml }}
+          />
         </>
       )}
       {fullDamage && (
         <>
-          , <strong>Damage</strong> {fullDamage}
+          {', '}
+          {damageExpr ? (
+            <span
+              className={styles.rollMod}
+              title="Roll damage"
+              onClick={e => onRollDamage(damageExpr, damageLabel, traits, e)}
+            >
+              <strong>Damage</strong> {fullDamage}
+            </span>
+          ) : (
+            <><strong>Damage</strong> {fullDamage}</>
+          )}
         </>
       )}
     </p>

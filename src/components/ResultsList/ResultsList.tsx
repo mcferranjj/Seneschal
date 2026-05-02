@@ -15,6 +15,7 @@ interface ResultsListProps {
   onSortChange: (sort: 'name' | 'level') => void;
   filtersOpen: boolean;
   onToggleFilters: () => void;
+  onOpenWizard: () => void;
 }
 
 export function ResultsList({
@@ -30,6 +31,7 @@ export function ResultsList({
   onSortChange,
   filtersOpen,
   onToggleFilters,
+  onOpenWizard,
 }: ResultsListProps) {
   const toolbar = (
     <div className={styles.toolbar}>
@@ -114,15 +116,18 @@ export function ResultsList({
     <>
       {toolbar}
       <div className={styles.list} role="listbox" aria-label="Creature results">
-      {results.map(c => (
-        <CreatureRow
-          key={c.id}
-          creature={c}
-          isSelected={c.id === selectedId}
-          onClick={() => onSelect(c)}
-          onAddToEncounter={onAddToEncounter}
-        />
-      ))}
+        <button className={styles.addCustomBtn} onClick={onOpenWizard}>
+          ＋ Custom Creature
+        </button>
+        {results.map(c => (
+          <CreatureRow
+            key={c.id}
+            creature={c}
+            isSelected={c.id === selectedId}
+            onClick={() => onSelect(c)}
+            onAddToEncounter={onAddToEncounter}
+          />
+        ))}
       </div>
     </>
   );

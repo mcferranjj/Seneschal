@@ -161,10 +161,15 @@ export function stripFoundryMacros(html: string): string {
 // Wrap dice expressions and modifiers in clickable spans for the dice roller.
 // Matches: "2d6+3", "1d20", "+7", "-3" (but not lone digits like HP values)
 export function linkRolls(html: string): string {
-  return html.replace(/>([^<]+)</g, (match, text) => {
+  return html.replace(/>([^<]+)</g, (_match, text) => {
     const linked = text.replace(
       /\b(\d+d\d+(?:[+-]\d+)?)\b|(?<!\d)([+-]\d+)(?!\d)/g,
-      (m: string) => `<span class="pf2roll" data-expr="${m.trim()}">${m}</span>`
+      (m: string) => {
+        const expr = m.trim();
+        // Pure dice (e.g. 2d6) → label "Damage"; modifier (e.g. +7) → label "Check"
+        const label = /d/i.test(expr) ? 'Damage' : 'Check';
+        return `<span class="pf2roll" data-expr="${expr}" data-label="${label}">${m}</span>`;
+      }
     );
     return `>${linked}<`;
   });
@@ -219,7 +224,7 @@ const KEYWORD_REGEX = new RegExp(
 
 export function linkKeywords(html: string): string {
   // Only process text nodes, not inside HTML tags or existing attributes
-  return html.replace(/>([^<]+)</g, (match, text) => {
+  return html.replace(/>([^<]+)</g, (_match, text) => {
     const linked = text.replace(KEYWORD_REGEX, (kw: string) => {
       // Look up canonical key (case-insensitive)
       const key = Object.keys(KEYWORDS).find(k => k.toLowerCase() === kw.toLowerCase()) ?? kw;

@@ -1,6 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbility } from '../../types/encounter';
+import type { RollHistoryEntry } from '../../types/diceHistory';
+import { DiceRoller } from '../DiceRoller/DiceRoller';
 import styles from './EncounterManager.module.css';
+
+const PF2E_CONDITIONS = [
+  'Blinded', 'Clumsy', 'Confused', 'Controlled', 'Dazzled', 'Deafened',
+  'Doomed', 'Drained', 'Dying', 'Encumbered', 'Enfeebled', 'Fascinated',
+  'Fatigued', 'Fleeing', 'Frightened', 'Grabbed', 'Hidden', 'Immobilized',
+  'Invisible', 'Off-Guard', 'Paralyzed', 'Petrified', 'Persistent Damage',
+  'Prone', 'Quickened', 'Restrained', 'Sickened', 'Slowed', 'Stunned',
+  'Stupefied', 'Unconscious', 'Undetected',
+];
+
+// Conditions that take a numeric value
+const VALUED_CONDITIONS = new Set([
+  'clumsy', 'doomed', 'drained', 'dying', 'enfeebled', 'frightened',
+  'quickened', 'sickened', 'slowed', 'stunned', 'stupefied', 'persistent damage',
+]);
 
 // Source: GM Core Remaster Tables 9-2 through 9-4 via 2e.aonprd.com/Rules.aspx?ID=2874
 // HP uses midpoints of the per-level ranges; level 25 is extrapolated.
@@ -216,11 +233,15 @@ interface EncounterManagerProps {
   onPartySizeChange: (size: number) => void;
   onPartyLevelChange: (level: number) => void;
   onAddEncounter: () => void;
+  onRenameEncounter: (idx: number, name: string) => void;
+  onDeleteEncounter: (idx: number) => void;
   onRemoveCreature: (uid: string) => void;
   onUpdateHP: (uid: string, delta: number) => void;
-  onAddCustomCreature: (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: CustomAttack[], abilities?: CustomAbility[]) => void;
+  onSetHP: (uid: string, newHp: number) => void;
+  onAddCustomCreature: (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: CustomAttack[], abilities?: CustomAbility[], isEnemy?: boolean) => void;
   onSelectCreature: (id: string) => void;
   onUpdateConditions: (uid: string, conditions: Condition[]) => void;
+  onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
 }
 
 function xpFor(monsterLevel: number, partyLevel: number): number {
@@ -259,11 +280,15 @@ export function EncounterManager({
   onPartySizeChange,
   onPartyLevelChange,
   onAddEncounter,
+  onRenameEncounter,
+  onDeleteEncounter,
   onRemoveCreature,
   onUpdateHP,
+  onSetHP,
   onAddCustomCreature,
   onSelectCreature,
   onUpdateConditions,
+  onRoll,
 }: EncounterManagerProps) {
   const [combatMode, setCombatMode] = useState(false);
   const [round, setRound] = useState(1);
@@ -271,6 +296,7 @@ export function EncounterManager({
   const [combatCreatures, setCombatCreatures] = useState<CombatCreature[]>([]);
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [wizardStep, setWizardStep] = useState(0); // 0=name/level, 1=stats
+  const [useQuickWizard, setUseQuickWizard] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customLevel, setCustomLevel] = useState(1);
   const [customHp, setCustomHp] = useState(20);
@@ -285,8 +311,22 @@ export function EncounterManager({
   const [willTier, setWillTier] = useState<SaveTier>('moderate');
   const [customAttacks, setCustomAttacks] = useState<AttackDraft[]>([]);
   const [customAbilities, setCustomAbilities] = useState<CustomAbility[]>([]);
-  const [conditionTarget, setConditionTarget] = useState<string | null>(null); // uid
-  const [conditionInput, setConditionInput] = useState('');
+  const [conditionPickerUid, setConditionPickerUid] = useState<string | null>(null);
+  const conditionTarget = null; // legacy; not used after structured picker
+  void conditionTarget;
+  const [conditionValueUid, setConditionValueUid] = useState<string | null>(null);
+  const [pendingConditionName, setPendingConditionName] = useState('');
+
+  // Dice roller
+  const [diceRoll, setDiceRoll] = useState<{ expr: string; label?: string; x: number; y: number } | null>(null);
+
+  // Encounter tab rename/delete
+  const [renamingTab, setRenamingTab] = useState<number | null>(null);
+  const [renameVal, setRenameVal] = useState('');
+  const [confirmDeleteTab, setConfirmDeleteTab] = useState<number | null>(null);
+
+  // isEnemy checkbox in wizard
+  const [wizardIsEnemy, setWizardIsEnemy] = useState(true);
 
   // Inline editing
   const [editingInit, setEditingInit] = useState<string | null>(null);
@@ -332,7 +372,11 @@ export function EncounterManager({
     }
   }, [combatMode, enc.creatures]);
 
-  const totalXP = enc.creatures.reduce((s, c) => s + xpFor(c.level, partyLevel), 0);
+  // Custom creatures with isEnemy=false don't count toward XP budget
+  const totalXP = enc.creatures.reduce((s, c) => {
+    if (c.custom && c.isEnemy === false) return s;
+    return s + xpFor(c.level, partyLevel);
+  }, 0);
   const diff = getDifficulty(totalXP, partySize);
 
   // During combat, look up live HP from encounter state
@@ -379,14 +423,7 @@ export function EncounterManager({
     setActiveTurn(next);
   }
 
-  function addCondition(uid: string, input: string) {
-    const trimmed = input.trim();
-    if (!trimmed) return;
-    // Parse "Frightened 2" or "Prone" or "Stunned 1"
-    const m = trimmed.match(/^([a-zA-Z\s-]+?)(\s+(\d+))?$/);
-    if (!m) return;
-    const name = m[1].trim();
-    const value = m[3] ? parseInt(m[3]) : undefined;
+  function addCondition(uid: string, name: string, value?: number) {
     const creature = enc.creatures.find(c => c.uid === uid);
     if (!creature) return;
     const existing = creature.conditions.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
@@ -397,8 +434,19 @@ export function EncounterManager({
       next = [...creature.conditions, { name, value }];
     }
     onUpdateConditions(uid, next);
-    setConditionInput('');
-    setConditionTarget(null);
+    setConditionPickerUid(null);
+    setConditionValueUid(null);
+    setPendingConditionName('');
+  }
+
+  function handleConditionPick(uid: string, condName: string) {
+    if (VALUED_CONDITIONS.has(condName.toLowerCase())) {
+      setPendingConditionName(condName);
+      setConditionValueUid(uid);
+      setConditionPickerUid(null);
+    } else {
+      addCondition(uid, condName);
+    }
   }
 
   function removeCondition(uid: string, condName: string) {
@@ -436,6 +484,8 @@ export function EncounterManager({
   function openWizard() {
     setCustomName('');
     setCustomLevel(partyLevel);
+    setUseQuickWizard(false);
+    setWizardIsEnemy(false);
     applyTiers(partyLevel);
     setWizardStep(0);
     setShowCustomForm(true);
@@ -444,6 +494,11 @@ export function EncounterManager({
   function wizardNext() {
     if (wizardStep === 0) {
       if (!customName.trim()) return;
+      if (!useQuickWizard) {
+        onAddCustomCreature(customName.trim(), customLevel, undefined, undefined, undefined, undefined, undefined, undefined, undefined, wizardIsEnemy);
+        setShowCustomForm(false);
+        return;
+      }
       applyTiers(customLevel);
       setWizardStep(1);
     } else {
@@ -456,6 +511,7 @@ export function EncounterManager({
       onAddCustomCreature(customName.trim(), customLevel, customHp, customAc, customFort, customRef, customWill,
         attacks.length ? attacks : undefined,
         abilities.length ? abilities : undefined,
+        wizardIsEnemy,
       );
       setShowCustomForm(false);
     }
@@ -464,10 +520,6 @@ export function EncounterManager({
   function closeWizard() {
     setShowCustomForm(false);
     setWizardStep(0);
-  }
-
-  function handleAddCustom() {
-    wizardNext();
   }
 
   function commitInit(uid: string) {
@@ -488,10 +540,10 @@ export function EncounterManager({
     setEditingInit(null);
   }
 
-  function commitHp(uid: string, currentHp: number) {
+  function commitHp(uid: string) {
     const val = parseInt(editHpVal, 10);
     if (!isNaN(val)) {
-      onUpdateHP(uid, val - currentHp);
+      onSetHP(uid, val);
     }
     setEditingHp(null);
   }
@@ -629,13 +681,55 @@ export function EncounterManager({
       {/* Encounter tabs */}
       <div className={styles.tabs}>
         {encounters.map((en, i) => (
-          <button
+          <div
             key={en.id}
-            className={`${styles.tab} ${i === activeEnc ? styles.tabActive : ''}`}
-            onClick={() => onActiveEncChange(i)}
+            className={`${styles.tabWrapper} ${i === activeEnc ? styles.tabWrapperActive : ''}`}
           >
-            {en.name}
-          </button>
+            {renamingTab === i ? (
+              <input
+                className={styles.tabRenameInput}
+                value={renameVal}
+                autoFocus
+                onChange={e => setRenameVal(e.target.value)}
+                onBlur={() => {
+                  if (renameVal.trim()) onRenameEncounter(i, renameVal.trim());
+                  setRenamingTab(null);
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    if (renameVal.trim()) onRenameEncounter(i, renameVal.trim());
+                    setRenamingTab(null);
+                  }
+                  if (e.key === 'Escape') setRenamingTab(null);
+                }}
+              />
+            ) : (
+              <button
+                className={`${styles.tab} ${i === activeEnc ? styles.tabActive : ''}`}
+                onClick={() => onActiveEncChange(i)}
+                onDoubleClick={() => { setRenamingTab(i); setRenameVal(en.name); }}
+                title="Double-click to rename"
+              >
+                {en.name}
+              </button>
+            )}
+            {confirmDeleteTab === i ? (
+              <span className={styles.tabDeleteConfirm}>
+                <button className={styles.tabDeleteYes} onClick={() => { onDeleteEncounter(i); setConfirmDeleteTab(null); }}>✓</button>
+                <button className={styles.tabDeleteNo} onClick={() => setConfirmDeleteTab(null)}>✕</button>
+              </span>
+            ) : (
+              i === activeEnc && encounters.length > 1 && (
+                <button
+                  className={styles.tabDeleteBtn}
+                  onClick={() => setConfirmDeleteTab(i)}
+                  title="Delete encounter"
+                >
+                  ×
+                </button>
+              )
+            )}
+          </div>
         ))}
         <button className={styles.addTabBtn} onClick={onAddEncounter} title="New encounter">
           ＋
@@ -701,31 +795,34 @@ export function EncounterManager({
                 Click <strong>+</strong> on any creature to add it
               </div>
             )}
-            {enc.creatures.map(c => (
-              <div key={c.uid} className={styles.creatureCard}>
-                <div className={styles.creatureInfo}>
-                  <span
-                    className={`${styles.creatureName} ${c.creatureId ? styles.creatureNameClickable : ''}`}
-                    onClick={() => c.creatureId && onSelectCreature(c.creatureId)}
-                    title={c.creatureId ? 'View statblock' : undefined}
-                  >
-                    {c.name}
-                  </span>
-                  <span className={styles.creatureMeta}>
-                    Lvl {c.level} · {xpFor(c.level, partyLevel)} XP
-                  </span>
+            {enc.creatures.map(c => {
+              const xp = (c.custom && c.isEnemy === false) ? 0 : xpFor(c.level, partyLevel);
+              return (
+                <div key={c.uid} className={styles.creatureCard}>
+                  <div className={styles.creatureInfo}>
+                    <span
+                      className={`${styles.creatureName} ${c.creatureId ? styles.creatureNameClickable : ''}`}
+                      onClick={() => c.creatureId && onSelectCreature(c.creatureId)}
+                      title={c.creatureId ? 'View statblock' : undefined}
+                    >
+                      {c.name}
+                    </span>
+                    <span className={styles.creatureMeta}>
+                      Lvl {c.level}{xp > 0 ? ` · ${xp} XP` : ''}
+                    </span>
+                  </div>
+                  <button className={styles.removeBtn} onClick={() => onRemoveCreature(c.uid)}>
+                    ✕
+                  </button>
                 </div>
-                <button className={styles.removeBtn} onClick={() => onRemoveCreature(c.uid)}>
-                  ✕
-                </button>
-              </div>
-            ))}
+              );
+            })}
 
             {showCustomForm ? (
               <div className={styles.customForm}>
                 {wizardStep === 0 ? (
                   <>
-                    <div className={styles.wizardTitle}>Custom Creature — Name & Level</div>
+                    <div className={styles.wizardTitle}>Placeholder Creature — Name & Level</div>
                     <input
                       className={styles.customInput}
                       value={customName}
@@ -734,6 +831,24 @@ export function EncounterManager({
                       placeholder="Name…"
                       onKeyDown={e => e.key === 'Enter' && wizardNext()}
                     />
+                    <div className={styles.wizardCheckRow}>
+                      <label className={styles.quickWizardCheck}>
+                        <input
+                          type="checkbox"
+                          checked={useQuickWizard}
+                          onChange={e => setUseQuickWizard(e.target.checked)}
+                        />
+                        Use quick wizard?
+                      </label>
+                      <label className={styles.quickWizardCheck}>
+                        <input
+                          type="checkbox"
+                          checked={wizardIsEnemy}
+                          onChange={e => setWizardIsEnemy(e.target.checked)}
+                        />
+                        Enemy?
+                      </label>
+                    </div>
                     <div className={styles.customLevelRow}>
                       <span className={styles.partyLabel}>Level</span>
                       <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}>−</button>
@@ -741,7 +856,9 @@ export function EncounterManager({
                       <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.min(25, l + 1))}>+</button>
                     </div>
                     <div className={styles.customActions}>
-                      <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>Next →</button>
+                      <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>
+                        {useQuickWizard ? 'Next →' : 'Add'}
+                      </button>
                       <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
                     </div>
                   </>
@@ -765,7 +882,7 @@ export function EncounterManager({
                 className={styles.addPlaceholderBtn}
                 onClick={openWizard}
               >
-                ＋ Add Custom Creature
+                ＋ Add Placeholder Creature
               </button>
             )}
           </div>
@@ -802,6 +919,7 @@ export function EncounterManager({
                   className={`${styles.combatCard} ${isActive ? styles.combatCardActive : ''}`}
                 >
                   <div className={styles.combatCardTop}>
+                    {/* Initiative badge */}
                     {editingInit === c.uid ? (
                       <input
                         className={styles.initInput}
@@ -824,6 +942,8 @@ export function EncounterManager({
                         {c.init}
                       </div>
                     )}
+
+                    {/* Name + defenses block */}
                     <div className={styles.combatCreatureInfo}>
                       <span
                         className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''} ${c.creatureId ? styles.creatureNameClickable : ''}`}
@@ -833,70 +953,49 @@ export function EncounterManager({
                         {c.name}
                         {isActive && <span className={styles.activePill}>ACTIVE</span>}
                       </span>
-                      <span className={styles.combatAC}>AC {c.ac}</span>
-                    </div>
-                    {(c.fort != null || c.ref != null || c.will != null) && (
-                      <div className={styles.combatSaves}>
-                        {c.fort != null && <span>F {c.fort >= 0 ? `+${c.fort}` : c.fort}</span>}
-                        {c.ref  != null && <span>R {c.ref  >= 0 ? `+${c.ref}`  : c.ref}</span>}
-                        {c.will != null && <span>W {c.will >= 0 ? `+${c.will}` : c.will}</span>}
-                      </div>
-                    )}
-                    {c.attacks && c.attacks.length > 0 && (
-                      <div className={styles.combatAttacks}>
-                        {c.attacks.map((atk, ai) => (
-                          <div key={ai} className={styles.combatAtkRow}>
-                            <span className={styles.combatAtkIcon}>{atk.type === 'melee' ? '⚔' : '🏹'}</span>
-                            <span className={styles.combatAtkName}>{atk.name}</span>
-                            <span className={styles.combatAtkBonus}>{atk.bonus >= 0 ? `+${atk.bonus}` : atk.bonus}</span>
-                            <span className={styles.combatAtkDmg}>{atk.damage}</span>
-                            {atk.range != null && <span className={styles.combatAtkRange}>{atk.range}ft</span>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {c.abilities && c.abilities.length > 0 && (
-                      <div className={styles.combatAbilities}>
-                        {c.abilities.map((ab, ai) => (
-                          <span key={ai} className={styles.combatAbilityChip} title={ab.description || undefined}>{ab.name}</span>
-                        ))}
-                      </div>
-                    )}
-                    {/* Conditions */}
-                    <div className={styles.conditionRow}>
-                      {c.conditions.map(cond => (
+                      <div className={styles.combatDefenseRow}>
                         <span
-                          key={cond.name}
-                          className={styles.conditionChip}
-                          title={`Remove ${cond.name}`}
-                          onClick={() => removeCondition(c.uid, cond.name)}
+                          className={styles.combatDefStat}
+                          title="Armor Class"
+                          onClick={e => c.ac > 0 && setDiceRoll({ expr: `1d20`, label: 'Armor Class', x: e.clientX, y: e.clientY - 160 })}
                         >
-                          {cond.name}{cond.value != null ? ` ${cond.value}` : ''} ×
+                          <span className={styles.combatDefLabel}>AC</span>
+                          <span className={styles.combatDefVal}>{c.ac > 0 ? c.ac : '—'}</span>
                         </span>
-                      ))}
-                      {conditionTarget === c.uid ? (
-                        <input
-                          className={styles.conditionInput}
-                          autoFocus
-                          placeholder="e.g. Prone, Frightened 2"
-                          value={conditionInput}
-                          onChange={e => setConditionInput(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') addCondition(c.uid, conditionInput);
-                            if (e.key === 'Escape') { setConditionTarget(null); setConditionInput(''); }
-                          }}
-                          onBlur={() => { setConditionTarget(null); setConditionInput(''); }}
-                        />
-                      ) : (
-                        <button
-                          className={styles.addConditionBtn}
-                          onClick={() => setConditionTarget(c.uid)}
-                          title="Add condition"
-                        >
-                          + cond
-                        </button>
-                      )}
+                        {c.fort != null && (
+                          <span
+                            className={styles.combatDefStat}
+                            title="Fortitude"
+                            onClick={e => setDiceRoll({ expr: `1d20${c.fort! >= 0 ? `+${c.fort}` : c.fort}`, label: `${c.name} · Fortitude`, x: e.clientX, y: e.clientY - 160 })}
+                          >
+                            <span className={styles.combatDefLabel}>F</span>
+                            <span className={styles.combatDefVal}>{c.fort >= 0 ? `+${c.fort}` : c.fort}</span>
+                          </span>
+                        )}
+                        {c.ref != null && (
+                          <span
+                            className={styles.combatDefStat}
+                            title="Reflex"
+                            onClick={e => setDiceRoll({ expr: `1d20${c.ref! >= 0 ? `+${c.ref}` : c.ref}`, label: `${c.name} · Reflex`, x: e.clientX, y: e.clientY - 160 })}
+                          >
+                            <span className={styles.combatDefLabel}>R</span>
+                            <span className={styles.combatDefVal}>{c.ref >= 0 ? `+${c.ref}` : c.ref}</span>
+                          </span>
+                        )}
+                        {c.will != null && (
+                          <span
+                            className={styles.combatDefStat}
+                            title="Will"
+                            onClick={e => setDiceRoll({ expr: `1d20${c.will! >= 0 ? `+${c.will}` : c.will}`, label: `${c.name} · Will`, x: e.clientX, y: e.clientY - 160 })}
+                          >
+                            <span className={styles.combatDefLabel}>W</span>
+                            <span className={styles.combatDefVal}>{c.will >= 0 ? `+${c.will}` : c.will}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    {/* HP display */}
                     {editingHp === c.uid ? (
                       <input
                         className={styles.hpInput}
@@ -904,9 +1003,9 @@ export function EncounterManager({
                         value={editHpVal}
                         autoFocus
                         onChange={e => setEditHpVal(e.target.value)}
-                        onBlur={() => commitHp(c.uid, c.hp)}
+                        onBlur={() => commitHp(c.uid)}
                         onKeyDown={e => {
-                          if (e.key === 'Enter') commitHp(c.uid, c.hp);
+                          if (e.key === 'Enter') commitHp(c.uid);
                           if (e.key === 'Escape') setEditingHp(null);
                         }}
                       />
@@ -917,8 +1016,115 @@ export function EncounterManager({
                         title="Click to set HP"
                         onClick={() => { setEditingHp(c.uid); setEditHpVal(String(c.hp)); }}
                       >
-                        {c.hp}/{c.maxHp}
+                        {c.hp}/{c.maxHp > 0 ? c.maxHp : '?'}
                       </span>
+                    )}
+                  </div>
+
+                  {/* Attacks */}
+                  {c.attacks && c.attacks.length > 0 && (
+                    <div className={styles.combatAttacks}>
+                      {c.attacks.map((atk, ai) => (
+                        <div key={ai} className={styles.combatAtkRow}>
+                          <span className={styles.combatAtkIcon}>{atk.type === 'melee' ? '⚔' : '🏹'}</span>
+                          <span
+                            className={`${styles.combatAtkName} ${styles.rollable}`}
+                            title="Click to roll attack"
+                            onClick={e => setDiceRoll({ expr: `1d20${atk.bonus >= 0 ? `+${atk.bonus}` : atk.bonus}`, label: `${c.name} · ${atk.name}`, x: e.clientX, y: e.clientY - 160 })}
+                          >
+                            {atk.name} {atk.bonus >= 0 ? `+${atk.bonus}` : atk.bonus}
+                          </span>
+                          <span
+                            className={`${styles.combatAtkDmg} ${styles.rollable}`}
+                            title="Click to roll damage"
+                            onClick={e => setDiceRoll({ expr: atk.damage, label: `${c.name} · ${atk.name} dmg`, x: e.clientX, y: e.clientY - 160 })}
+                          >
+                            {atk.damage}
+                          </span>
+                          {atk.range != null && <span className={styles.combatAtkRange}>{atk.range}ft</span>}
+                          {atk.traits && atk.traits.length > 0 && (
+                            <span className={styles.combatAtkTraits}>{atk.traits.join(', ')}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Abilities */}
+                  {c.abilities && c.abilities.length > 0 && (
+                    <div className={styles.combatAbilities}>
+                      {c.abilities.map((ab, ai) => (
+                        <span key={ai} className={styles.combatAbilityChip} title={ab.description || undefined}>
+                          {ab.actionType === 'single' && <span className={styles.actionIcon}>◆</span>}
+                          {ab.actionType === 'two' && <span className={styles.actionIcon}>◆◆</span>}
+                          {ab.actionType === 'three' && <span className={styles.actionIcon}>◆◆◆</span>}
+                          {ab.actionType === 'reaction' && <span className={styles.actionIcon}>↺</span>}
+                          {ab.actionType === 'free' && <span className={styles.actionIcon}>⟳</span>}
+                          {ab.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Conditions */}
+                  <div className={styles.conditionRow}>
+                    {c.conditions.map(cond => (
+                      <span
+                        key={cond.name}
+                        className={styles.conditionChip}
+                        title={`Remove ${cond.name}`}
+                        onClick={() => removeCondition(c.uid, cond.name)}
+                      >
+                        {cond.name}{cond.value != null ? ` ${cond.value}` : ''} ×
+                      </span>
+                    ))}
+                    {conditionValueUid === c.uid ? (
+                      <div className={styles.conditionValueRow}>
+                        <span className={styles.conditionValueLabel}>{pendingConditionName}</span>
+                        <input
+                          className={styles.conditionValueInput}
+                          type="number"
+                          min={1}
+                          max={20}
+                          defaultValue={1}
+                          autoFocus
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              addCondition(c.uid, pendingConditionName, parseInt((e.target as HTMLInputElement).value) || 1);
+                            }
+                            if (e.key === 'Escape') { setConditionValueUid(null); setPendingConditionName(''); }
+                          }}
+                          onBlur={e => {
+                            addCondition(c.uid, pendingConditionName, parseInt(e.target.value) || 1);
+                          }}
+                        />
+                      </div>
+                    ) : conditionPickerUid === c.uid ? (
+                      <div className={styles.conditionPicker}>
+                        {PF2E_CONDITIONS.map(cond => (
+                          <button
+                            key={cond}
+                            className={styles.conditionPickerBtn}
+                            onClick={() => handleConditionPick(c.uid, cond)}
+                          >
+                            {cond}
+                          </button>
+                        ))}
+                        <button
+                          className={`${styles.conditionPickerBtn} ${styles.conditionPickerClose}`}
+                          onClick={() => setConditionPickerUid(null)}
+                        >
+                          ✕ Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className={styles.addConditionBtn}
+                        onClick={() => setConditionPickerUid(c.uid)}
+                        title="Add condition"
+                      >
+                        + cond
+                      </button>
                     )}
                   </div>
                   <div className={styles.hpBar}>
@@ -956,6 +1162,24 @@ export function EncounterManager({
                       placeholder="Name…"
                       onKeyDown={e => e.key === 'Enter' && wizardNext()}
                     />
+                    <div className={styles.wizardCheckRow}>
+                      <label className={styles.quickWizardCheck}>
+                        <input
+                          type="checkbox"
+                          checked={useQuickWizard}
+                          onChange={e => setUseQuickWizard(e.target.checked)}
+                        />
+                        Use quick wizard?
+                      </label>
+                      <label className={styles.quickWizardCheck}>
+                        <input
+                          type="checkbox"
+                          checked={wizardIsEnemy}
+                          onChange={e => setWizardIsEnemy(e.target.checked)}
+                        />
+                        Enemy?
+                      </label>
+                    </div>
                     <div className={styles.customLevelRow}>
                       <span className={styles.partyLabel}>Level</span>
                       <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}>−</button>
@@ -963,7 +1187,9 @@ export function EncounterManager({
                       <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.min(25, l + 1))}>+</button>
                     </div>
                     <div className={styles.customActions}>
-                      <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>Next →</button>
+                      <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>
+                        {useQuickWizard ? 'Next →' : 'Add'}
+                      </button>
                       <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
                     </div>
                   </>
@@ -990,6 +1216,17 @@ export function EncounterManager({
             )}
           </div>
         </div>
+      )}
+
+      {diceRoll && (
+        <DiceRoller
+          expression={diceRoll.expr}
+          label={diceRoll.label}
+          anchorX={diceRoll.x}
+          anchorY={diceRoll.y}
+          onClose={() => setDiceRoll(null)}
+          onRoll={onRoll}
+        />
       )}
     </div>
   );

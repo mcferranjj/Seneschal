@@ -552,6 +552,7 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
             sizes: [],
             rarities: [],
             packSources: [],
+            sortBy: filters.sortBy,
           })
         }
         disabled={disabled}

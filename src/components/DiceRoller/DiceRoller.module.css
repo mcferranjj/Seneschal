@@ -6,20 +6,38 @@
   border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
   padding: 10px 14px 10px;
-  min-width: 140px;
+  width: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   transform: translateX(-50%);
 }
 
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   width: 100%;
   gap: 8px;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .expr {
@@ -48,19 +66,31 @@
   font-family: 'Cinzel', Georgia, serif;
   font-size: 2.2rem;
   font-weight: 700;
-  color: var(--crimson);
   line-height: 1;
   padding: 4px 0 2px;
 }
 
+.totalNormal {
+  color: var(--text);
+}
+
 .totalCrit {
-  color: var(--gold);
+  color: var(--gold, #c8922a);
+}
+
+.totalFumble {
+  color: #c03030;
 }
 
 .breakdown {
   font-family: 'DM Mono', monospace;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--text-mute);
+  text-align: center;
+  line-height: 1.5;
+  width: 100%;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .rerollBtn {
@@ -84,4 +114,91 @@
 .hint {
   font-size: 0.65rem;
   opacity: 0.65;
+}
+
+/* ── Damage sub-section ── */
+.damageSection {
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.damageSectionHeader {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.damageSectionLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.damageSectionExpr {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--text-mute);
+  font-weight: 600;
+}
+
+.damageActions {
+  display: flex;
+  gap: 5px;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.damageActions .rerollBtn {
+  flex: 1;
+  margin-top: 0;
+}
+
+.critBtn {
+  flex: 1;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: #5a3a0a;
+  color: var(--gold, #c8922a);
+  border: 1px solid var(--gold, #c8922a);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+  letter-spacing: 0.02em;
+}
+
+.critBtn:hover {
+  opacity: 0.88;
+}
+
+.critBtnActive {
+  background: var(--gold, #c8922a);
+  color: #2a1a00;
+  border-color: var(--gold, #c8922a);
+}
+
+.critBtnActive:hover {
+  opacity: 0.9;
+}
+
+/* ── Crit banner shown in damage header when crit is active ── */
+.critBanner {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--gold, #c8922a);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 2px;
 }

@@ -17,8 +17,18 @@
   overflow-x: auto;
 }
 
+.tabWrapper {
+  display: flex;
+  align-items: center;
+  border-bottom: 2px solid transparent;
+}
+
+.tabWrapperActive {
+  border-bottom-color: var(--crimson);
+}
+
 .tab {
-  padding: 8px 10px;
+  padding: 8px 6px 8px 10px;
   font-size: 0.72rem;
   font-weight: 400;
   white-space: nowrap;
@@ -26,14 +36,71 @@
   border: none;
   background: none;
   color: var(--text-mute);
-  border-bottom: 2px solid transparent;
   transition: color 0.12s;
 }
 
 .tabActive {
   font-weight: 700;
   color: var(--crimson);
-  border-bottom-color: var(--crimson);
+}
+
+.tabRenameInput {
+  padding: 4px 6px;
+  font-size: 0.72rem;
+  border: 1px solid var(--crimson);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  width: 90px;
+  outline: none;
+}
+
+.tabDeleteBtn {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: none;
+  border: none;
+  color: var(--text-mute);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 3px;
+}
+
+.tabDeleteBtn:hover {
+  color: var(--crimson);
+}
+
+.tabDeleteConfirm {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 3px;
+}
+
+.tabDeleteYes {
+  font-size: 10px;
+  padding: 0 3px;
+  border-radius: 2px;
+  border: none;
+  background: var(--crimson);
+  color: #f0e6cc;
+  cursor: pointer;
+}
+
+.tabDeleteNo {
+  font-size: 10px;
+  padding: 0 3px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-mute);
+  cursor: pointer;
 }
 
 .addTabBtn {
@@ -270,6 +337,22 @@
   font-size: 0.68rem;
   color: var(--text-mute);
   margin-top: -2px;
+}
+
+.wizardCheckRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quickWizardCheck {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--text-mid);
+  cursor: pointer;
+  user-select: none;
 }
 
 .wizardStatList {
@@ -592,6 +675,12 @@
   font-size: 0.6rem;
 }
 
+.combatAtkTraits {
+  color: var(--text-mute);
+  font-size: 0.6rem;
+  font-style: italic;
+}
+
 .combatAbilities {
   display: flex;
   flex-wrap: wrap;
@@ -614,6 +703,12 @@
 
 .combatAbilityChip[title] {
   cursor: help;
+}
+
+.actionIcon {
+  margin-right: 3px;
+  font-size: 0.6rem;
+  opacity: 0.75;
 }
 
 .customActions {
@@ -817,26 +912,128 @@
   flex-shrink: 0;
 }
 
-.combatAC {
-  font-size: 0.67rem;
-  color: var(--text-mute);
+.combatDefenseRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  flex-wrap: wrap;
 }
 
-.combatSaves {
+.combatDefStat {
   display: flex;
-  gap: 8px;
-  font-size: 0.63rem;
-  font-family: 'DM Mono', monospace;
+  align-items: baseline;
+  gap: 2px;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 2px;
+  transition: background 0.1s;
+}
+
+.combatDefStat:hover {
+  background: var(--border-l);
+}
+
+.combatDefLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
   color: var(--text-mute);
-  padding-top: 1px;
+  text-transform: uppercase;
+}
+
+.combatDefVal {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-mid);
+}
+
+/* rollable spans (attack bonus, damage) */
+.rollable {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 2px;
+  transition: background 0.1s;
+}
+
+.rollable:hover {
+  background: var(--border-l);
 }
 
 .conditionRow {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
-  margin-top: 3px;
+  margin-top: 5px;
   align-items: center;
+}
+
+.conditionPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 3px;
+  width: 100%;
+}
+
+.conditionPickerBtn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-mute);
+  font-size: 0.6rem;
+  padding: 1px 6px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.conditionPickerBtn:hover {
+  border-color: #5a3a8a;
+  color: #5a3a8a;
+  background: rgba(90, 58, 138, 0.08);
+}
+
+.conditionPickerClose {
+  border-color: var(--border);
+  color: var(--text-mute);
+}
+
+.conditionPickerClose:hover {
+  border-color: var(--crimson) !important;
+  color: var(--crimson) !important;
+  background: none !important;
+}
+
+.conditionValueRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.conditionValueLabel {
+  font-size: 0.68rem;
+  color: var(--text-mid);
+  font-weight: 600;
+}
+
+.conditionValueInput {
+  width: 44px;
+  padding: 1px 4px;
+  border: 1px solid var(--crimson);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.72rem;
+  text-align: center;
+  font-family: 'DM Mono', monospace;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.conditionValueInput::-webkit-inner-spin-button,
+.conditionValueInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
 }
 
 .conditionChip {
