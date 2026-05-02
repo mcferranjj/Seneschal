@@ -12,29 +12,32 @@ export interface ParsedDice {
 }
 
 export function parseDice(expr: string): ParsedDice | null {
-  // Normalize: collapse spaces around +/-, strip trailing text ("slashing", etc.)
-  const normalized = expr
-    .trim()
-    .replace(/\s*([+-])\s*/g, '$1')
-    .replace(/^(\d+d\d+(?:[+-]\d+)?).*$/i, '$1')
-    .trim();
+  // Normalize: collapse spaces around +/-
+  const spaceNorm = expr.trim().replace(/\s*([+-])\s*/g, '$1');
 
-  // Pure modifier "+7" / "-3" → 1d20+mod
-  const modOnly = normalized.match(/^([+-]\d+)$/);
+  // Strip trailing non-numeric text (e.g. "slashing", "fire") — keep only the dice math
+  const mathOnly = spaceNorm.replace(/^(\d+d\d+(?:[+-]\d+)*).*$/i, '$1');
+
+  // Pure modifier "+7" / "-3" → treat as 1d20+mod
+  const modOnly = mathOnly.match(/^([+-]\d+)$/);
   if (modOnly) {
     const mod = parseInt(modOnly[1]);
-    return { count: 1, sides: 20, modifier: mod, raw: normalized };
+    return { count: 1, sides: 20, modifier: mod, raw: mathOnly };
   }
-  // Full dice expression
-  const full = normalized.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
-  if (full) {
-    return {
-      count: parseInt(full[1]),
-      sides: parseInt(full[2]),
-      modifier: full[3] ? parseInt(full[3]) : 0,
-      raw: normalized,
-    };
+
+  // Extract dice portion and all subsequent +/- terms, then sum them into one modifier
+  const diceMatch = mathOnly.match(/^(\d+)d(\d+)((?:[+-]\d+)*)$/i);
+  if (diceMatch) {
+    const count = parseInt(diceMatch[1]);
+    const sides = parseInt(diceMatch[2]);
+    // Sum all modifier terms: e.g. "+1-3" → [+1, -3] → -2
+    const modTerms = diceMatch[3].match(/[+-]\d+/g) ?? [];
+    const modifier = modTerms.reduce((sum, t) => sum + parseInt(t), 0);
+    // Rebuild a clean canonical expression
+    const raw = `${count}d${sides}${modifier > 0 ? `+${modifier}` : modifier < 0 ? `${modifier}` : ''}`;
+    return { count, sides, modifier, raw };
   }
+
   return null;
 }
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbility } from '../../types/encounter';
 import type { RollHistoryEntry } from '../../types/diceHistory';
-import { computePenalties } from '../../types/conditionEffects';
+import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
 import { DiceRoller } from '../DiceRoller/DiceRoller';
 import styles from './EncounterManager.module.css';
 
@@ -1072,31 +1072,38 @@ export function EncounterManager({
                   {c.attacks && c.attacks.length > 0 && (
                     <div className={styles.combatAttacks}>
                       {c.attacks.map((atk, ai) => {
-                        const atkPen = computePenalties(c.conditions);
-                        const effBonus = atk.bonus + atkPen.attack;
+                        const traits = atk.traits ?? [];
+                        const atkRollPen = computeAttackPenalty(c.conditions, atk.type, traits, c.strMod, c.dexMod);
+                        const dmgPen = computeDamagePenalty(c.conditions, atk.type, traits);
+                        const effBonus = atk.bonus + atkRollPen;
+                        // Build a damage expression adjusted by flat enfeebled penalty
+                        const dmgExpr = dmgPen !== 0
+                          ? `${atk.damage}${dmgPen >= 0 ? `+${dmgPen}` : dmgPen}`
+                          : atk.damage;
                         return (
-                        <div key={ai} className={styles.combatAtkRow}>
-                          <span className={styles.combatAtkIcon}>{atk.type === 'melee' ? '⚔' : '🏹'}</span>
-                          <span
-                            className={`${styles.combatAtkName} ${styles.rollable}`}
-                            title="Click to roll attack"
-                            onClick={e => setDiceRoll({ expr: `1d20${effBonus >= 0 ? `+${effBonus}` : effBonus}`, label: `${c.name} · ${atk.name}`, x: e.clientX, y: e.clientY - 160 })}
-                            style={atkPen.attack !== 0 ? { color: '#c0392b' } : undefined}
-                          >
-                            {atk.name} {effBonus >= 0 ? `+${effBonus}` : effBonus}
-                          </span>
-                          <span
-                            className={`${styles.combatAtkDmg} ${styles.rollable}`}
-                            title="Click to roll damage"
-                            onClick={e => setDiceRoll({ expr: atk.damage, label: `${c.name} · ${atk.name} dmg`, x: e.clientX, y: e.clientY - 160 })}
-                          >
-                            {atk.damage}
-                          </span>
-                          {atk.range != null && <span className={styles.combatAtkRange}>{atk.range}ft</span>}
-                          {atk.traits && atk.traits.length > 0 && (
-                            <span className={styles.combatAtkTraits}>{atk.traits.join(', ')}</span>
-                          )}
-                        </div>
+                          <div key={ai} className={styles.combatAtkRow}>
+                            <span className={styles.combatAtkIcon}>{atk.type === 'melee' ? '⚔' : '🏹'}</span>
+                            <span
+                              className={`${styles.combatAtkName} ${styles.rollable}`}
+                              title="Click to roll attack"
+                              onClick={e => setDiceRoll({ expr: `1d20${effBonus >= 0 ? `+${effBonus}` : effBonus}`, label: `${c.name} · ${atk.name}`, x: e.clientX, y: e.clientY - 160 })}
+                              style={atkRollPen !== 0 ? { color: '#c0392b' } : undefined}
+                            >
+                              {atk.name} {effBonus >= 0 ? `+${effBonus}` : effBonus}
+                            </span>
+                            <span
+                              className={`${styles.combatAtkDmg} ${styles.rollable}`}
+                              title="Click to roll damage"
+                              onClick={e => setDiceRoll({ expr: dmgExpr, label: `${c.name} · ${atk.name} dmg`, x: e.clientX, y: e.clientY - 160 })}
+                              style={dmgPen !== 0 ? { color: '#c0392b' } : undefined}
+                            >
+                              {dmgExpr}
+                            </span>
+                            {atk.range != null && <span className={styles.combatAtkRange}>{atk.range}ft</span>}
+                            {traits.length > 0 && (
+                              <span className={styles.combatAtkTraits}>{traits.join(', ')}</span>
+                            )}
+                          </div>
                         );
                       })}
                     </div>

@@ -3,7 +3,7 @@ import type { CreatureRecord } from '../../db/schema';
 import type { PF2ECreature, PF2EItem } from '../../types/pf2e';
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import type { Condition } from '../../types/encounter';
-import { computePenalties } from '../../types/conditionEffects';
+import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
 import { DiceRoller, DamageRoller } from '../DiceRoller/DiceRoller';
 import { CustomCreatureWizard } from '../CustomCreatureWizard/CustomCreatureWizard';
 import {
@@ -315,7 +315,8 @@ function StatblockContent({
     }
   }, []);
 
-  const pen = computePenalties(activeConditions ?? []);
+  const activeConditionList = activeConditions ?? [];
+  const pen = computePenalties(activeConditionList);
   const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
 
   const c = creature.data as PF2ECreature;
@@ -593,7 +594,15 @@ function StatblockContent({
         </p>
 
         {attacks.map(item => (
-          <AttackBlock key={item._id} item={item} onRollAttack={rollAttack} onRollDamage={rollDamage} />
+          <AttackBlock
+            key={item._id}
+            item={item}
+            onRollAttack={rollAttack}
+            onRollDamage={rollDamage}
+            conditions={activeConditionList}
+            strMod={str}
+            dexMod={dex}
+          />
         ))}
 
         {offenseActions.map(item => (
@@ -646,10 +655,13 @@ function StatblockContent({
   );
 }
 
-function AttackBlock({ item, onRollAttack, onRollDamage }: {
+function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod, dexMod }: {
   item: PF2EItem;
   onRollAttack: (mod: number, label: string, damageExpr: string, damageLabel: string, damageTraits: string[], e: React.MouseEvent) => void;
   onRollDamage: (expr: string, label: string, traits: string[], e: React.MouseEvent) => void;
+  conditions?: Condition[];
+  strMod?: number;
+  dexMod?: number;
 }) {
   const bonus = item.system?.bonus?.value;
   const damage = getDamageString(item.system?.damageRolls);
@@ -661,11 +673,20 @@ function AttackBlock({ item, onRollAttack, onRollDamage }: {
     item.system?.category === 'ranged' ||
     item.system?.range?.increment != null ||
     traits.some(t => t.startsWith('thrown'));
+  const attackType = isRanged ? 'ranged' : 'melee';
   const typeLabel = isRanged ? 'Ranged' : 'Melee';
   const isAgile = traits.includes('agile');
 
-  const map2 = bonus != null ? bonus - (isAgile ? 4 : 5) : null;
-  const map3 = bonus != null ? bonus - (isAgile ? 8 : 10) : null;
+  // Condition-aware penalties for this specific attack
+  const atkRollPen = computeAttackPenalty(conditions, attackType, traits, strMod, dexMod);
+  const dmgPen = computeDamagePenalty(conditions, attackType, traits);
+  const isDebuffedAtk = atkRollPen !== 0;
+  const isDebuffedDmg = dmgPen !== 0;
+  const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
+
+  const effBonus = bonus != null ? bonus + atkRollPen : null;
+  const map2 = effBonus != null ? effBonus - (isAgile ? 4 : 5) : null;
+  const map3 = effBonus != null ? effBonus - (isAgile ? 8 : 10) : null;
 
   const range = item.system?.range;
   const rangeDisplay =
@@ -683,11 +704,15 @@ function AttackBlock({ item, onRollAttack, onRollDamage }: {
 
   // Extract the first dice+modifier from fullDamage, tolerating spaces
   const damageExprMatch = fullDamage.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
-  const damageExpr = damageExprMatch
+  const baseDamageExpr = damageExprMatch
     ? (damageExprMatch[2]
         ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}`
         : damageExprMatch[1])
     : '';
+  // Apply flat enfeebled damage penalty to the roll expression
+  const damageExpr = baseDamageExpr && dmgPen !== 0
+    ? `${baseDamageExpr}${dmgPen >= 0 ? `+${dmgPen}` : dmgPen}`
+    : baseDamageExpr;
   const damageLabel = `${item.name} damage`;
 
   function fireAttack(mod: number, mapLabel: string, e: React.MouseEvent) {
@@ -700,23 +725,27 @@ function AttackBlock({ item, onRollAttack, onRollDamage }: {
     onRollAttack(mod, `${item.name}${mapLabel}`, damageExpr, damageLabel, traits, e);
   }
 
+  // Display damage string: show adjusted expression if debuffed, otherwise raw text
+  const displayDamage = isDebuffedDmg && damageExpr ? damageExpr : fullDamage;
+
   return (
     <p className={styles.attackLine}>
       <span className={styles.attackTypeLabel}>{typeLabel}</span>
       {' ◆ '}
-      {bonus != null ? (
+      {effBonus != null ? (
         <>
           {/* Primary attack: name + bonus */}
           <span
             className={styles.rollMod}
             title="Roll attack (1st action)"
-            onClick={e => fireAttack(bonus, '', e)}
+            style={isDebuffedAtk ? debuffStyle : undefined}
+            onClick={e => fireAttack(effBonus, '', e)}
           >
-            <strong>{item.name}</strong> {formatMod(bonus)}
+            <strong>{item.name}</strong> {formatMod(effBonus)}
           </span>
           {/* MAP brackets — each individually clickable */}
           {map2 != null && map3 != null && (
-            <span className={styles.mapBracket}>
+            <span className={styles.mapBracket} style={isDebuffedAtk ? { color: '#c0392b' } : undefined}>
               {' ['}
               <span
                 className={styles.mapRoll}
@@ -756,9 +785,10 @@ function AttackBlock({ item, onRollAttack, onRollDamage }: {
             <span
               className={styles.rollMod}
               title="Roll damage"
+              style={isDebuffedDmg ? debuffStyle : undefined}
               onClick={e => onRollDamage(damageExpr, damageLabel, traits, e)}
             >
-              <strong>Damage</strong> {fullDamage}
+              <strong>Damage</strong> {displayDamage}
             </span>
           ) : (
             <><strong>Damage</strong> {fullDamage}</>

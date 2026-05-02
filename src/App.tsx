@@ -177,6 +177,8 @@ export default function App() {
       const fort = pf2e.system?.saves?.fortitude?.value;
       const ref = pf2e.system?.saves?.reflex?.value;
       const will = pf2e.system?.saves?.will?.value;
+      const strMod = pf2e.system?.abilities?.str?.mod;
+      const dexMod = pf2e.system?.abilities?.dex?.mod;
       const entry: EncounterCreature = {
         uid: `${c.id}-${Date.now()}-${Math.random()}`,
         creatureId: c.id,
@@ -188,6 +190,8 @@ export default function App() {
         fort,
         ref,
         will,
+        strMod,
+        dexMod,
         init: 0,
         conditions: [],
       };

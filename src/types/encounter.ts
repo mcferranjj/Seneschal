@@ -33,6 +33,8 @@ export interface EncounterCreature {
   fort?: number;
   ref?: number;
   will?: number;
+  strMod?: number;
+  dexMod?: number;
   attacks?: CustomAttack[];
   abilities?: CustomAbility[];
   init: number;
