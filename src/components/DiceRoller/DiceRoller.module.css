@@ -149,6 +149,28 @@
   opacity: 0.65;
 }
 
+/* ── Weapon trait tags (Fatal / Deadly) ── */
+.traitTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 3px;
+}
+
+.traitTag {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gold, #c8922a);
+  background: rgba(200, 146, 42, 0.12);
+  border: 1px solid rgba(200, 146, 42, 0.35);
+  border-radius: 3px;
+  padding: 1px 5px;
+  cursor: help;
+}
+
 /* ── Damage sub-section ── */
 .damageSection {
   width: 100%;
