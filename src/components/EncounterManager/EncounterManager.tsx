@@ -477,10 +477,10 @@ export function EncounterManager({
   }, 0);
   const diff = getDifficulty(totalXP, partySize);
 
-  // During combat, look up live HP from encounter state
+  // During combat, look up live HP/maxHp/conditions from encounter state
   const liveCombatCreatures: CombatCreature[] = combatCreatures.map(cc => {
     const live = enc.creatures.find(c => c.uid === cc.uid);
-    return live ? { ...cc, hp: live.hp, conditions: live.conditions } : cc;
+    return live ? { ...cc, hp: live.hp, maxHp: live.maxHp, conditions: live.conditions } : cc;
   });
 
   function startCombat() {
@@ -663,9 +663,16 @@ export function EncounterManager({
   }
 
   function commitHp(uid: string) {
-    const val = parseInt(editHpVal, 10);
-    if (!isNaN(val)) {
-      onSetHP(uid, val);
+    const raw = editHpVal.trim();
+    if (raw === '') { setEditingHp(null); return; }
+    const relMatch = raw.match(/^([+-])(\d+)$/);
+    if (relMatch) {
+      // Relative: +4 or -14 → delta from current HP
+      const delta = parseInt(relMatch[1] + relMatch[2], 10);
+      onUpdateHP(uid, delta);
+    } else {
+      const val = parseInt(raw, 10);
+      if (!isNaN(val)) onSetHP(uid, val);
     }
     setEditingHp(null);
   }
@@ -1158,10 +1165,12 @@ export function EncounterManager({
                     {editingHp === c.uid ? (
                       <input
                         className={styles.hpInput}
-                        type="number"
+                        type="text"
                         value={editHpVal}
                         autoFocus
+                        placeholder={String(c.hp)}
                         onChange={e => setEditHpVal(e.target.value)}
+                        onFocus={e => e.target.select()}
                         onBlur={() => commitHp(c.uid)}
                         onKeyDown={e => {
                           if (e.key === 'Enter') commitHp(c.uid);
@@ -1172,8 +1181,8 @@ export function EncounterManager({
                       <span
                         className={`${styles.hpDisplay} ${styles.hpDisplayClickable}`}
                         style={{ color: hpColor }}
-                        title="Click to set HP"
-                        onClick={() => { setEditingHp(c.uid); setEditHpVal(String(c.hp)); }}
+                        title="Click to set HP; type +4 or -14 for relative change"
+                        onClick={() => { setEditingHp(c.uid); setEditHpVal(''); }}
                       >
                         {c.hp}/{c.maxHp}
                       </span>
