@@ -1,22 +1,31 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbility } from '../../types/encounter';
 import type { RollHistoryEntry } from '../../types/diceHistory';
+import { computePenalties } from '../../types/conditionEffects';
 import { DiceRoller } from '../DiceRoller/DiceRoller';
 import styles from './EncounterManager.module.css';
 
-const PF2E_CONDITIONS = [
-  'Blinded', 'Clumsy', 'Confused', 'Controlled', 'Dazzled', 'Deafened',
-  'Doomed', 'Drained', 'Dying', 'Encumbered', 'Enfeebled', 'Fascinated',
-  'Fatigued', 'Fleeing', 'Frightened', 'Grabbed', 'Hidden', 'Immobilized',
-  'Invisible', 'Off-Guard', 'Paralyzed', 'Petrified', 'Persistent Damage',
-  'Prone', 'Quickened', 'Restrained', 'Sickened', 'Slowed', 'Stunned',
-  'Stupefied', 'Unconscious', 'Undetected',
+interface ConditionCategory {
+  label: string;
+  conditions: string[];
+}
+
+const CONDITION_CATEGORIES: ConditionCategory[] = [
+  { label: 'Circumstantial', conditions: ['Grabbed', 'Prone', 'Off-Guard', 'Immobilized', 'Restrained', 'Persistent Damage'] },
+  { label: 'Status',         conditions: ['Frightened', 'Sickened', 'Fatigued', 'Encumbered'] },
+  { label: 'Ability Scores', conditions: ['Clumsy', 'Enfeebled', 'Drained', 'Stupefied'] },
+  { label: 'Action Economy', conditions: ['Stunned', 'Slowed', 'Quickened'] },
+  { label: 'Death / Dying',  conditions: ['Dying', 'Wounded', 'Doomed', 'Unconscious'] },
+  { label: 'Detection',      conditions: ['Concealed', 'Hidden', 'Undetected', 'Invisible'] },
+  { label: 'Senses',         conditions: ['Blinded', 'Dazzled', 'Deafened', 'Fascinated'] },
+  { label: 'Disabled',       conditions: ['Controlled', 'Confused', 'Fleeing', 'Paralyzed', 'Petrified'] },
 ];
 
 // Conditions that take a numeric value
 const VALUED_CONDITIONS = new Set([
   'clumsy', 'doomed', 'drained', 'dying', 'enfeebled', 'frightened',
-  'quickened', 'sickened', 'slowed', 'stunned', 'stupefied', 'persistent damage',
+  'quickened', 'sickened', 'slowed', 'stunned', 'stupefied', 'persistent damage', 'wounded',
 ]);
 
 // Source: GM Core Remaster Tables 9-2 through 9-4 via 2e.aonprd.com/Rules.aspx?ID=2874
@@ -215,10 +224,8 @@ function lookupDamage(level: number, tier: AcTier): string {
   return (DAMAGE_TABLE[l] ?? DAMAGE_TABLE[0])[tier];
 }
 
-const AUTO_REDUCE_CONDITIONS = new Set([
-  'frightened', 'sickened', 'stunned', 'slowed', 'quickened', 'drained', 'doomed',
-  'enfeebled', 'clumsy', 'stupefied',
-]);
+// Only Frightened auto-reduces by 1 at end of each creature's turn per PF2e rules.
+const AUTO_REDUCE_CONDITIONS = new Set(['frightened']);
 
 interface CombatCreature extends EncounterCreature {
   init: number;
@@ -239,9 +246,32 @@ interface EncounterManagerProps {
   onUpdateHP: (uid: string, delta: number) => void;
   onSetHP: (uid: string, newHp: number) => void;
   onAddCustomCreature: (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: CustomAttack[], abilities?: CustomAbility[], isEnemy?: boolean) => void;
-  onSelectCreature: (id: string) => void;
+  onSelectCreature: (id: string, encounterUid: string) => void;
   onUpdateConditions: (uid: string, conditions: Condition[]) => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
+}
+
+const ALL_CONDITIONS_ALPHA = [...new Set(CONDITION_CATEGORIES.flatMap(c => c.conditions))].sort((a, b) => a.localeCompare(b));
+
+const POPUP_MIN_HEIGHT = 260;
+const POPUP_MARGIN = 8;
+
+function popupStyle(anchor: { x: number; y: number; top: number; spaceBelow: number; spaceAbove: number }): React.CSSProperties {
+  const flipUp = anchor.spaceBelow < POPUP_MIN_HEIGHT && anchor.spaceAbove > anchor.spaceBelow;
+  if (flipUp) {
+    const availableHeight = Math.max(POPUP_MIN_HEIGHT, anchor.spaceAbove);
+    return {
+      left: anchor.x,
+      bottom: window.innerHeight - anchor.top + POPUP_MARGIN,
+      maxHeight: availableHeight,
+    };
+  }
+  const availableHeight = Math.max(POPUP_MIN_HEIGHT, anchor.spaceBelow);
+  return {
+    left: anchor.x,
+    top: anchor.y,
+    maxHeight: availableHeight,
+  };
 }
 
 function xpFor(monsterLevel: number, partyLevel: number): number {
@@ -312,10 +342,12 @@ export function EncounterManager({
   const [customAttacks, setCustomAttacks] = useState<AttackDraft[]>([]);
   const [customAbilities, setCustomAbilities] = useState<CustomAbility[]>([]);
   const [conditionPickerUid, setConditionPickerUid] = useState<string | null>(null);
-  const conditionTarget = null; // legacy; not used after structured picker
-  void conditionTarget;
+  const [conditionPickerSort, setConditionPickerSort] = useState<'category' | 'alpha'>('category');
+  const [conditionPickerAnchor, setConditionPickerAnchor] = useState<{ x: number; y: number; top: number; spaceBelow: number; spaceAbove: number } | null>(null);
   const [conditionValueUid, setConditionValueUid] = useState<string | null>(null);
+  const [conditionValueAnchor, setConditionValueAnchor] = useState<{ x: number; y: number; top: number; spaceBelow: number; spaceAbove: number } | null>(null);
   const [pendingConditionName, setPendingConditionName] = useState('');
+  const [pendingConditionValue, setPendingConditionValue] = useState(1);
 
   // Dice roller
   const [diceRoll, setDiceRoll] = useState<{ expr: string; label?: string; x: number; y: number } | null>(null);
@@ -435,15 +467,20 @@ export function EncounterManager({
     }
     onUpdateConditions(uid, next);
     setConditionPickerUid(null);
+    setConditionPickerAnchor(null);
     setConditionValueUid(null);
+    setConditionValueAnchor(null);
     setPendingConditionName('');
   }
 
   function handleConditionPick(uid: string, condName: string) {
     if (VALUED_CONDITIONS.has(condName.toLowerCase())) {
       setPendingConditionName(condName);
+      setPendingConditionValue(1);
       setConditionValueUid(uid);
+      setConditionValueAnchor(conditionPickerAnchor ? { ...conditionPickerAnchor } : null);
       setConditionPickerUid(null);
+      setConditionPickerAnchor(null);
     } else {
       addCondition(uid, condName);
     }
@@ -802,7 +839,7 @@ export function EncounterManager({
                   <div className={styles.creatureInfo}>
                     <span
                       className={`${styles.creatureName} ${c.creatureId ? styles.creatureNameClickable : ''}`}
-                      onClick={() => c.creatureId && onSelectCreature(c.creatureId)}
+                      onClick={() => c.creatureId && onSelectCreature(c.creatureId, c.uid)}
                       title={c.creatureId ? 'View statblock' : undefined}
                     >
                       {c.name}
@@ -947,52 +984,62 @@ export function EncounterManager({
                     <div className={styles.combatCreatureInfo}>
                       <span
                         className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''} ${c.creatureId ? styles.creatureNameClickable : ''}`}
-                        onClick={() => c.creatureId && onSelectCreature(c.creatureId)}
+                        onClick={() => c.creatureId && onSelectCreature(c.creatureId, c.uid)}
                         title={c.creatureId ? 'View statblock' : undefined}
                       >
                         {c.name}
                         {isActive && <span className={styles.activePill}>ACTIVE</span>}
                       </span>
-                      <div className={styles.combatDefenseRow}>
-                        <span
-                          className={styles.combatDefStat}
-                          title="Armor Class"
-                          onClick={e => c.ac > 0 && setDiceRoll({ expr: `1d20`, label: 'Armor Class', x: e.clientX, y: e.clientY - 160 })}
-                        >
-                          <span className={styles.combatDefLabel}>AC</span>
-                          <span className={styles.combatDefVal}>{c.ac > 0 ? c.ac : '—'}</span>
-                        </span>
-                        {c.fort != null && (
-                          <span
-                            className={styles.combatDefStat}
-                            title="Fortitude"
-                            onClick={e => setDiceRoll({ expr: `1d20${c.fort! >= 0 ? `+${c.fort}` : c.fort}`, label: `${c.name} · Fortitude`, x: e.clientX, y: e.clientY - 160 })}
-                          >
-                            <span className={styles.combatDefLabel}>F</span>
-                            <span className={styles.combatDefVal}>{c.fort >= 0 ? `+${c.fort}` : c.fort}</span>
-                          </span>
-                        )}
-                        {c.ref != null && (
-                          <span
-                            className={styles.combatDefStat}
-                            title="Reflex"
-                            onClick={e => setDiceRoll({ expr: `1d20${c.ref! >= 0 ? `+${c.ref}` : c.ref}`, label: `${c.name} · Reflex`, x: e.clientX, y: e.clientY - 160 })}
-                          >
-                            <span className={styles.combatDefLabel}>R</span>
-                            <span className={styles.combatDefVal}>{c.ref >= 0 ? `+${c.ref}` : c.ref}</span>
-                          </span>
-                        )}
-                        {c.will != null && (
-                          <span
-                            className={styles.combatDefStat}
-                            title="Will"
-                            onClick={e => setDiceRoll({ expr: `1d20${c.will! >= 0 ? `+${c.will}` : c.will}`, label: `${c.name} · Will`, x: e.clientX, y: e.clientY - 160 })}
-                          >
-                            <span className={styles.combatDefLabel}>W</span>
-                            <span className={styles.combatDefVal}>{c.will >= 0 ? `+${c.will}` : c.will}</span>
-                          </span>
-                        )}
-                      </div>
+                      {(() => {
+                        const pen = computePenalties(c.conditions);
+                        const effAc   = c.ac > 0 ? c.ac + pen.ac : c.ac;
+                        const effFort = c.fort != null ? c.fort + pen.fort : c.fort;
+                        const effRef  = c.ref  != null ? c.ref  + pen.ref  : c.ref;
+                        const effWill = c.will != null ? c.will + pen.will : c.will;
+                        const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
+                        return (
+                          <div className={styles.combatDefenseRow}>
+                            <span
+                              className={styles.combatDefStat}
+                              title="Armor Class"
+                              onClick={e => c.ac > 0 && setDiceRoll({ expr: `1d20`, label: 'Armor Class', x: e.clientX, y: e.clientY - 160 })}
+                            >
+                              <span className={styles.combatDefLabel}>AC</span>
+                              <span className={styles.combatDefVal} style={pen.ac !== 0 ? debuffStyle : undefined}>{effAc > 0 ? effAc : '—'}</span>
+                            </span>
+                            {c.fort != null && effFort != null && (
+                              <span
+                                className={styles.combatDefStat}
+                                title="Fortitude"
+                                onClick={e => setDiceRoll({ expr: `1d20${effFort >= 0 ? `+${effFort}` : effFort}`, label: `${c.name} · Fortitude`, x: e.clientX, y: e.clientY - 160 })}
+                              >
+                                <span className={styles.combatDefLabel}>F</span>
+                                <span className={styles.combatDefVal} style={pen.fort !== 0 ? debuffStyle : undefined}>{effFort >= 0 ? `+${effFort}` : effFort}</span>
+                              </span>
+                            )}
+                            {c.ref != null && effRef != null && (
+                              <span
+                                className={styles.combatDefStat}
+                                title="Reflex"
+                                onClick={e => setDiceRoll({ expr: `1d20${effRef >= 0 ? `+${effRef}` : effRef}`, label: `${c.name} · Reflex`, x: e.clientX, y: e.clientY - 160 })}
+                              >
+                                <span className={styles.combatDefLabel}>R</span>
+                                <span className={styles.combatDefVal} style={pen.ref !== 0 ? debuffStyle : undefined}>{effRef >= 0 ? `+${effRef}` : effRef}</span>
+                              </span>
+                            )}
+                            {c.will != null && effWill != null && (
+                              <span
+                                className={styles.combatDefStat}
+                                title="Will"
+                                onClick={e => setDiceRoll({ expr: `1d20${effWill >= 0 ? `+${effWill}` : effWill}`, label: `${c.name} · Will`, x: e.clientX, y: e.clientY - 160 })}
+                              >
+                                <span className={styles.combatDefLabel}>W</span>
+                                <span className={styles.combatDefVal} style={pen.will !== 0 ? debuffStyle : undefined}>{effWill >= 0 ? `+${effWill}` : effWill}</span>
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* HP display */}
@@ -1024,15 +1071,19 @@ export function EncounterManager({
                   {/* Attacks */}
                   {c.attacks && c.attacks.length > 0 && (
                     <div className={styles.combatAttacks}>
-                      {c.attacks.map((atk, ai) => (
+                      {c.attacks.map((atk, ai) => {
+                        const atkPen = computePenalties(c.conditions);
+                        const effBonus = atk.bonus + atkPen.attack;
+                        return (
                         <div key={ai} className={styles.combatAtkRow}>
                           <span className={styles.combatAtkIcon}>{atk.type === 'melee' ? '⚔' : '🏹'}</span>
                           <span
                             className={`${styles.combatAtkName} ${styles.rollable}`}
                             title="Click to roll attack"
-                            onClick={e => setDiceRoll({ expr: `1d20${atk.bonus >= 0 ? `+${atk.bonus}` : atk.bonus}`, label: `${c.name} · ${atk.name}`, x: e.clientX, y: e.clientY - 160 })}
+                            onClick={e => setDiceRoll({ expr: `1d20${effBonus >= 0 ? `+${effBonus}` : effBonus}`, label: `${c.name} · ${atk.name}`, x: e.clientX, y: e.clientY - 160 })}
+                            style={atkPen.attack !== 0 ? { color: '#c0392b' } : undefined}
                           >
-                            {atk.name} {atk.bonus >= 0 ? `+${atk.bonus}` : atk.bonus}
+                            {atk.name} {effBonus >= 0 ? `+${effBonus}` : effBonus}
                           </span>
                           <span
                             className={`${styles.combatAtkDmg} ${styles.rollable}`}
@@ -1046,7 +1097,8 @@ export function EncounterManager({
                             <span className={styles.combatAtkTraits}>{atk.traits.join(', ')}</span>
                           )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -1068,64 +1120,53 @@ export function EncounterManager({
 
                   {/* Conditions */}
                   <div className={styles.conditionRow}>
-                    {c.conditions.map(cond => (
-                      <span
-                        key={cond.name}
-                        className={styles.conditionChip}
-                        title={`Remove ${cond.name}`}
-                        onClick={() => removeCondition(c.uid, cond.name)}
-                      >
-                        {cond.name}{cond.value != null ? ` ${cond.value}` : ''} ×
-                      </span>
-                    ))}
-                    {conditionValueUid === c.uid ? (
-                      <div className={styles.conditionValueRow}>
-                        <span className={styles.conditionValueLabel}>{pendingConditionName}</span>
-                        <input
-                          className={styles.conditionValueInput}
-                          type="number"
-                          min={1}
-                          max={20}
-                          defaultValue={1}
-                          autoFocus
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              addCondition(c.uid, pendingConditionName, parseInt((e.target as HTMLInputElement).value) || 1);
+                    {c.conditions.map(cond => {
+                      const isValued = cond.value != null;
+                      return (
+                        <span
+                          key={cond.name}
+                          className={styles.conditionChip}
+                          title={isValued ? `Left-click to edit · Right-click to remove` : `Click to remove`}
+                          onClick={e => {
+                            if (isValued) {
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              const spaceBelow = window.innerHeight - rect.bottom - 4;
+                              const spaceAbove = rect.top - 4;
+                              setPendingConditionName(cond.name);
+                              setPendingConditionValue(cond.value!);
+                              setConditionValueAnchor({ x: rect.left, y: rect.bottom + 4, top: rect.top, spaceBelow, spaceAbove });
+                              setConditionValueUid(c.uid);
+                              setConditionPickerUid(null);
+                              setConditionPickerAnchor(null);
+                            } else {
+                              removeCondition(c.uid, cond.name);
                             }
-                            if (e.key === 'Escape') { setConditionValueUid(null); setPendingConditionName(''); }
                           }}
-                          onBlur={e => {
-                            addCondition(c.uid, pendingConditionName, parseInt(e.target.value) || 1);
+                          onContextMenu={e => {
+                            e.preventDefault();
+                            removeCondition(c.uid, cond.name);
                           }}
-                        />
-                      </div>
-                    ) : conditionPickerUid === c.uid ? (
-                      <div className={styles.conditionPicker}>
-                        {PF2E_CONDITIONS.map(cond => (
-                          <button
-                            key={cond}
-                            className={styles.conditionPickerBtn}
-                            onClick={() => handleConditionPick(c.uid, cond)}
-                          >
-                            {cond}
-                          </button>
-                        ))}
-                        <button
-                          className={`${styles.conditionPickerBtn} ${styles.conditionPickerClose}`}
-                          onClick={() => setConditionPickerUid(null)}
                         >
-                          ✕ Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        className={styles.addConditionBtn}
-                        onClick={() => setConditionPickerUid(c.uid)}
-                        title="Add condition"
-                      >
-                        + cond
-                      </button>
-                    )}
+                          {cond.name}{cond.value != null ? ` ${cond.value}` : ''}
+                          {isValued ? ' ✎' : ' ×'}
+                        </span>
+                      );
+                    })}
+                    <button
+                      className={styles.addConditionBtn}
+                      onClick={e => {
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const spaceBelow = window.innerHeight - rect.bottom - 4;
+                        const spaceAbove = rect.top - 4;
+                        setConditionPickerUid(c.uid);
+                        setConditionPickerAnchor({ x: rect.left, y: rect.bottom + 4, top: rect.top, spaceBelow, spaceAbove });
+                        setConditionValueUid(null);
+                        setConditionValueAnchor(null);
+                      }}
+                      title="Add condition"
+                    >
+                      + cond
+                    </button>
                   </div>
                   <div className={styles.hpBar}>
                     <div
@@ -1227,6 +1268,111 @@ export function EncounterManager({
           onClose={() => setDiceRoll(null)}
           onRoll={onRoll}
         />
+      )}
+
+      {/* ── Condition picker popup ── */}
+      {conditionPickerUid && conditionPickerAnchor && createPortal(
+        <>
+          {/* Backdrop to close on outside click */}
+          <div
+            className={styles.conditionPopupBackdrop}
+            onClick={() => { setConditionPickerUid(null); setConditionPickerAnchor(null); }}
+          />
+          <div
+            className={styles.conditionPopup}
+            style={popupStyle(conditionPickerAnchor)}
+          >
+            <div className={styles.conditionPopupHeader}>
+              <span className={styles.conditionPopupTitle}>Add Condition</span>
+              <div className={styles.conditionSortToggle}>
+                <button
+                  className={`${styles.conditionSortBtn} ${conditionPickerSort === 'category' ? styles.conditionSortBtnActive : ''}`}
+                  onClick={() => setConditionPickerSort('category')}
+                >Category</button>
+                <button
+                  className={`${styles.conditionSortBtn} ${conditionPickerSort === 'alpha' ? styles.conditionSortBtnActive : ''}`}
+                  onClick={() => setConditionPickerSort('alpha')}
+                >A–Z</button>
+              </div>
+              <button
+                className={styles.conditionPickerClose}
+                onClick={() => { setConditionPickerUid(null); setConditionPickerAnchor(null); }}
+              >✕</button>
+            </div>
+            <div className={styles.conditionPopupBody}>
+              {conditionPickerSort === 'category' ? (
+                CONDITION_CATEGORIES.map(cat => (
+                  <div key={cat.label} className={styles.conditionCategory}>
+                    <span className={styles.conditionCategoryLabel}>{cat.label}</span>
+                    <div className={styles.conditionCategoryBtns}>
+                      {cat.conditions.map(condName => (
+                        <button
+                          key={condName}
+                          className={styles.conditionPickerBtn}
+                          onClick={() => handleConditionPick(conditionPickerUid, condName)}
+                        >
+                          {condName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className={styles.conditionAlphaGrid}>
+                  {ALL_CONDITIONS_ALPHA.map(condName => (
+                    <button
+                      key={condName}
+                      className={styles.conditionPickerBtn}
+                      onClick={() => handleConditionPick(conditionPickerUid, condName)}
+                    >
+                      {condName === 'Persistent Damage' ? 'Prsnt Damage' : condName}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>,
+        document.body,
+      )}
+
+      {/* ── Condition value stepper popup ── */}
+      {conditionValueUid && conditionValueAnchor && createPortal(
+        <>
+          <div
+            className={styles.conditionPopupBackdrop}
+            onClick={() => addCondition(conditionValueUid, pendingConditionName, pendingConditionValue)}
+          />
+          <div
+            className={styles.conditionPopup}
+            style={popupStyle(conditionValueAnchor)}
+          >
+            <div className={styles.conditionPopupHeader}>
+              <span className={styles.conditionPopupTitle}>{pendingConditionName}</span>
+              <button
+                className={styles.conditionPickerClose}
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => { setConditionValueUid(null); setConditionValueAnchor(null); setPendingConditionName(''); }}
+              >✕</button>
+            </div>
+            <div className={styles.conditionValueRow}>
+              <button
+                className={styles.conditionStepBtn}
+                onClick={() => setPendingConditionValue(v => Math.max(1, v - 1))}
+              >−</button>
+              <span className={styles.conditionValueDisplay}>{pendingConditionValue}</span>
+              <button
+                className={styles.conditionStepBtn}
+                onClick={() => setPendingConditionValue(v => Math.min(20, v + 1))}
+              >+</button>
+              <button
+                className={styles.conditionValueConfirm}
+                onClick={() => addCondition(conditionValueUid, pendingConditionName, pendingConditionValue)}
+              >✓ Apply</button>
+            </div>
+          </div>
+        </>,
+        document.body,
       )}
     </div>
   );

@@ -299,9 +299,15 @@ export default function App() {
     [activeEnc]
   );
 
-  const selectCreatureById = useCallback(async (id: string) => {
+  // uid of the specific encounter creature instance whose statblock is shown
+  const [selectedEncounterUid, setSelectedEncounterUid] = useState<string | null>(null);
+
+  const selectCreatureById = useCallback(async (id: string, encounterUid?: string) => {
     const creature = await db.creatures.get(id);
-    if (creature) setSelected(creature);
+    if (creature) {
+      setSelected(creature);
+      setSelectedEncounterUid(encounterUid ?? null);
+    }
   }, []);
 
   const openWizard = useCallback(() => {
@@ -394,7 +400,7 @@ export default function App() {
                 results={results}
                 totalCount={totalCount}
                 selectedId={selected?.id ?? null}
-                onSelect={c => setSelected(prev => (prev?.id === c.id ? null : c))}
+                onSelect={c => { setSelected(prev => (prev?.id === c.id ? null : c)); setSelectedEncounterUid(null); }}
                 onAddToEncounter={addToEncounter}
                 loading={searchLoading}
                 syncing={isSyncing}
@@ -436,7 +442,7 @@ export default function App() {
                 onUpdateHP={updateHP}
                 onSetHP={setHPDirect}
                 onAddCustomCreature={addCustomCreature}
-                onSelectCreature={selectCreatureById}
+                onSelectCreature={(id, uid) => selectCreatureById(id, uid)}
                 onUpdateConditions={updateConditions}
                 onRoll={addRollEntry}
               />
@@ -458,6 +464,11 @@ export default function App() {
                 onWizardCancel={() => setWizardOpen(false)}
                 onDeleteCreature={handleDeleteCreature}
                 onRoll={addRollEntry}
+                activeConditions={
+                  selected && selectedEncounterUid
+                    ? (encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.conditions ?? [])
+                    : []
+                }
               />
             </div>
           </div>

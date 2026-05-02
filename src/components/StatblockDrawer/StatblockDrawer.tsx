@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import type { CreatureRecord } from '../../db/schema';
 import type { PF2ECreature, PF2EItem } from '../../types/pf2e';
 import type { RollHistoryEntry } from '../../types/diceHistory';
+import type { Condition } from '../../types/encounter';
+import { computePenalties } from '../../types/conditionEffects';
 import { DiceRoller, DamageRoller } from '../DiceRoller/DiceRoller';
 import { CustomCreatureWizard } from '../CustomCreatureWizard/CustomCreatureWizard';
 import {
@@ -81,6 +83,8 @@ interface DrawerProps {
   onWizardCancel?: () => void;
   onDeleteCreature?: (id: string) => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
+  /** Active conditions on the currently-selected creature in the encounter */
+  activeConditions?: Condition[];
 }
 
 export function StatblockDrawer({
@@ -93,6 +97,7 @@ export function StatblockDrawer({
   onWizardCancel,
   onDeleteCreature,
   onRoll,
+  activeConditions,
 }: DrawerProps) {
   return (
     <aside className={styles.drawer} aria-label="Creature statblock">
@@ -109,9 +114,10 @@ export function StatblockDrawer({
             onClose={onClose}
             onAddToEncounter={onAddToEncounter}
             onDelete={onDeleteCreature}
+            activeConditions={activeConditions}
           />
         ) : (
-          <StatblockContent creature={creature} onClose={onClose} onAddToEncounter={onAddToEncounter} onRoll={onRoll} />
+          <StatblockContent creature={creature} onClose={onClose} onAddToEncounter={onAddToEncounter} onRoll={onRoll} activeConditions={activeConditions} />
         )
       ) : (
         <div className={styles.emptyState}>
@@ -129,21 +135,31 @@ function CustomStatblock({
   onClose,
   onAddToEncounter,
   onDelete,
+  activeConditions,
 }: {
   creature: CreatureRecord;
   onClose: () => void;
   onAddToEncounter: (c: CreatureRecord) => void;
   onDelete?: (id: string) => void;
+  activeConditions?: Condition[];
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const c = creature.data as PF2ECreature;
   const hp = c.system?.attributes?.hp?.max ?? creature.customData?.attacks?.length ?? '—';
-  const ac = c.system?.attributes?.ac?.value ?? '—';
+  const baseAc = c.system?.attributes?.ac?.value;
   const fort = (c.system as any)?.saves?.fortitude?.value;
   const ref  = (c.system as any)?.saves?.reflex?.value;
   const will = (c.system as any)?.saves?.will?.value;
   const attacks = creature.customData?.attacks ?? [];
   const abilities = creature.customData?.abilities ?? [];
+
+  const pen = computePenalties(activeConditions ?? []);
+  const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
+
+  const effAc   = baseAc != null ? baseAc + pen.ac : undefined;
+  const effFort = fort   != null ? fort   + pen.fort : undefined;
+  const effRef  = ref    != null ? ref    + pen.ref  : undefined;
+  const effWill = will   != null ? will   + pen.will : undefined;
 
   function fmtMod(v?: number) {
     if (v == null) return '—';
@@ -165,13 +181,24 @@ function CustomStatblock({
       <div className={styles.body}>
         <p className={styles.sourceLine}><em>Custom</em></p>
 
+        {activeConditions && activeConditions.length > 0 && (
+          <p className={styles.sourceLine} style={{ color: '#c0392b', fontStyle: 'normal' }}>
+            <strong>Conditions:</strong>{' '}
+            {activeConditions.map(cond => `${cond.name}${cond.value != null ? ` ${cond.value}` : ''}`).join(', ')}
+          </p>
+        )}
+
         <hr className={styles.divider} />
 
         <p className={styles.defenseLine}>
-          <strong>AC</strong> {ac};{' '}
-          <strong>Fort</strong> {fmtMod(fort)},{' '}
-          <strong>Ref</strong> {fmtMod(ref)},{' '}
-          <strong>Will</strong> {fmtMod(will)}
+          <strong>AC</strong>{' '}
+          <span style={pen.ac !== 0 ? debuffStyle : undefined}>{effAc ?? '—'}</span>;{' '}
+          <strong>Fort</strong>{' '}
+          <span style={pen.fort !== 0 ? debuffStyle : undefined}>{fmtMod(effFort)}</span>,{' '}
+          <strong>Ref</strong>{' '}
+          <span style={pen.ref !== 0 ? debuffStyle : undefined}>{fmtMod(effRef)}</span>,{' '}
+          <strong>Will</strong>{' '}
+          <span style={pen.will !== 0 ? debuffStyle : undefined}>{fmtMod(effWill)}</span>
         </p>
         <p className={styles.defenseLine}>
           <strong>HP</strong> {hp}
@@ -236,11 +263,13 @@ function StatblockContent({
   onClose,
   onAddToEncounter,
   onRoll,
+  activeConditions,
 }: {
   creature: CreatureRecord;
   onClose: () => void;
   onAddToEncounter: (creature: CreatureRecord) => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
+  activeConditions?: Condition[];
 }) {
   const [diceRoll, setDiceRoll] = useState<{
     expr: string; label?: string;
@@ -285,6 +314,9 @@ function StatblockContent({
       if (expr) setDiceRoll({ expr, label, x: e.clientX, y: e.clientY - 160 });
     }
   }, []);
+
+  const pen = computePenalties(activeConditions ?? []);
+  const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
 
   const c = creature.data as PF2ECreature;
   const level = getLevel(c);
@@ -397,19 +429,29 @@ function StatblockContent({
           </p>
         )}
 
+        {/* Active conditions banner */}
+        {activeConditions && activeConditions.length > 0 && (
+          <p className={styles.sourceLine} style={{ color: '#c0392b', fontStyle: 'normal' }}>
+            <strong>Conditions:</strong>{' '}
+            {activeConditions.map(cond => `${cond.name}${cond.value != null ? ` ${cond.value}` : ''}`).join(', ')}
+          </p>
+        )}
+
         {/* Perception / Senses */}
         <p className={styles.infoLine}>
           {(() => {
             const percMod = c.system?.perception?.mod ?? c.system?.perception?.value;
+            const effPercMod = percMod != null ? percMod + pen.perception : percMod;
             const rest = senses.replace(/^Perception [+-]?\d+;?\s*/, '').replace(/^Perception [+-]?\d+$/, '');
             return (
               <>
                 <span
                   className={styles.rollMod}
                   title="Roll Perception"
-                  onClick={e => roll(percMod, 'Perception', e)}
+                  onClick={e => roll(effPercMod, 'Perception', e)}
+                  style={pen.perception !== 0 ? debuffStyle : undefined}
                 >
-                  <strong>Perception</strong> {formatMod(percMod)}
+                  <strong>Perception</strong> {formatMod(effPercMod)}
                 </span>
                 {rest ? `; ${rest}` : ''}
               </>
@@ -469,27 +511,52 @@ function StatblockContent({
         <hr className={styles.divider} />
 
         {/* AC + Saves */}
-        <p className={styles.defenseLine}>
-          <strong>AC</strong> <span>{ac}</span>
-          {acDetail && ` (${acDetail})`};{' '}
-          <span className={styles.rollMod} title="Roll Fortitude" onClick={e => roll(fort, 'Fortitude', e)}>
-            <strong>Fort</strong> {formatMod(fort)}
-          </span>
-          {fortDetail && `, ${fortDetail}`},{' '}
-          <span className={styles.rollMod} title="Roll Reflex" onClick={e => roll(ref, 'Reflex', e)}>
-            <strong>Ref</strong> {formatMod(ref)}
-          </span>
-          {refDetail && `, ${refDetail}`},{' '}
-          <span className={styles.rollMod} title="Roll Will" onClick={e => roll(will, 'Will', e)}>
-            <strong>Will</strong> {formatMod(will)}
-          </span>
-          {willDetail && `, ${willDetail}`}
-          {allSaves && (
-            <>
-              ; <em>{allSaves}</em>
-            </>
-          )}
-        </p>
+        {(() => {
+          const effAc   = typeof ac === 'number'   ? ac   + pen.ac   : ac;
+          const effFort = fort != null ? fort + pen.fort : fort;
+          const effRef  = ref  != null ? ref  + pen.ref  : ref;
+          const effWill = will != null ? will + pen.will : will;
+          return (
+            <p className={styles.defenseLine}>
+              <strong>AC</strong>{' '}
+              <span style={pen.ac !== 0 ? debuffStyle : undefined}>{effAc}</span>
+              {acDetail && ` (${acDetail})`};{' '}
+              <span
+                className={styles.rollMod}
+                title="Roll Fortitude"
+                onClick={e => roll(effFort, 'Fortitude', e)}
+                style={pen.fort !== 0 ? debuffStyle : undefined}
+              >
+                <strong>Fort</strong> {formatMod(effFort)}
+              </span>
+              {fortDetail && `, ${fortDetail}`},{' '}
+              <span
+                className={styles.rollMod}
+                title="Roll Reflex"
+                onClick={e => roll(effRef, 'Reflex', e)}
+                style={pen.ref !== 0 ? debuffStyle : undefined}
+              >
+                <strong>Ref</strong> {formatMod(effRef)}
+              </span>
+              {refDetail && `, ${refDetail}`},{' '}
+              <span
+                className={styles.rollMod}
+                title="Roll Will"
+                onClick={e => roll(effWill, 'Will', e)}
+                style={pen.will !== 0 ? debuffStyle : undefined}
+              >
+                <strong>Will</strong> {formatMod(effWill)}
+              </span>
+              {willDetail && `, ${willDetail}`}
+              {allSaves && (
+                <>
+                  ; <em>{allSaves}</em>
+                </>
+              )}
+            </p>
+          );
+        })()}
+
 
         {/* HP */}
         <p className={styles.defenseLine}>

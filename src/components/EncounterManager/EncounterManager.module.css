@@ -968,21 +968,158 @@
   align-items: center;
 }
 
-.conditionPicker {
+/* ── Condition chip (on the combat card) ── */
+.conditionChip {
+  display: inline-flex;
+  align-items: center;
+  background: #5a3a8a;
+  color: #fff;
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.1s;
+}
+
+.conditionChip:hover {
+  opacity: 0.75;
+}
+
+/* ── Popup backdrop ── */
+.conditionPopupBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+/* ── Floating popup window ── */
+.conditionPopup {
+  position: fixed;
+  z-index: 1001;
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  padding: 0;
+  min-width: 280px;
+  max-width: 360px;
   display: flex;
+  flex-direction: column;
+}
+
+.conditionPopupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-l);
+}
+
+.conditionPopupBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px 12px;
+  overflow-y: auto;
+}
+
+.conditionPopupTitle {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--crimson);
+  letter-spacing: 0.03em;
+}
+
+.conditionSortToggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.conditionSortBtn {
+  background: none;
+  border: none;
+  color: var(--text-mute);
+  font-size: 0.68rem;
+  padding: 2px 9px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.conditionSortBtn + .conditionSortBtn {
+  border-left: 1px solid var(--border);
+}
+
+.conditionSortBtnActive {
+  background: var(--crimson);
+  color: #fff;
+}
+
+.conditionSortBtn:not(.conditionSortBtnActive):hover {
+  background: var(--border-l);
+  color: var(--text);
+}
+
+.conditionPickerClose {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-mute);
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: border-color 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+
+.conditionPickerClose:hover {
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+.conditionAlphaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+/* ── Category rows inside popup ── */
+.conditionCategory {
+  display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
-  gap: 3px;
-  margin-top: 3px;
-  width: 100%;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 0;
+}
+
+.conditionCategoryLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-mute);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.conditionCategoryBtns {
+  display: contents;
 }
 
 .conditionPickerBtn {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  color: var(--text-mute);
-  font-size: 0.6rem;
-  padding: 1px 6px;
+  color: var(--text-mid);
+  font-size: 0.72rem;
+  padding: 2px 8px;
   cursor: pointer;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
@@ -993,65 +1130,66 @@
   background: rgba(90, 58, 138, 0.08);
 }
 
-.conditionPickerClose {
-  border-color: var(--border);
-  color: var(--text-mute);
-}
-
-.conditionPickerClose:hover {
-  border-color: var(--crimson) !important;
-  color: var(--crimson) !important;
-  background: none !important;
-}
-
+/* ── Value stepper row (inside popup) ── */
 .conditionValueRow {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 3px;
+  gap: 8px;
+  padding: 4px 0 2px;
 }
 
 .conditionValueLabel {
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   color: var(--text-mid);
   font-weight: 600;
 }
 
-.conditionValueInput {
-  width: 44px;
-  padding: 1px 4px;
-  border: 1px solid var(--crimson);
-  border-radius: 4px;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 0.72rem;
-  text-align: center;
+.conditionValueDisplay {
+  font-size: 1.1rem;
   font-family: 'DM Mono', monospace;
-  outline: none;
-  -moz-appearance: textfield;
+  color: var(--text);
+  font-weight: 700;
+  min-width: 28px;
+  text-align: center;
 }
 
-.conditionValueInput::-webkit-inner-spin-button,
-.conditionValueInput::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-}
-
-.conditionChip {
-  display: inline-flex;
+.conditionStepBtn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-mid);
+  font-size: 1rem;
+  width: 28px;
+  height: 28px;
+  display: flex;
   align-items: center;
-  background: #5a3a8a;
-  color: #fff;
-  border-radius: 8px;
-  padding: 1px 7px;
-  font-size: 0.63rem;
-  font-weight: 600;
+  justify-content: center;
   cursor: pointer;
-  user-select: none;
-  transition: opacity 0.1s;
+  padding: 0;
+  line-height: 1;
+  transition: border-color 0.1s, color 0.1s;
 }
 
-.conditionChip:hover {
-  opacity: 0.75;
+.conditionStepBtn:hover {
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+.conditionValueConfirm {
+  background: #3a7a3a;
+  border: 1px solid #3a7a3a;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: opacity 0.1s;
+  margin-left: auto;
+}
+
+.conditionValueConfirm:hover {
+  opacity: 0.85;
 }
 
 .addConditionBtn {
