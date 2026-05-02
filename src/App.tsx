@@ -192,6 +192,7 @@ export default function App() {
         will,
         strMod,
         dexMod,
+        traits: c.traits,
         init: 0,
         conditions: [],
       };
@@ -215,6 +216,24 @@ export default function App() {
 
   const renameEncounter = useCallback((idx: number, name: string) => {
     setEncounters(prev => prev.map((enc, i) => i === idx ? { ...enc, name } : enc));
+  }, []);
+
+  const reorderEncounters = useCallback((fromIdx: number, toIdx: number) => {
+    setEncounters(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      return next;
+    });
+    setActiveEnc(prev => {
+      if (prev === fromIdx) return toIdx;
+      if (fromIdx < toIdx) {
+        if (prev > fromIdx && prev <= toIdx) return prev - 1;
+      } else {
+        if (prev >= toIdx && prev < fromIdx) return prev + 1;
+      }
+      return prev;
+    });
   }, []);
 
   const deleteEncounter = useCallback((idx: number) => {
@@ -442,6 +461,7 @@ export default function App() {
                 onAddEncounter={addEncounter}
                 onRenameEncounter={renameEncounter}
                 onDeleteEncounter={deleteEncounter}
+                onReorderEncounters={reorderEncounters}
                 onRemoveCreature={removeCreature}
                 onUpdateHP={updateHP}
                 onSetHP={setHPDirect}

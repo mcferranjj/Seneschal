@@ -176,6 +176,7 @@ export function linkRolls(html: string): string {
 }
 
 const KEYWORDS: Record<string, string> = {
+  // ── Conditions ──────────────────────────────────────────────────────────────
   'Grab':          'Free action after a Strike. Target is grabbed (Escape DC = Athletics). Requires a free hand or similar.',
   'Improved Grab': 'As Grab, but on a critical hit. The target is restrained instead of grabbed.',
   'Shove':         'Free action after a Strike. Push the target up to 5 feet; it falls if it leaves solid ground.',
@@ -214,6 +215,36 @@ const KEYWORDS: Record<string, string> = {
   'Fleeing':       'Must spend actions to move away from the source of fear.',
   'Invisible':     'Concealed from all creatures; cannot be targeted by sight-based abilities.',
   'Encumbered':    '–1 to attack rolls and AC; Speed reduced by 10 feet.',
+  // ── Weapon Traits ───────────────────────────────────────────────────────────
+  'Agile':         'MAP penalty with this weapon is –4/–8 instead of the normal –5/–10.',
+  'Brutal':        'This ranged weapon can use Str modifier instead of Dex for attack rolls.',
+  'Deadly':        'On a critical hit, add extra dice of the listed die size to damage.',
+  'Fatal':         'On a critical hit, all damage dice become the listed die size and one extra die is added.',
+  'Finesse':       'Can use Dex modifier instead of Str for attack rolls with this weapon.',
+  'Forceful':      'Each attack after the first on the same turn with this weapon deals extra damage.',
+  'Reach':         'This weapon adds 5 feet to the creature\'s reach (or 10 feet if the creature is Large or larger).',
+  'Sweep':         '–1 penalty to attack rolls, but deals +1 damage die.',
+  'Backswing':     'If you miss with this weapon, gain +1 to your next attack with it on the same turn.',
+  'Backstabber':   'Deals 1 extra precision damage against off-guard targets.',
+  'Thrown':        'Can be used as a ranged weapon with the listed range increment.',
+  'Tethered':      'Can be retrieved after throwing as a free action.',
+  'Jousting':      'While mounted, deals an extra die of damage.',
+  'Parry':         'Spend 1 action to gain +1 circumstance bonus to AC until your next turn.',
+  'Twin':          'When you attack with this weapon, if you made a Twin attack earlier, deal extra precision damage.',
+  'Disarm':        'Free action after a Strike. Target drops one held item (Reflex save vs. your attack roll).',
+  'Hampering':     'Target is flat-footed and cannot use actions with the move trait until your next turn.',
+  'Versatile':     'Can deal a different damage type.',
+  'Two-Hand':      'When held in two hands, the weapon\'s die size increases to the listed size.',
+  'Modular':       'Can be configured to deal different damage types.',
+  'Volley':        'Penalty to attack rolls when targets are within the listed range.',
+  'Reload':        'Takes the listed number of Interact actions to reload.',
+  'Combination':   'A weapon that can function as two different weapon types.',
+  'Concealable':   '+2 circumstance bonus to Stealth checks to conceal this weapon.',
+  'Nonlethal':     'This weapon deals nonlethal damage by default.',
+  'Unarmed':       'This attack uses the body as a weapon (cannot be disarmed).',
+  'Ranged Trip':   'Can be used to Trip a creature at range.',
+  'Ranged Disarm': 'Can be used to Disarm a creature at range.',
+  'Propulsive':    'Add half Str modifier (min +0) to ranged damage.',
 };
 
 // Build a single regex that matches any keyword (longest first to avoid partial matches)

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbility } from '../../types/encounter';
 import type { RollHistoryEntry } from '../../types/diceHistory';
@@ -231,6 +231,51 @@ interface CombatCreature extends EncounterCreature {
   init: number;
 }
 
+// ── Recall Knowledge ─────────────────────────────────────────────────────────
+// Base DCs for recalling knowledge, indexed by creature level (−1 through 25).
+// From PF2E Remaster GM Core Table 5-6.
+const RK_DC_TABLE: Record<number, number> = {
+  [-1]: 13, [0]: 14, [1]: 15, [2]: 16, [3]: 18, [4]: 19, [5]: 20, [6]: 22,
+  [7]: 23, [8]: 24, [9]: 26, [10]: 27, [11]: 28, [12]: 30, [13]: 31, [14]: 32,
+  [15]: 34, [16]: 35, [17]: 36, [18]: 38, [19]: 39, [20]: 40, [21]: 42, [22]: 44,
+  [23]: 46, [24]: 48, [25]: 50,
+};
+
+// Per-creature-type recall knowledge skills
+const RK_SKILLS: Record<string, string[]> = {
+  aberration:  ['Occultism'],
+  animal:      ['Nature'],
+  astral:      ['Occultism'],
+  beast:       ['Arcana', 'Nature'],
+  celestial:   ['Religion'],
+  construct:   ['Arcana', 'Crafting'],
+  dragon:      ['Arcana'],
+  elemental:   ['Arcana', 'Nature'],
+  fey:         ['Nature'],
+  fiend:       ['Religion'],
+  fungus:      ['Nature'],
+  humanoid:    ['Society'],
+  monitor:     ['Religion'],
+  ooze:        ['Occultism'],
+  plant:       ['Nature'],
+  spirit:      ['Occultism'],
+  undead:      ['Religion'],
+};
+
+function getRecallKnowledge(level: number, traits: string[]): { dc: number; skills: string[] } | null {
+  const l = Math.max(-1, Math.min(25, level));
+  const dc = RK_DC_TABLE[l] ?? 14;
+  const skills = new Set<string>();
+  for (const t of traits) {
+    const tLower = t.toLowerCase();
+    const s = RK_SKILLS[tLower];
+    if (s) s.forEach(sk => skills.add(sk));
+  }
+  // Default to Recall Knowledge skill (no type match)
+  if (skills.size === 0) return null;
+  return { dc, skills: [...skills].sort() };
+}
+
 interface EncounterManagerProps {
   encounters: Encounter[];
   activeEnc: number;
@@ -242,6 +287,7 @@ interface EncounterManagerProps {
   onAddEncounter: () => void;
   onRenameEncounter: (idx: number, name: string) => void;
   onDeleteEncounter: (idx: number) => void;
+  onReorderEncounters: (fromIdx: number, toIdx: number) => void;
   onRemoveCreature: (uid: string) => void;
   onUpdateHP: (uid: string, delta: number) => void;
   onSetHP: (uid: string, newHp: number) => void;
@@ -312,6 +358,7 @@ export function EncounterManager({
   onAddEncounter,
   onRenameEncounter,
   onDeleteEncounter,
+  onReorderEncounters,
   onRemoveCreature,
   onUpdateHP,
   onSetHP,
@@ -352,13 +399,32 @@ export function EncounterManager({
   // Dice roller
   const [diceRoll, setDiceRoll] = useState<{ expr: string; label?: string; x: number; y: number } | null>(null);
 
-  // Encounter tab rename/delete
+  // Encounter tab rename/delete/drag
   const [renamingTab, setRenamingTab] = useState<number | null>(null);
   const [renameVal, setRenameVal] = useState('');
   const [confirmDeleteTab, setConfirmDeleteTab] = useState<number | null>(null);
+  const [dragTabIdx, setDragTabIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  // Condition picker drag state
+  const [condPickerPos, setCondPickerPos] = useState<{ x: number; y: number } | null>(null);
+  const condPickerDragRef = useRef<{ startMouseX: number; startMouseY: number; startX: number; startY: number } | null>(null);
 
   // isEnemy checkbox in wizard
   const [wizardIsEnemy, setWizardIsEnemy] = useState(true);
+
+  // Click-outside to cancel delete confirmation
+  const tabsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (confirmDeleteTab === null) return;
+    function onPointerDown(e: PointerEvent) {
+      if (tabsRef.current && !tabsRef.current.contains(e.target as Node)) {
+        setConfirmDeleteTab(null);
+      }
+    }
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [confirmDeleteTab]);
 
   // Inline editing
   const [editingInit, setEditingInit] = useState<string | null>(null);
@@ -491,6 +557,25 @@ export function EncounterManager({
     if (!creature) return;
     onUpdateConditions(uid, creature.conditions.filter(c => c.name !== condName));
   }
+
+  // Condition picker drag
+  const onCondPickerDragStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const currentX = condPickerPos?.x ?? conditionPickerAnchor?.x ?? 0;
+    const currentY = condPickerPos?.y ?? conditionPickerAnchor?.y ?? 0;
+    condPickerDragRef.current = { startMouseX: e.clientX, startMouseY: e.clientY, startX: currentX, startY: currentY };
+  }, [condPickerPos, conditionPickerAnchor]);
+
+  const onCondPickerDragMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!condPickerDragRef.current) return;
+    setCondPickerPos({
+      x: condPickerDragRef.current.startX + (e.clientX - condPickerDragRef.current.startMouseX),
+      y: condPickerDragRef.current.startY + (e.clientY - condPickerDragRef.current.startMouseY),
+    });
+  }, []);
+
+  const onCondPickerDragEnd = useCallback(() => { condPickerDragRef.current = null; }, []);
 
   function defaultAttack(level: number): AttackDraft {
     return {
@@ -716,11 +801,23 @@ export function EncounterManager({
   return (
     <div className={styles.manager}>
       {/* Encounter tabs */}
-      <div className={styles.tabs}>
+      <div className={styles.tabs} ref={tabsRef}>
         {encounters.map((en, i) => (
           <div
             key={en.id}
-            className={`${styles.tabWrapper} ${i === activeEnc ? styles.tabWrapperActive : ''}`}
+            className={`${styles.tabWrapper} ${i === activeEnc ? styles.tabWrapperActive : ''} ${dragOverIdx === i ? styles.tabWrapperDragOver : ''}`}
+            draggable={renamingTab !== i}
+            onDragStart={() => setDragTabIdx(i)}
+            onDragEnd={() => { setDragTabIdx(null); setDragOverIdx(null); }}
+            onDragOver={e => { e.preventDefault(); setDragOverIdx(i); }}
+            onDragLeave={() => setDragOverIdx(null)}
+            onDrop={() => {
+              if (dragTabIdx !== null && dragTabIdx !== i) {
+                onReorderEncounters(dragTabIdx, i);
+              }
+              setDragTabIdx(null);
+              setDragOverIdx(null);
+            }}
           >
             {renamingTab === i ? (
               <input
@@ -999,14 +1096,16 @@ export function EncounterManager({
                         const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
                         return (
                           <div className={styles.combatDefenseRow}>
+                            {c.ac > 0 && (
                             <span
                               className={styles.combatDefStat}
                               title="Armor Class"
-                              onClick={e => c.ac > 0 && setDiceRoll({ expr: `1d20`, label: 'Armor Class', x: e.clientX, y: e.clientY - 160 })}
+                              onClick={e => setDiceRoll({ expr: `1d20`, label: 'Armor Class', x: e.clientX, y: e.clientY - 160 })}
                             >
                               <span className={styles.combatDefLabel}>AC</span>
-                              <span className={styles.combatDefVal} style={pen.ac !== 0 ? debuffStyle : undefined}>{effAc > 0 ? effAc : '—'}</span>
+                              <span className={styles.combatDefVal} style={pen.ac !== 0 ? debuffStyle : undefined}>{effAc}</span>
                             </span>
+                            )}
                             {c.fort != null && effFort != null && (
                               <span
                                 className={styles.combatDefStat}
@@ -1042,6 +1141,19 @@ export function EncounterManager({
                       })()}
                     </div>
 
+                    {/* Recall Knowledge */}
+                    {(() => {
+                      const rk = c.traits && c.traits.length > 0 ? getRecallKnowledge(c.level, c.traits) : null;
+                      if (!rk) return null;
+                      return (
+                        <div className={styles.rkRow} title="Recall Knowledge DC">
+                          <span className={styles.rkLabel}>RK</span>
+                          <span className={styles.rkVal}>DC {rk.dc}</span>
+                          <span className={styles.rkSkills}>{rk.skills.join(' / ')}</span>
+                        </div>
+                      );
+                    })()}
+
                     {/* HP display */}
                     {editingHp === c.uid ? (
                       <input
@@ -1063,7 +1175,7 @@ export function EncounterManager({
                         title="Click to set HP"
                         onClick={() => { setEditingHp(c.uid); setEditHpVal(String(c.hp)); }}
                       >
-                        {c.hp}/{c.maxHp > 0 ? c.maxHp : '?'}
+                        {c.hp}/{c.maxHp}
                       </span>
                     )}
                   </div>
@@ -1259,7 +1371,7 @@ export function EncounterManager({
                 className={styles.addPlaceholderBtn}
                 onClick={openWizard}
               >
-                ＋ Add Creature
+                ＋ Add Placeholder Creature
               </button>
             )}
           </div>
@@ -1283,13 +1395,20 @@ export function EncounterManager({
           {/* Backdrop to close on outside click */}
           <div
             className={styles.conditionPopupBackdrop}
-            onClick={() => { setConditionPickerUid(null); setConditionPickerAnchor(null); }}
+            onClick={() => { setConditionPickerUid(null); setConditionPickerAnchor(null); setCondPickerPos(null); }}
           />
           <div
             className={styles.conditionPopup}
-            style={popupStyle(conditionPickerAnchor)}
+            style={condPickerPos
+              ? { left: condPickerPos.x, top: condPickerPos.y, maxHeight: 400 }
+              : popupStyle(conditionPickerAnchor)}
+            onPointerMove={onCondPickerDragMove}
+            onPointerUp={onCondPickerDragEnd}
           >
-            <div className={styles.conditionPopupHeader}>
+            <div
+              className={`${styles.conditionPopupHeader} ${styles.conditionPopupDragHandle}`}
+              onPointerDown={onCondPickerDragStart}
+            >
               <span className={styles.conditionPopupTitle}>Add Condition</span>
               <div className={styles.conditionSortToggle}>
                 <button

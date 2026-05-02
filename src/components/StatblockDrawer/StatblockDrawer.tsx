@@ -385,7 +385,15 @@ function StatblockContent({
         <div className={styles.headerActions}>
           <a
             className={styles.aonLink}
-            href={`https://2e.aonprd.com/Search.aspx?q=${encodeURIComponent(c.name)}&include-types=${creature.entityType === 'hazard' ? 'hazard' : 'creature'}`}
+            href={(() => {
+              // Build a direct AoN link. Entity type determines the page type.
+              // Format: /Monsters.aspx?ID=<name-slug> or /Hazards.aspx?ID=<name-slug>
+              // AoN uses name-based URLs for Remaster; fall back to search for others.
+              if (creature.entityType === 'hazard') {
+                return `https://2e.aonprd.com/Hazards.aspx?Name=${encodeURIComponent(c.name)}`;
+              }
+              return `https://2e.aonprd.com/Monsters.aspx?Name=${encodeURIComponent(c.name)}`;
+            })()}
             target="_blank"
             rel="noreferrer"
             title="View on Archives of Nethys"
@@ -716,12 +724,6 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
   const damageLabel = `${item.name} damage`;
 
   function fireAttack(mod: number, mapLabel: string, e: React.MouseEvent) {
-    if (!damageExpr) {
-      // No damage — just open a plain attack roll
-      const expr = `1d20${mod >= 0 ? `+${mod}` : mod}`;
-      e.stopPropagation();
-      // fall through to onRollAttack which handles no-damage gracefully
-    }
     onRollAttack(mod, `${item.name}${mapLabel}`, damageExpr, damageLabel, traits, e);
   }
 

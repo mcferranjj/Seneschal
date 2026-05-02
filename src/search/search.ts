@@ -16,6 +16,7 @@ export interface SearchFilters {
   levelMin: number;
   levelMax: number;
   creatureTypes: string[];
+  hazardTypes: string[]; // [] = all hazard types; ['trap'] = traps only; etc.
   sizes: string[];
   rarities: string[];
   packSources: string[];
@@ -30,6 +31,7 @@ export const DEFAULT_FILTERS: SearchFilters = {
   levelMin: -1,
   levelMax: 25,
   creatureTypes: [],
+  hazardTypes: [],
   sizes: [],
   rarities: [],
   packSources: [],
@@ -43,11 +45,12 @@ export interface SearchResult {
 }
 
 export async function searchCreatures(filters: SearchFilters): Promise<SearchResult> {
-  const { name, traits, excludeTraits, levelMin, levelMax, creatureTypes, sizes, rarities, packSources, entityTypes } = filters;
+  const { name, traits, excludeTraits, levelMin, levelMax, creatureTypes, hazardTypes, sizes, rarities, packSources, entityTypes } = filters;
   const nameLower = name.trim().toLowerCase();
   const hasNameFilter = nameLower.length > 0;
   const hasLevelFilter = levelMin !== -1 || levelMax !== 25;
   const hasCreatureTypeFilter = creatureTypes.length > 0;
+  const hasHazardTypeFilter = hazardTypes.length > 0;
   const hasSizeFilter = sizes.length > 0;
   const hasRarityFilter = rarities.length > 0;
   const hasPackFilter = packSources.length > 0;
@@ -82,6 +85,7 @@ export async function searchCreatures(filters: SearchFilters): Promise<SearchRes
       }
       if (hasLevelFilter && (c.level < levelMin || c.level > levelMax)) return false;
       if (hasCreatureTypeFilter && !creatureTypes.some(t => c.traits.includes(t))) return false;
+      if (hasHazardTypeFilter && !hazardTypes.some(t => c.traits.includes(t))) return false;
       if (hasSizeFilter && !sizes.includes(c.size)) return false;
       if (hasRarityFilter && !rarities.includes(c.rarity)) return false;
       if (hasPackFilter && !packSources.includes(c.packSource)) return false;

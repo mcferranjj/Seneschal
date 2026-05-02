@@ -37,6 +37,7 @@ export interface EncounterCreature {
   dexMod?: number;
   attacks?: CustomAttack[];
   abilities?: CustomAbility[];
+  traits?: string[]; // creature type traits for recall knowledge
   init: number;
   conditions: Condition[];
   custom?: boolean;

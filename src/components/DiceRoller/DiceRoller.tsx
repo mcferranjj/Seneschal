@@ -153,7 +153,13 @@ export function DiceRoller({
   const [dmgResult, setDmgResult] = useState<RollResult | null>(null);
   const [critResult, setCritResult] = useState<CritResult | null>(null);
   const [clampedY, setClampedY] = useState(anchorY);
+  // Drag state: offset from top-left of panel, null when not dragging
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  // Animation keys bump on each roll to retrigger CSS animation
+  const [atkAnimKey, setAtkAnimKey] = useState(0);
+  const [dmgAnimKey, setDmgAnimKey] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startMouseX: number; startMouseY: number; startPanelX: number; startPanelY: number } | null>(null);
   const onRollRef = useRef(onRoll);
   onRollRef.current = onRoll;
 
@@ -172,6 +178,7 @@ export function DiceRoller({
     if (!parsed) return;
     const r = rollDice(parsed);
     setAtkResult(r);
+    setAtkAnimKey(k => k + 1);
     recordRoll(parsed.raw, label, r);
     // Auto-roll damage alongside; if nat 20 on a d20, auto-crit
     if (damageParsed) {
@@ -180,6 +187,7 @@ export function DiceRoller({
         const cr = rollCrit(damageParsed, damageTraits);
         setCritResult(cr);
         setDmgResult(null);
+        setDmgAnimKey(k => k + 1);
         onRollRef.current?.({
           expression: `CRIT ${damageParsed.raw}`,
           label: `${damageLabel ?? 'Damage'} (Crit)`,
@@ -192,6 +200,7 @@ export function DiceRoller({
         const dr = rollDice(damageParsed);
         setDmgResult(dr);
         setCritResult(null);
+        setDmgAnimKey(k => k + 1);
         recordRoll(damageParsed.raw, damageLabel, dr);
       }
     }
@@ -202,6 +211,7 @@ export function DiceRoller({
     const dr = rollDice(damageParsed);
     setDmgResult(dr);
     setCritResult(null);
+    setDmgAnimKey(k => k + 1);
     recordRoll(damageParsed.raw, damageLabel, dr);
   }, [damageParsed, damageLabel, recordRoll]);
 
@@ -209,6 +219,7 @@ export function DiceRoller({
     if (!damageParsed) return;
     const cr = rollCrit(damageParsed, damageTraits);
     setCritResult(cr);
+    setDmgAnimKey(k => k + 1);
     // Record crit as a history entry
     onRollRef.current?.({
       expression: `CRIT ${damageParsed.raw}`,
@@ -243,8 +254,39 @@ export function DiceRoller({
     return () => window.removeEventListener('pointerdown', onPointerDown);
   }, [onClose]);
 
+  // Drag handlers
+  const onDragHandlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (!ref.current) return;
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const rect = ref.current.getBoundingClientRect();
+    const currentX = pos ? pos.x : rect.left + rect.width / 2;
+    const currentY = pos ? pos.y : clampedY;
+    dragRef.current = {
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startPanelX: currentX,
+      startPanelY: currentY,
+    };
+  }, [pos, clampedY]);
+
+  const onDragPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.startMouseX;
+    const dy = e.clientY - dragRef.current.startMouseY;
+    setPos({
+      x: dragRef.current.startPanelX + dx,
+      y: dragRef.current.startPanelY + dy,
+    });
+  }, []);
+
+  const onDragPointerUp = useCallback(() => {
+    dragRef.current = null;
+  }, []);
+
   // Clamp vertical position so roller never overflows the bottom of the viewport
   useEffect(() => {
+    if (pos) return; // user is dragging — skip auto-clamp
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     const overflow = rect.bottom - window.innerHeight + 8; // 8px margin
@@ -258,17 +300,26 @@ export function DiceRoller({
   const isNat1  = isD20 && atkResult.rolls[0] === 1;
   const atkTotalClass = isNat20 ? styles.totalCrit : isNat1 ? styles.totalFumble : styles.totalNormal;
 
+  const panelLeft = pos ? pos.x : anchorX;
+  const panelTop  = pos ? pos.y : clampedY;
+
   return (
-    <div ref={ref} className={styles.roller} style={{ left: anchorX, top: clampedY }}>
+    <div
+      ref={ref}
+      className={styles.roller}
+      style={{ left: panelLeft, top: panelTop, transform: pos ? 'none' : 'translateX(-50%)' }}
+      onPointerMove={onDragPointerMove}
+      onPointerUp={onDragPointerUp}
+    >
       {/* ── Attack section ── */}
-      <div className={styles.header}>
+      <div className={`${styles.header} ${styles.rollerDragHandle}`} onPointerDown={onDragHandlePointerDown}>
         <div className={styles.headerLeft}>
           {label && <span className={styles.label}>{label}</span>}
           <span className={styles.expr}>{parsed.raw}</span>
         </div>
         <button className={styles.closeBtn} onClick={onClose} aria-label="Close">✕</button>
       </div>
-      <div className={`${styles.total} ${atkTotalClass}`}>{atkResult.total}</div>
+      <div key={atkAnimKey} className={`${styles.total} ${atkTotalClass} ${styles.totalAnimated}`}>{atkResult.total}</div>
       <div className={styles.breakdown}>
         [{atkResult.rolls.join(', ')}]
         {atkResult.modifier !== 0 ? ` ${atkResult.modifier >= 0 ? '+' : ''}${atkResult.modifier}` : ''}
@@ -288,7 +339,7 @@ export function DiceRoller({
 
           {critResult ? (
             <>
-              <div className={`${styles.total} ${styles.totalCrit}`}>{critResult.grandTotal}</div>
+              <div key={dmgAnimKey} className={`${styles.total} ${styles.totalCrit} ${styles.totalDmgAnimated}`}>{critResult.grandTotal}</div>
               <div className={styles.breakdown}>
                 [{critResult.baseDice.join(', ')}]
                 {critResult.baseModifier !== 0 ? ` ${critResult.baseModifier >= 0 ? '+' : ''}${critResult.baseModifier}` : ''}
@@ -300,7 +351,7 @@ export function DiceRoller({
             </>
           ) : dmgResult ? (
             <>
-              <div className={`${styles.total} ${styles.totalNormal}`}>{dmgResult.total}</div>
+              <div key={dmgAnimKey} className={`${styles.total} ${styles.totalNormal} ${styles.totalDmgAnimated}`}>{dmgResult.total}</div>
               <div className={styles.breakdown}>
                 [{dmgResult.rolls.join(', ')}]
                 {dmgResult.modifier !== 0 ? ` ${dmgResult.modifier >= 0 ? '+' : ''}${dmgResult.modifier}` : ''}
@@ -342,7 +393,10 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
   const [dmgResult, setDmgResult] = useState<RollResult | null>(null);
   const [critResult, setCritResult] = useState<CritResult | null>(null);
   const [clampedY, setClampedY] = useState(anchorY);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [animKey, setAnimKey] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startMouseX: number; startMouseY: number; startPanelX: number; startPanelY: number } | null>(null);
   const onRollRef = useRef(onRoll);
   onRollRef.current = onRoll;
 
@@ -363,6 +417,7 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
     const r = rollDice(parsed);
     setDmgResult(r);
     setCritResult(null);
+    setAnimKey(k => k + 1);
     recordRoll(r);
   }, [parsed, recordRoll]);
 
@@ -370,6 +425,7 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
     if (!parsed) return;
     const cr = rollCrit(parsed, traits);
     setCritResult(cr);
+    setAnimKey(k => k + 1);
     onRollRef.current?.({
       expression: `CRIT ${parsed.raw}`,
       label: `${label ?? 'Damage'} (Crit)`,
@@ -379,6 +435,23 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
       timestamp: Date.now(),
     });
   }, [parsed, traits, label]);
+
+  const onDragHandlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (!ref.current) return;
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const rect = ref.current.getBoundingClientRect();
+    const currentX = pos ? pos.x : rect.left + rect.width / 2;
+    const currentY = pos ? pos.y : clampedY;
+    dragRef.current = { startMouseX: e.clientX, startMouseY: e.clientY, startPanelX: currentX, startPanelY: currentY };
+  }, [pos, clampedY]);
+
+  const onDragPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    setPos({ x: dragRef.current.startPanelX + (e.clientX - dragRef.current.startMouseX), y: dragRef.current.startPanelY + (e.clientY - dragRef.current.startMouseY) });
+  }, []);
+
+  const onDragPointerUp = useCallback(() => { dragRef.current = null; }, []);
 
   useEffect(() => { performDmgRoll(); }, []); // eslint-disable-line
 
@@ -401,6 +474,7 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
 
   // Clamp vertical position so roller never overflows the bottom of the viewport
   useEffect(() => {
+    if (pos) return;
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     const overflow = rect.bottom - window.innerHeight + 8;
@@ -409,9 +483,18 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
 
   if (!dmgResult || !parsed) return null;
 
+  const panelLeft = pos ? pos.x : anchorX;
+  const panelTop  = pos ? pos.y : clampedY;
+
   return (
-    <div ref={ref} className={styles.roller} style={{ left: anchorX, top: clampedY }}>
-      <div className={styles.header}>
+    <div
+      ref={ref}
+      className={styles.roller}
+      style={{ left: panelLeft, top: panelTop, transform: pos ? 'none' : 'translateX(-50%)' }}
+      onPointerMove={onDragPointerMove}
+      onPointerUp={onDragPointerUp}
+    >
+      <div className={`${styles.header} ${styles.rollerDragHandle}`} onPointerDown={onDragHandlePointerDown}>
         <div className={styles.headerLeft}>
           {label && <span className={styles.label}>{label}</span>}
           <span className={styles.expr}>{parsed.raw}</span>
@@ -422,7 +505,7 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
 
       {critResult ? (
         <>
-          <div className={`${styles.total} ${styles.totalCrit}`}>{critResult.grandTotal}</div>
+          <div key={animKey} className={`${styles.total} ${styles.totalCrit} ${styles.totalAnimated}`}>{critResult.grandTotal}</div>
           <div className={styles.breakdown}>
             [{critResult.baseDice.join(', ')}]
             {critResult.baseModifier !== 0 ? ` ${critResult.baseModifier >= 0 ? '+' : ''}${critResult.baseModifier}` : ''}
@@ -434,7 +517,7 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
         </>
       ) : (
         <>
-          <div className={`${styles.total} ${styles.totalNormal}`}>{dmgResult.total}</div>
+          <div key={animKey} className={`${styles.total} ${styles.totalNormal} ${styles.totalAnimated}`}>{dmgResult.total}</div>
           <div className={styles.breakdown}>
             [{dmgResult.rolls.join(', ')}]
             {dmgResult.modifier !== 0 ? ` ${dmgResult.modifier >= 0 ? '+' : ''}${dmgResult.modifier}` : ''}

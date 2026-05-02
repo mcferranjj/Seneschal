@@ -4,6 +4,16 @@ import { getAllTraits, getAllPackSourcesWithMeta } from '../../search/search';
 import type { PackEra, PackCategory } from '../../sync/packList';
 import styles from './SearchPanel.module.css';
 
+const HAZARD_TYPES = [
+  { value: 'trap',         label: 'Trap' },
+  { value: 'haunt',        label: 'Haunt' },
+  { value: 'environmental',label: 'Environmental' },
+  { value: 'magical',      label: 'Magical' },
+  { value: 'mechanical',   label: 'Mechanical' },
+  { value: 'curse',        label: 'Curse' },
+  { value: 'disease',      label: 'Disease' },
+];
+
 const CREATURE_TYPES = [
   'Aberration', 'Animal', 'Astral', 'Beast', 'Celestial', 'Construct',
   'Dragon', 'Dream', 'Elemental', 'Ethereal', 'Fey', 'Fiend', 'Fungus',
@@ -181,6 +191,10 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
 
   function toggleEntityType(value: string, checked: boolean) {
     set({ entityTypes: checked ? [...filters.entityTypes, value] : filters.entityTypes.filter(x => x !== value) });
+  }
+
+  function toggleHazardType(value: string, checked: boolean) {
+    set({ hazardTypes: checked ? [...filters.hazardTypes, value] : filters.hazardTypes.filter(x => x !== value) });
   }
 
   function toggleCreatureType(value: string, checked: boolean) {
@@ -397,6 +411,25 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
         </div>
       </div>
 
+      {(filters.entityTypes.length === 0 || filters.entityTypes.includes('hazard')) && (
+        <div className={styles.section}>
+          <span className={styles.label}>Hazard Type</span>
+          <div className={styles.checkGroup}>
+            {HAZARD_TYPES.map(h => (
+              <label key={h.value} className={styles.checkLabel}>
+                <input
+                  type="checkbox"
+                  checked={filters.hazardTypes.includes(h.value)}
+                  onChange={e => toggleHazardType(h.value, e.target.checked)}
+                  disabled={disabled}
+                />
+                {h.label}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className={styles.section}>
         <span className={styles.label}>Creature Type</span>
         <div className={styles.checkGroup}>
@@ -549,6 +582,7 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
             levelMax: 25,
             entityTypes: [],
             creatureTypes: [],
+            hazardTypes: [],
             sizes: [],
             rarities: [],
             packSources: [],

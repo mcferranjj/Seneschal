@@ -154,7 +154,6 @@ export function computeAttackPenalty(
 ): number {
   const t = new Set(traits.map(s => s.toLowerCase()));
   const isMelee = attackType === 'melee';
-  const isRanged = !isMelee;
   const hasBrutal = t.has('brutal');
   const hasFinesse = t.has('finesse');
   const hasThrown = t.has('thrown');

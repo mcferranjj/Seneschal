@@ -1265,6 +1265,52 @@
   color: #66aa66;
 }
 
+/* ── Recall Knowledge row ── */
+.rkRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.rkLabel {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-mute);
+  flex-shrink: 0;
+}
+
+.rkVal {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.67rem;
+  font-weight: 700;
+  color: var(--text-mid);
+  flex-shrink: 0;
+}
+
+.rkSkills {
+  font-size: 0.63rem;
+  color: var(--text-mute);
+  font-style: italic;
+}
+
+/* ── Tab drag-over indicator ── */
+.tabWrapperDragOver {
+  border-left: 2px solid var(--crimson);
+}
+
+/* ── Condition picker drag handle ── */
+.conditionPopupDragHandle {
+  cursor: grab;
+  user-select: none;
+}
+
+.conditionPopupDragHandle:active {
+  cursor: grabbing;
+}
+
 /* ── Inline editing ── */
 .initBadgeClickable {
   cursor: pointer;
