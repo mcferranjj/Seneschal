@@ -3,6 +3,7 @@ import type { CreatureRecord } from './db/schema';
 import { searchCreatures, DEFAULT_FILTERS } from './search/search';
 import type { SearchFilters } from './search/search';
 import { runSync, getLastSynced, getCreatureCount } from './sync/sync';
+import { initTraitDescriptions } from './components/StatblockDrawer/statblockHelpers';
 import type { SyncProgress } from './sync/sync';
 import type { PF2ECreature } from './types/pf2e';
 import type { Section, Encounter, EncounterCreature, Condition } from './types/encounter';
@@ -149,7 +150,7 @@ export default function App() {
 
   useEffect(() => {
     refreshCount();
-    triggerSync();
+    triggerSync().then(() => initTraitDescriptions()).catch(() => {});
     loadEncounterState().then(saved => {
       if (saved) {
         setEncounters(saved.encounters);

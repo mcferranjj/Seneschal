@@ -87,3 +87,26 @@ export async function fetchCreatureRaw(commitSha: string, relativePath: string):
   if (!res.ok) throw new Error(`Fetch failed ${res.status}: ${url}`);
   return res.json();
 }
+
+/**
+ * Fetch trait descriptions from the PF2e system's en.json lang file.
+ * Extracts all TraitDescription* keys and returns a map of
+ * lowercase trait name → description string.
+ */
+export async function fetchTraitDescriptions(commitSha: string): Promise<Record<string, string>> {
+  const url = `${RAW_BASE}/${commitSha}/static/lang/en.json`;
+  const res = await fetch(url, { signal: withTimeout(RAW_TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`Fetch failed ${res.status}: ${url}`);
+  const data = await res.json() as { PF2E?: Record<string, string> };
+  const pf2e = data?.PF2E ?? {};
+  const result: Record<string, string> = {};
+  const PREFIX = 'TraitDescription';
+  for (const [key, value] of Object.entries(pf2e)) {
+    if (key.startsWith(PREFIX) && typeof value === 'string') {
+      // e.g. "TraitDescriptionAgile" → "agile"
+      const traitName = key.slice(PREFIX.length).toLowerCase();
+      result[traitName] = value;
+    }
+  }
+  return result;
+}

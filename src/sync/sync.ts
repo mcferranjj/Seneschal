@@ -1,7 +1,7 @@
 import { db } from '../db/db';
 import type { CreatureRecord } from '../db/schema';
 import type { PF2ECreature } from '../types/pf2e';
-import { fetchLatestCommitSha, fetchPf2eTree, fetchCreatureRaw, GithubError } from './github';
+import { fetchLatestCommitSha, fetchPf2eTree, fetchCreatureRaw, fetchTraitDescriptions, GithubError } from './github';
 import { isCreaturePack } from './packList';
 
 const META_KEY = 'sync_state';
@@ -75,6 +75,9 @@ export async function runSync(onProgress?: ProgressCallback): Promise<void> {
     const latestCommitSha = await fetchLatestCommitSha();
 
     if (storedCommitSha === latestCommitSha) {
+      // Creature data is current — but still fetch trait descriptions if missing
+      // (e.g. first launch after a DB version upgrade that added the table)
+      await ensureTraitDescriptions(latestCommitSha);
       onProgress?.({ phase: 'done', message: 'Up to date' });
       return;
     }
@@ -110,6 +113,8 @@ export async function runSync(onProgress?: ProgressCallback): Promise<void> {
     const removedKeys = Object.keys(storedFileShas).filter(k => !currentKeys.has(k));
 
     if (toFetch.length === 0 && removedKeys.length === 0) {
+      // Creature data is current — but still fetch trait descriptions if missing
+      await ensureTraitDescriptions(latestCommitSha);
       await db.meta.put({ key: META_KEY, commitSha: latestCommitSha, lastSynced: Date.now(), fileShas: storedFileShas });
       onProgress?.({ phase: 'done', message: 'Up to date' });
       return;
@@ -138,6 +143,7 @@ export async function runSync(onProgress?: ProgressCallback): Promise<void> {
     // --- Step 5: persist ---
     onProgress?.({ phase: 'saving' });
     await db.creatures.bulkPut(records);
+    await ensureTraitDescriptions(latestCommitSha);
 
     const newFileShas = { ...storedFileShas };
     for (const { packName, fileName, blobSha } of fileEntries) {
@@ -164,6 +170,26 @@ export async function runSync(onProgress?: ProgressCallback): Promise<void> {
     onProgress?.({ phase: 'error', message });
     throw err;
   }
+}
+
+/**
+ * Fetch and store trait descriptions if we don't already have them for this commit.
+ * Silently swallows errors — trait tooltips are non-critical.
+ */
+async function ensureTraitDescriptions(commitSha: string): Promise<void> {
+  try {
+    const existing = await db.traitDescriptions.get('trait_descriptions');
+    if (existing?.commitSha === commitSha) return; // already up to date
+    const descriptions = await fetchTraitDescriptions(commitSha);
+    await db.traitDescriptions.put({ key: 'trait_descriptions', commitSha, descriptions });
+  } catch {
+    // Non-critical — trait tooltips will fall back to built-in descriptions
+  }
+}
+
+export async function loadTraitDescriptions(): Promise<Record<string, string>> {
+  const rec = await db.traitDescriptions.get('trait_descriptions');
+  return rec?.descriptions ?? {};
 }
 
 export async function getLastSynced(): Promise<number | null> {

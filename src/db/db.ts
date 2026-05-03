@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { CreatureRecord, MetaRecord } from './schema';
+import type { CreatureRecord, MetaRecord, TraitDescriptionsRecord } from './schema';
 import type { Encounter } from '../types/encounter';
 
 export interface CharacterRecord {
@@ -31,6 +31,7 @@ class SeneschalDatabase extends Dexie {
   meta!: Table<MetaRecord, string>;
   encounterState!: Table<EncounterStateRecord, string>;
   characters!: Table<CharacterRecord, string>;
+  traitDescriptions!: Table<TraitDescriptionsRecord, string>;
 
   constructor() {
     super('SeneschalGMAssistant');
@@ -55,6 +56,13 @@ class SeneschalDatabase extends Dexie {
       meta: 'key',
       encounterState: 'key',
       characters: 'id',
+    });
+    this.version(5).stores({
+      creatures: 'id, entityType, nameLower, level, rarity, size, packSource, *traits',
+      meta: 'key',
+      encounterState: 'key',
+      characters: 'id',
+      traitDescriptions: 'key',
     });
   }
 }

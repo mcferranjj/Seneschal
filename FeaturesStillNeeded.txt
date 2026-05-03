@@ -1,5 +1,4 @@
 Encounters:
-    - make sure dice roller is properly random/pseudo random and add a small animation to it (make the result bubble out slightly, then update with new value, then shrink back to normal, with the damage roll of combined attack/damage rolls doing the same on a very slight delay)
     - add clickable/hoverable links to keywords (shove, brutal, etc.)
         - need an updated database of relevant traits and their descriptions - probably from AoN
     - for encounter management, need to make it so clicking anywhere else on the screen during the delete encounter confirmation counts as canceling the delete
@@ -32,6 +31,11 @@ Encounters:
     - add elite and weak modifier options to creatures that have been added to the combat tracker
     - add custom level scaling options (use the creature builder rules: find what column a given stat is closest to (T/L/M/H/E) plus its offset from that stat, then scale it up to that same column at the desired level, then apply the same offset that was calculated)
 
+    - name generator
+    - random monster quirk generator
+
+    - monster ability index + hover info
+    - monster traits hover info
 Rules:
     - needs to be verified by user
 

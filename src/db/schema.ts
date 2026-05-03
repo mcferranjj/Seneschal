@@ -25,3 +25,9 @@ export interface MetaRecord {
   lastSynced: number;
   fileShas: Record<string, string>;
 }
+
+export interface TraitDescriptionsRecord {
+  key: string;           // always 'trait_descriptions'
+  commitSha: string;     // the repo commit SHA this was fetched from
+  descriptions: Record<string, string>; // trait name (lowercase) → description
+}

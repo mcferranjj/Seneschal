@@ -1,4 +1,5 @@
 import type { PF2ECreature, PF2EItem } from '../../types/pf2e';
+import { loadTraitDescriptions } from '../../sync/sync';
 
 export function getLevel(c: PF2ECreature): number {
   const lvl = c.system?.details?.level;
@@ -175,91 +176,48 @@ export function linkRolls(html: string): string {
   });
 }
 
-const KEYWORDS: Record<string, string> = {
-  // ── Conditions ──────────────────────────────────────────────────────────────
-  'Grab':          'Free action after a Strike. Target is grabbed (Escape DC = Athletics). Requires a free hand or similar.',
-  'Improved Grab': 'As Grab, but on a critical hit. The target is restrained instead of grabbed.',
-  'Shove':         'Free action after a Strike. Push the target up to 5 feet; it falls if it leaves solid ground.',
-  'Improved Shove':'As Shove, but on a critical hit. The target is pushed up to 10 feet.',
-  'Trip':          'Free action after a Strike. Target falls prone.',
-  'Improved Trip': 'As Trip, but on a critical hit. Target is knocked prone.',
-  'Push':          'Free action after a Strike. Push the target up to 10 feet.',
-  'Knockdown':     'Free action after a Strike. Target falls prone on a hit.',
-  'Grapple':       'Attempt an Athletics check against a foe\'s Fortitude DC to restrain them.',
-  'Off-Guard':     'The creature is flat-footed and takes –2 to its AC.',
-  'Flat-Footed':   '(Legacy) The creature has –2 to AC. Now called Off-Guard in the Remaster.',
-  'Frightened':    '–1 penalty to all checks and DCs per value; reduces by 1 at end of each turn.',
-  'Prone':         '–2 to attack rolls; ranged attacks against it have –2 to hit; it must crawl or take an action to stand.',
-  'Stunned':       'Lose actions equal to the stunned value; reduces by 1 at end of turn.',
-  'Slowed':        'Lose 1 action per round per value.',
-  'Quickened':     'Gain 1 extra action per round, usable for one specific type of action.',
-  'Blinded':       'Cannot see; auto-fail Perception checks relying on sight; –4 to all other Perception, –2 to attack rolls.',
-  'Deafened':      'Cannot hear; –2 to Perception; spells with verbal components have 5% failure chance.',
-  'Dazzled':       'Concealed from all creatures.',
-  'Concealed':     'Must succeed at a DC 5 flat check when targeting; cannot be used when clearly observed.',
-  'Hidden':        'Target must succeed at a DC 11 flat check to affect you; you are undetected after moving.',
-  'Undetected':    'Target must guess your location (DC 11 flat check); target is flat-footed against you.',
-  'Restrained':    'Cannot move; –2 to AC and attack rolls; flat-footed.',
-  'Grabbed':       'Cannot move; flat-footed; –2 to attack rolls and AC.',
-  'Immobilized':   'Cannot use actions with the move trait.',
-  'Sickened':      '–1 to all checks and DCs per value; can attempt a Fortitude save at end of turn to reduce.',
-  'Drained':       '–1 to Constitution-based checks per value; max HP reduced; reduces by 1 per day with rest.',
-  'Doomed':        'Dying threshold reduced by value; if Doomed 3, your dying condition automatically causes death.',
-  'Dying':         'Unconscious; must make a Recovery check each round. Die if you reach Dying 4.',
-  'Paralyzed':     'Flat-footed; cannot take actions; auto-fail Str/Dex checks and attacks.',
-  'Petrified':     'Turned to stone; unconscious; immune to mental and most effects.',
-  'Persistent Damage': 'Take damage at end of each turn; attempt a DC 15 flat check to end the effect.',
-  'Confused':      'Randomly attack creatures near you; flat-footed.',
-  'Controlled':    'Another creature dictates your actions.',
-  'Fascinated':    '–2 to Perception and skill checks; cannot take reactions.',
-  'Fleeing':       'Must spend actions to move away from the source of fear.',
-  'Invisible':     'Concealed from all creatures; cannot be targeted by sight-based abilities.',
-  'Encumbered':    '–1 to attack rolls and AC; Speed reduced by 10 feet.',
-  // ── Weapon Traits ───────────────────────────────────────────────────────────
-  'Agile':         'MAP penalty with this weapon is –4/–8 instead of the normal –5/–10.',
-  'Brutal':        'This ranged weapon can use Str modifier instead of Dex for attack rolls.',
-  'Deadly':        'On a critical hit, add extra dice of the listed die size to damage.',
-  'Fatal':         'On a critical hit, all damage dice become the listed die size and one extra die is added.',
-  'Finesse':       'Can use Dex modifier instead of Str for attack rolls with this weapon.',
-  'Forceful':      'Each attack after the first on the same turn with this weapon deals extra damage.',
-  'Reach':         'This weapon adds 5 feet to the creature\'s reach (or 10 feet if the creature is Large or larger).',
-  'Sweep':         '–1 penalty to attack rolls, but deals +1 damage die.',
-  'Backswing':     'If you miss with this weapon, gain +1 to your next attack with it on the same turn.',
-  'Backstabber':   'Deals 1 extra precision damage against off-guard targets.',
-  'Thrown':        'Can be used as a ranged weapon with the listed range increment.',
-  'Tethered':      'Can be retrieved after throwing as a free action.',
-  'Jousting':      'While mounted, deals an extra die of damage.',
-  'Parry':         'Spend 1 action to gain +1 circumstance bonus to AC until your next turn.',
-  'Twin':          'When you attack with this weapon, if you made a Twin attack earlier, deal extra precision damage.',
-  'Disarm':        'Free action after a Strike. Target drops one held item (Reflex save vs. your attack roll).',
-  'Hampering':     'Target is flat-footed and cannot use actions with the move trait until your next turn.',
-  'Versatile':     'Can deal a different damage type.',
-  'Two-Hand':      'When held in two hands, the weapon\'s die size increases to the listed size.',
-  'Modular':       'Can be configured to deal different damage types.',
-  'Volley':        'Penalty to attack rolls when targets are within the listed range.',
-  'Reload':        'Takes the listed number of Interact actions to reload.',
-  'Combination':   'A weapon that can function as two different weapon types.',
-  'Concealable':   '+2 circumstance bonus to Stealth checks to conceal this weapon.',
-  'Nonlethal':     'This weapon deals nonlethal damage by default.',
-  'Unarmed':       'This attack uses the body as a weapon (cannot be disarmed).',
-  'Ranged Trip':   'Can be used to Trip a creature at range.',
-  'Ranged Disarm': 'Can be used to Disarm a creature at range.',
-  'Propulsive':    'Add half Str modifier (min +0) to ranged damage.',
-};
+// Runtime keyword map — populated from the DB after sync.
+let _keywordMap: Record<string, string> = {};
+let _keywordRegex: RegExp | null = null;
 
-// Build a single regex that matches any keyword (longest first to avoid partial matches)
-const KEYWORD_REGEX = new RegExp(
-  '\\b(' + Object.keys(KEYWORDS).sort((a, b) => b.length - a.length).map(k => k.replace(/[-]/g, '[-\\s]').replace(/[()]/g, '\\$&')).join('|') + ')\\b',
-  'gi'
-);
+function buildKeywordRegex(map: Record<string, string>): RegExp {
+  return new RegExp(
+    '\\b(' +
+      Object.keys(map)
+        .sort((a, b) => b.length - a.length)
+        .map(k => k.replace(/[-]/g, '[-\\s]').replace(/[()]/g, '\\$&'))
+        .join('|') +
+      ')\\b',
+    'gi'
+  );
+}
+
+/**
+ * Called once on app load (after sync). Loads Foundry trait descriptions from
+ * the DB and builds the keyword map and regex.
+ */
+export async function initTraitDescriptions(): Promise<void> {
+  const fromDb = await loadTraitDescriptions();
+  if (Object.keys(fromDb).length === 0) return;
+
+  // DB keys are lowercase (e.g. "agile") — convert to Title Case for display matching.
+  const map: Record<string, string> = {};
+  for (const [traitLower, desc] of Object.entries(fromDb)) {
+    const displayKey = traitLower.charAt(0).toUpperCase() + traitLower.slice(1);
+    map[displayKey] = desc;
+  }
+
+  _keywordMap = map;
+  _keywordRegex = buildKeywordRegex(map);
+}
 
 export function linkKeywords(html: string): string {
+  if (!_keywordRegex) return html;
   // Only process text nodes, not inside HTML tags or existing attributes
   return html.replace(/>([^<]+)</g, (_match, text) => {
-    const linked = text.replace(KEYWORD_REGEX, (kw: string) => {
-      // Look up canonical key (case-insensitive)
-      const key = Object.keys(KEYWORDS).find(k => k.toLowerCase() === kw.toLowerCase()) ?? kw;
-      const tip = KEYWORDS[key] ?? '';
+    const linked = text.replace(_keywordRegex!, (kw: string) => {
+      const key = Object.keys(_keywordMap).find(k => k.toLowerCase() === kw.toLowerCase()) ?? kw;
+      const tip = _keywordMap[key] ?? '';
       return `<span class="pf2kw" data-tip="${tip.replace(/"/g, '&quot;')}">${kw}</span>`;
     });
     return `>${linked}<`;
