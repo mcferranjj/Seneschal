@@ -1,13 +1,5 @@
 Encounters:
-    - add clickable/hoverable links to keywords (shove, brutal, etc.)
-        - need an updated database of relevant traits and their descriptions - probably from AoN
-    - for encounter management, need to make it so clicking anywhere else on the screen during the delete encounter confirmation counts as canceling the delete
-    - for custom creatures:
-        - need to set the "custom" source to be turned on by default
-        - need a way to edit a saved creature
-        - need to be able to add flavor text/description section
-        - need to be able to set size
-        - have a way to use a creature as a base to make your own custom version of it
+    - have a way to use a creature as a base to make your own custom version of it
     - add hazards to the tracked database:
         - does not appear to be functional - no hazards can be found when I filter for them
         - also need to add a "hazard type" set of filters that has "trap", "haunt", etc.
@@ -24,6 +16,7 @@ Encounters:
         - align the T/L/M/H/E grid so that every row is centered on M (aligning the rows with each other)
         - the text box for the numbers is too small for three digit values (e.g. health) - let's make that bigger
 
+    - in the custom creature wizard, align the T/L/M/H/E grids so that every row is centered on M (aligning the rows with each other)
     - make creatures click and draggable into, out of, and around the combat tracker (dragging creatures in the tracker should automatically update their initiative)
     - give search results a similar << minimize functionality as teh filters column
     - add recall knowledge applicable skills and DCs based on creature to the right hand stat block, remove it from the quick reference, and make sure it's sourced with the recall knowledge DCs in the foundry github info
@@ -34,10 +27,14 @@ Encounters:
     - name generator
     - random monster quirk generator
 
-    - monster ability index + hover info
-    - monster traits hover info
-Rules:
-    - needs to be verified by user
+    - monster ability index + hover info (e.g. Push, Improved Grab, Trample)
+    - monster traits hover info (e.g. Humanoid, Unholy, Mindless)
 
+    - change combat tracker 
+Rules:
+    - needs more exploratory and requirements written up
+    
+    
 Characters:
-    - needs to be verified by user
+    - needs more exploratory and requirements written up
+    
