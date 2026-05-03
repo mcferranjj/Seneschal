@@ -1,8 +1,9 @@
 Encounters:
-    - have a way to use a creature as a base to make your own custom version of it
+    - have a way to use a creature as a base to make your own custom version of it 
+    - add elite and weak modifier options to creatures that have been added to the combat tracker
+    - add custom level scaling options (use the creature builder rules: find what column a given stat is closest to (T/L/M/H/E) plus its offset from that stat, then scale it up to that same column at the desired level, then apply the same offset that was calculated)
+
     - add hazards to the tracked database:
-        - does not appear to be functional - no hazards can be found when I filter for them
-        - also need to add a "hazard type" set of filters that has "trap", "haunt", etc.
         - also need to add custom hazard creation, adding to the custom creature wizard
     - pictures?
         - not implemented
@@ -20,9 +21,6 @@ Encounters:
     - make creatures click and draggable into, out of, and around the combat tracker (dragging creatures in the tracker should automatically update their initiative)
     - give search results a similar << minimize functionality as teh filters column
     - add recall knowledge applicable skills and DCs based on creature to the right hand stat block, remove it from the quick reference, and make sure it's sourced with the recall knowledge DCs in the foundry github info
-
-    - add elite and weak modifier options to creatures that have been added to the combat tracker
-    - add custom level scaling options (use the creature builder rules: find what column a given stat is closest to (T/L/M/H/E) plus its offset from that stat, then scale it up to that same column at the desired level, then apply the same offset that was calculated)
 
     - name generator
     - random monster quirk generator
