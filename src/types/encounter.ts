@@ -22,6 +22,28 @@ export interface CustomAbility {
   actionType?: AbilityActionType;
 }
 
+export type SpeedType = 'land' | 'climb' | 'swim' | 'burrow' | 'fly';
+
+export interface CustomSpeed {
+  type: SpeedType;
+  value: number;
+}
+
+export interface CustomSense {
+  name: string;
+  range?: number; // feet; undefined = unlimited
+}
+
+export interface CustomImmunity {
+  type: string;
+}
+
+export interface CustomResistance {
+  type: string;
+  value: number;
+  exceptions?: string;
+}
+
 export interface EncounterCreature {
   uid: string;
   creatureId?: string;

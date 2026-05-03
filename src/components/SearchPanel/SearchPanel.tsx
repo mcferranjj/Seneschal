@@ -150,7 +150,9 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
           packsInitialized.current = true;
           if (filters.packSources.length === 0) {
             const remaster = packs.filter(p => p.era === 'remaster' && (p.category === 'core' || p.category === 'supplemental') ).map(p => p.name);
-            if (remaster.length > 0) onChange({ ...filters, packSources: remaster });
+            // Always include 'custom' in the default selection
+            const defaults = packs.some(p => p.name === 'custom') ? [...remaster, 'custom'] : remaster;
+            if (defaults.length > 0) onChange({ ...filters, packSources: defaults });
           }
         }
       }).catch(() => {});

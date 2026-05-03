@@ -166,6 +166,28 @@
   color: #fff;
 }
 
+.editBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.editBtn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255,255,255,0.6);
+  color: #fff;
+}
+
 /* Traits row */
 .traitsRow {
   display: flex;

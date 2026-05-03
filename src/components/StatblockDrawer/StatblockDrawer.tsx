@@ -78,10 +78,13 @@ interface DrawerProps {
   onClose: () => void;
   onAddToEncounter: (creature: CreatureRecord) => void;
   wizardOpen?: boolean;
+  /** If set, the wizard opens in edit mode for this creature */
+  wizardEditCreature?: CreatureRecord;
   partyLevel?: number;
   onWizardSave?: (creature: CreatureRecord) => void;
   onWizardCancel?: () => void;
   onDeleteCreature?: (id: string) => void;
+  onEditCreature?: (creature: CreatureRecord) => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
   /** Active conditions on the currently-selected creature in the encounter */
   activeConditions?: Condition[];
@@ -92,10 +95,12 @@ export function StatblockDrawer({
   onClose,
   onAddToEncounter,
   wizardOpen,
+  wizardEditCreature,
   partyLevel = 1,
   onWizardSave,
   onWizardCancel,
   onDeleteCreature,
+  onEditCreature,
   onRoll,
   activeConditions,
 }: DrawerProps) {
@@ -106,15 +111,18 @@ export function StatblockDrawer({
           partyLevel={partyLevel}
           onSave={onWizardSave ?? (() => {})}
           onCancel={onWizardCancel ?? (() => {})}
+          editCreature={wizardEditCreature}
         />
       ) : creature ? (
         creature.packSource === 'custom' ? (
-          <CustomStatblock
+          <StatblockContent
             creature={creature}
             onClose={onClose}
             onAddToEncounter={onAddToEncounter}
-            onDelete={onDeleteCreature}
+            onRoll={onRoll}
             activeConditions={activeConditions}
+            onDelete={onDeleteCreature}
+            onEdit={onEditCreature}
           />
         ) : (
           <StatblockContent creature={creature} onClose={onClose} onAddToEncounter={onAddToEncounter} onRoll={onRoll} activeConditions={activeConditions} />
@@ -130,147 +138,24 @@ export function StatblockDrawer({
   );
 }
 
-function CustomStatblock({
-  creature,
-  onClose,
-  onAddToEncounter,
-  onDelete,
-  activeConditions,
-}: {
-  creature: CreatureRecord;
-  onClose: () => void;
-  onAddToEncounter: (c: CreatureRecord) => void;
-  onDelete?: (id: string) => void;
-  activeConditions?: Condition[];
-}) {
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const c = creature.data as PF2ECreature;
-  const hp = c.system?.attributes?.hp?.max ?? creature.customData?.attacks?.length ?? '—';
-  const baseAc = c.system?.attributes?.ac?.value;
-  const fort = (c.system as any)?.saves?.fortitude?.value;
-  const ref  = (c.system as any)?.saves?.reflex?.value;
-  const will = (c.system as any)?.saves?.will?.value;
-  const attacks = creature.customData?.attacks ?? [];
-  const abilities = creature.customData?.abilities ?? [];
-
-  const pen = computePenalties(activeConditions ?? []);
-  const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
-
-  const effAc   = baseAc != null ? baseAc + pen.ac : undefined;
-  const effFort = fort   != null ? fort   + pen.fort : undefined;
-  const effRef  = ref    != null ? ref    + pen.ref  : undefined;
-  const effWill = will   != null ? will   + pen.will : undefined;
-
-  function fmtMod(v?: number) {
-    if (v == null) return '—';
-    return v >= 0 ? `+${v}` : String(v);
-  }
-
-  return (
-    <div className={styles.content}>
-      <div className={styles.header}>
-        <div className={styles.headerMain}>
-          <span className={styles.creatureName}>{creature.name}</span>
-          <span className={styles.creatureLevel}>Custom Creature {creature.level}</span>
-        </div>
-        <div className={styles.headerActions}>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close statblock">✕</button>
-        </div>
-      </div>
-
-      <div className={styles.body}>
-        <p className={styles.sourceLine}><em>Custom</em></p>
-
-        {activeConditions && activeConditions.length > 0 && (
-          <p className={styles.sourceLine} style={{ color: '#c0392b', fontStyle: 'normal' }}>
-            <strong>Conditions:</strong>{' '}
-            {activeConditions.map(cond => `${cond.name}${cond.value != null ? ` ${cond.value}` : ''}`).join(', ')}
-          </p>
-        )}
-
-        <hr className={styles.divider} />
-
-        <p className={styles.defenseLine}>
-          <strong>AC</strong>{' '}
-          <span style={pen.ac !== 0 ? debuffStyle : undefined}>{effAc ?? '—'}</span>;{' '}
-          <strong>Fort</strong>{' '}
-          <span style={pen.fort !== 0 ? debuffStyle : undefined}>{fmtMod(effFort)}</span>,{' '}
-          <strong>Ref</strong>{' '}
-          <span style={pen.ref !== 0 ? debuffStyle : undefined}>{fmtMod(effRef)}</span>,{' '}
-          <strong>Will</strong>{' '}
-          <span style={pen.will !== 0 ? debuffStyle : undefined}>{fmtMod(effWill)}</span>
-        </p>
-        <p className={styles.defenseLine}>
-          <strong>HP</strong> {hp}
-        </p>
-
-        {attacks.length > 0 && (
-          <>
-            <hr className={styles.divider} />
-            {attacks.map((atk, i) => (
-              <p key={i} className={styles.attackLine}>
-                <span className={styles.attackTypeLabel}>{atk.type === 'melee' ? 'Melee' : 'Ranged'}</span>
-                {' ◆ '}
-                <strong>{atk.name}</strong>
-                {' '}{fmtMod(atk.bonus)}
-                {atk.range != null && <span className={styles.attackTraits}> (range {atk.range} ft)</span>}
-                {', '}<strong>Damage</strong> {atk.damage}
-              </p>
-            ))}
-          </>
-        )}
-
-        {abilities.length > 0 && (
-          <>
-            <hr className={styles.divider} />
-            {abilities.map((ab, i) => (
-              <div key={i} className={styles.itemBlock}>
-                <p className={styles.itemHeader}>
-                  <strong className={styles.itemName}>{ab.name}</strong>
-                </p>
-                {ab.description && (
-                  <p className={styles.itemDesc}>{ab.description}</p>
-                )}
-              </div>
-            ))}
-          </>
-        )}
-
-        <button className={styles.addToEncBtn} onClick={() => onAddToEncounter(creature)}>
-          + Add to Encounter
-        </button>
-
-        {onDelete && (
-          confirmDelete ? (
-            <div className={styles.deleteConfirm}>
-              <span>Delete permanently?</span>
-              <button className={styles.deleteConfirmBtn} onClick={() => onDelete(creature.id)}>Yes, delete</button>
-              <button className={styles.deleteCancelBtn} onClick={() => setConfirmDelete(false)}>Cancel</button>
-            </div>
-          ) : (
-            <button className={styles.deleteBtn} onClick={() => setConfirmDelete(true)}>
-              Delete Custom Creature
-            </button>
-          )
-        )}
-      </div>
-    </div>
-  );
-}
-
 function StatblockContent({
   creature,
   onClose,
   onAddToEncounter,
   onRoll,
   activeConditions,
+  onDelete,
+  onEdit,
 }: {
   creature: CreatureRecord;
   onClose: () => void;
   onAddToEncounter: (creature: CreatureRecord) => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
   activeConditions?: Condition[];
+  onDelete?: (id: string) => void;
+  onEdit?: (creature: CreatureRecord) => void;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [diceRoll, setDiceRoll] = useState<{
     expr: string; label?: string;
     damageExpr?: string; damageLabel?: string; damageTraits?: string[];
@@ -383,23 +268,27 @@ function StatblockContent({
           </span>
         </div>
         <div className={styles.headerActions}>
-          <a
-            className={styles.aonLink}
-            href={(() => {
-              // Build a direct AoN link. Entity type determines the page type.
-              // Format: /Monsters.aspx?ID=<name-slug> or /Hazards.aspx?ID=<name-slug>
-              // AoN uses name-based URLs for Remaster; fall back to search for others.
-              if (creature.entityType === 'hazard') {
-                return `https://2e.aonprd.com/Hazards.aspx?Name=${encodeURIComponent(c.name)}`;
-              }
-              return `https://2e.aonprd.com/Monsters.aspx?Name=${encodeURIComponent(c.name)}`;
-            })()}
-            target="_blank"
-            rel="noreferrer"
-            title="View on Archives of Nethys"
-          >
-            AoN ↗
-          </a>
+          {creature.packSource !== 'custom' && (
+            <a
+              className={styles.aonLink}
+              href={(() => {
+                if (creature.entityType === 'hazard') {
+                  return `https://2e.aonprd.com/Hazards.aspx?Name=${encodeURIComponent(c.name)}`;
+                }
+                return `https://2e.aonprd.com/Monsters.aspx?Name=${encodeURIComponent(c.name)}`;
+              })()}
+              target="_blank"
+              rel="noreferrer"
+              title="View on Archives of Nethys"
+            >
+              AoN ↗
+            </a>
+          )}
+          {creature.packSource === 'custom' && onEdit && (
+            <button className={styles.editBtn} onClick={() => onEdit(creature)} title="Edit custom creature">
+              ✎
+            </button>
+          )}
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close statblock">
             ✕
           </button>
@@ -613,9 +502,79 @@ function StatblockContent({
           />
         ))}
 
+        {/* Custom creature attacks (stored in customData, not items) */}
+        {creature.packSource === 'custom' && (creature.customData?.attacks ?? []).map((atk, i) => {
+          const bonus = atk.bonus;
+          const isAgile = atk.traits?.includes('agile') ?? false;
+          const map2 = bonus - (isAgile ? 4 : 5);
+          const map3 = bonus - (isAgile ? 8 : 10);
+          const traitStr = atk.traits?.length ? `(${atk.traits.join(', ')})` : '';
+          const rangeStr = atk.range != null ? `range ${atk.range} ft.` : null;
+          const fullTraitStr = [rangeStr, ...(atk.traits ?? [])].filter(Boolean).join(', ');
+          const displayTraitStr = fullTraitStr ? `(${fullTraitStr})` : '';
+          const damageExprMatch = atk.damage?.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
+          const damageExpr = damageExprMatch
+            ? (damageExprMatch[2] ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}` : damageExprMatch[1])
+            : '';
+          const damageLabel = `${atk.name} damage`;
+          const typeLabel = atk.type === 'ranged' ? 'Ranged' : 'Melee';
+          return (
+            <p key={i} className={styles.attackLine}>
+              <span className={styles.attackTypeLabel}>{typeLabel}</span>
+              {' ◆ '}
+              <span className={styles.rollMod} title="Roll attack (1st action)"
+                onClick={e => rollAttack(bonus, atk.name, damageExpr, damageLabel, atk.traits ?? [], e)}>
+                <strong>{atk.name}</strong> {formatMod(bonus)}
+              </span>
+              {' ['}
+              <span className={styles.mapRoll} title="Roll attack (2nd action, MAP)"
+                onClick={e => rollAttack(map2, `${atk.name} (MAP 2)`, damageExpr, damageLabel, atk.traits ?? [], e)}>
+                {formatMod(map2)}
+              </span>
+              {'/'}
+              <span className={styles.mapRoll} title="Roll attack (3rd action, MAP)"
+                onClick={e => rollAttack(map3, `${atk.name} (MAP 3)`, damageExpr, damageLabel, atk.traits ?? [], e)}>
+                {formatMod(map3)}
+              </span>
+              {']'}
+              {displayTraitStr && <span className={styles.attackTraits}> {displayTraitStr}</span>}
+              {atk.damage && (
+                <>
+                  {', '}
+                  {damageExpr ? (
+                    <span className={styles.rollMod} title="Roll damage"
+                      onClick={e => rollDamage(damageExpr, damageLabel, atk.traits ?? [], e)}>
+                      <strong>Damage</strong> {atk.damage}
+                    </span>
+                  ) : (
+                    <><strong>Damage</strong> {atk.damage}</>
+                  )}
+                </>
+              )}
+            </p>
+          );
+        })}
+
         {offenseActions.map(item => (
           <ItemBlock key={item._id} item={item} />
         ))}
+
+        {/* Custom creature abilities */}
+        {creature.packSource === 'custom' && (creature.customData?.abilities ?? []).map((ab, i) => {
+          const actionSymbols: Record<string, string> = {
+            single: ' ◆', two: ' ◆◆', three: ' ◆◆◆', reaction: ' ↺', free: ' ◇', passive: '',
+          };
+          const sym = ab.actionType ? (actionSymbols[ab.actionType] ?? '') : '';
+          return (
+            <div key={i} className={styles.itemBlock}>
+              <p className={styles.itemHeader}>
+                <strong className={styles.itemName}>{ab.name}</strong>
+                {sym && <span className={styles.actionSymbol}>{sym}</span>}
+              </p>
+              {ab.description && <p className={styles.itemDesc}>{ab.description}</p>}
+            </div>
+          );
+        })}
 
         {publicNotes && (
           <>
@@ -629,10 +588,35 @@ function StatblockContent({
           </>
         )}
 
+        {creature.packSource === 'custom' && creature.customData?.flavorText && (
+          <>
+            <hr className={styles.divider} />
+            <div className={styles.flavorBox}>
+              <p className={styles.publicNotes} style={{ whiteSpace: 'pre-wrap' }}>
+                {creature.customData.flavorText}
+              </p>
+            </div>
+          </>
+        )}
+
         {/* Add to Encounter */}
         <button className={styles.addToEncBtn} onClick={() => onAddToEncounter(creature)}>
           + Add to Encounter
         </button>
+
+        {creature.packSource === 'custom' && onDelete && (
+          confirmDelete ? (
+            <div className={styles.deleteConfirm}>
+              <span>Delete permanently?</span>
+              <button className={styles.deleteConfirmBtn} onClick={() => onDelete(creature.id)}>Yes, delete</button>
+              <button className={styles.deleteCancelBtn} onClick={() => setConfirmDelete(false)}>Cancel</button>
+            </div>
+          ) : (
+            <button className={styles.deleteBtn} onClick={() => setConfirmDelete(true)}>
+              Delete Custom Creature
+            </button>
+          )
+        )}
       </div>
 
       {diceRoll && (

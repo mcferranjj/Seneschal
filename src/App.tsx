@@ -40,6 +40,7 @@ export default function App() {
 
   // Custom creature wizard
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardEditCreature, setWizardEditCreature] = useState<import('./db/schema').CreatureRecord | undefined>(undefined);
 
   // Roll history
   const [rollHistory, setRollHistory] = useState<RollHistoryEntry[]>([]);
@@ -331,11 +332,18 @@ export default function App() {
 
   const openWizard = useCallback(() => {
     setSelected(null);
+    setWizardEditCreature(undefined);
+    setWizardOpen(true);
+  }, []);
+
+  const openEditWizard = useCallback((creature: import('./db/schema').CreatureRecord) => {
+    setWizardEditCreature(creature);
     setWizardOpen(true);
   }, []);
 
   const handleWizardSave = useCallback(async (creature: import('./db/schema').CreatureRecord) => {
     setWizardOpen(false);
+    setWizardEditCreature(undefined);
     setSelected(creature);
     // Refresh search so the new creature appears in results
     const { results: r, totalCount: tc } = await searchCreatures(filtersRef.current);
@@ -479,10 +487,12 @@ export default function App() {
                 onClose={() => setSelected(null)}
                 onAddToEncounter={addToEncounter}
                 wizardOpen={wizardOpen}
+                wizardEditCreature={wizardEditCreature}
                 partyLevel={partyLevel}
                 onWizardSave={handleWizardSave}
-                onWizardCancel={() => setWizardOpen(false)}
+                onWizardCancel={() => { setWizardOpen(false); setWizardEditCreature(undefined); }}
                 onDeleteCreature={handleDeleteCreature}
+                onEditCreature={openEditWizard}
                 onRoll={addRollEntry}
                 activeConditions={
                   selected && selectedEncounterUid

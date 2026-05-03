@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { CreatureRecord } from '../../db/schema';
-import type { CustomAttack, CustomAbility, AbilityActionType } from '../../types/encounter';
+import type { CustomAttack, CustomAbility, AbilityActionType, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, SpeedType } from '../../types/encounter';
 import { db } from '../../db/db';
 import { getAllTraits } from '../../search/search';
 import styles from './CustomCreatureWizard.module.css';
@@ -9,6 +9,15 @@ const CREATURE_TYPES = [
   'Aberration', 'Animal', 'Astral', 'Beast', 'Celestial', 'Construct',
   'Dragon', 'Dream', 'Elemental', 'Ethereal', 'Fey', 'Fiend', 'Fungus',
   'Humanoid', 'Monitor', 'Ooze', 'Plant', 'Shade', 'Spirit', 'Time', 'Undead',
+];
+
+const SIZES: { value: string; label: string }[] = [
+  { value: 'tiny', label: 'Tiny' },
+  { value: 'sm',   label: 'Small' },
+  { value: 'med',  label: 'Medium' },
+  { value: 'lg',   label: 'Large' },
+  { value: 'huge', label: 'Huge' },
+  { value: 'grg',  label: 'Gargantuan' },
 ];
 
 const WEAPON_TRAITS = [
@@ -34,6 +43,20 @@ const MONSTER_ATTACK_TRAITS = [
 
 const MONSTER_ABILITY_SUGGESTIONS = [
   'Constrict', 'Swallow Whole', 'Trample', 'Rend', 'Pounce', 'Attach',
+];
+
+const COMMON_SENSES = [
+  'low-light vision', 'darkvision', 'greater darkvision',
+  'scent', 'tremorsense', 'echolocation', 'motion sense', 'lifesense',
+];
+
+const DAMAGE_TYPES = [
+  'acid', 'bludgeoning', 'cold', 'electricity', 'fire', 'force',
+  'mental', 'negative', 'piercing', 'poison', 'positive', 'slashing', 'sonic',
+  'bleed', 'chaotic', 'evil', 'good', 'lawful', 'void', 'vitality',
+  'cold iron', 'silver', 'adamantine', 'magical',
+  'disease', 'death effects', 'doomed', 'drained', 'fatigued',
+  'paralyzed', 'petrified', 'poison', 'sleep', 'unconscious',
 ];
 
 // Source: GM Core Remaster Tables 9-2 through 9-10 via 2e.aonprd.com/Rules.aspx?ID=2874
@@ -213,6 +236,118 @@ export const DAMAGE_TABLE: Record<number, Record<AcTier, string>> = {
   [25]: { extreme: '4d12+45', high: '4d12+28', moderate: '4d10+24', low: '4d6+22' },
 };
 
+// Ability modifier tiers: Extreme/High/Moderate/Low (no Terrible for abilities)
+type AbilityTier = 'low' | 'moderate' | 'high' | 'extreme';
+const ABILITY_TIERS: AbilityTier[] = ['low', 'moderate', 'high', 'extreme'];
+
+export const ABILITY_TABLE: Record<number, Record<AbilityTier, number>> = {
+  [-1]: { extreme: 99,  high: 3,  moderate: 2,  low: 0  },
+  [0]:  { extreme: 99,  high: 3,  moderate: 2,  low: 0  },
+  [1]:  { extreme: 5,   high: 4,  moderate: 3,  low: 1  },
+  [2]:  { extreme: 5,   high: 4,  moderate: 3,  low: 1  },
+  [3]:  { extreme: 5,   high: 4,  moderate: 3,  low: 1  },
+  [4]:  { extreme: 6,   high: 5,  moderate: 3,  low: 2  },
+  [5]:  { extreme: 6,   high: 5,  moderate: 4,  low: 2  },
+  [6]:  { extreme: 7,   high: 5,  moderate: 4,  low: 2  },
+  [7]:  { extreme: 7,   high: 6,  moderate: 4,  low: 2  },
+  [8]:  { extreme: 7,   high: 6,  moderate: 4,  low: 3  },
+  [9]:  { extreme: 7,   high: 6,  moderate: 4,  low: 3  },
+  [10]: { extreme: 8,   high: 7,  moderate: 5,  low: 3  },
+  [11]: { extreme: 8,   high: 7,  moderate: 5,  low: 3  },
+  [12]: { extreme: 8,   high: 7,  moderate: 5,  low: 4  },
+  [13]: { extreme: 9,   high: 8,  moderate: 5,  low: 4  },
+  [14]: { extreme: 9,   high: 8,  moderate: 5,  low: 4  },
+  [15]: { extreme: 9,   high: 8,  moderate: 6,  low: 4  },
+  [16]: { extreme: 10,  high: 9,  moderate: 6,  low: 5  },
+  [17]: { extreme: 10,  high: 9,  moderate: 6,  low: 5  },
+  [18]: { extreme: 10,  high: 9,  moderate: 6,  low: 5  },
+  [19]: { extreme: 11,  high: 10, moderate: 6,  low: 5  },
+  [20]: { extreme: 11,  high: 10, moderate: 7,  low: 6  },
+  [21]: { extreme: 11,  high: 10, moderate: 7,  low: 6  },
+  [22]: { extreme: 11,  high: 10, moderate: 8,  low: 6  },
+  [23]: { extreme: 11,  high: 10, moderate: 8,  low: 6  },
+  [24]: { extreme: 13,  high: 12, moderate: 9,  low: 7  },
+  [25]: { extreme: 13,  high: 12, moderate: 9,  low: 7  },
+};
+// level -1 and 0 have no extreme in the table; use 99 as sentinel (hide tier btn)
+
+export const PERCEPTION_TABLE: Record<number, Record<SaveTier, number>> = {
+  [-1]: { extreme: 9,  high: 8,  moderate: 5,  low: 2,  terrible: 0  },
+  [0]:  { extreme: 10, high: 9,  moderate: 6,  low: 3,  terrible: 1  },
+  [1]:  { extreme: 11, high: 10, moderate: 7,  low: 4,  terrible: 2  },
+  [2]:  { extreme: 12, high: 11, moderate: 8,  low: 5,  terrible: 3  },
+  [3]:  { extreme: 14, high: 12, moderate: 9,  low: 6,  terrible: 4  },
+  [4]:  { extreme: 15, high: 14, moderate: 11, low: 8,  terrible: 6  },
+  [5]:  { extreme: 17, high: 15, moderate: 12, low: 9,  terrible: 7  },
+  [6]:  { extreme: 18, high: 17, moderate: 14, low: 11, terrible: 8  },
+  [7]:  { extreme: 20, high: 18, moderate: 15, low: 12, terrible: 10 },
+  [8]:  { extreme: 21, high: 19, moderate: 16, low: 13, terrible: 11 },
+  [9]:  { extreme: 23, high: 21, moderate: 18, low: 15, terrible: 12 },
+  [10]: { extreme: 24, high: 22, moderate: 19, low: 16, terrible: 14 },
+  [11]: { extreme: 26, high: 24, moderate: 21, low: 18, terrible: 15 },
+  [12]: { extreme: 27, high: 25, moderate: 22, low: 19, terrible: 16 },
+  [13]: { extreme: 29, high: 26, moderate: 23, low: 20, terrible: 18 },
+  [14]: { extreme: 30, high: 28, moderate: 25, low: 22, terrible: 19 },
+  [15]: { extreme: 32, high: 29, moderate: 26, low: 23, terrible: 20 },
+  [16]: { extreme: 33, high: 30, moderate: 28, low: 25, terrible: 22 },
+  [17]: { extreme: 35, high: 32, moderate: 29, low: 26, terrible: 23 },
+  [18]: { extreme: 36, high: 33, moderate: 30, low: 27, terrible: 24 },
+  [19]: { extreme: 38, high: 35, moderate: 32, low: 29, terrible: 26 },
+  [20]: { extreme: 39, high: 36, moderate: 33, low: 30, terrible: 27 },
+  [21]: { extreme: 41, high: 38, moderate: 35, low: 32, terrible: 28 },
+  [22]: { extreme: 43, high: 39, moderate: 36, low: 33, terrible: 30 },
+  [23]: { extreme: 44, high: 40, moderate: 37, low: 34, terrible: 31 },
+  [24]: { extreme: 46, high: 42, moderate: 38, low: 36, terrible: 32 },
+  [25]: { extreme: 47, high: 43, moderate: 39, low: 37, terrible: 33 },
+};
+
+// Resistance/Weakness: Maximum = 'high', Minimum = 'low', median = 'moderate'
+export const RES_WEAK_TABLE: Record<number, { high: number; moderate: number; low: number }> = {
+  [-1]: { high: 1,  moderate: 1,  low: 1  },
+  [0]:  { high: 3,  moderate: 2,  low: 1  },
+  [1]:  { high: 3,  moderate: 2,  low: 2  },
+  [2]:  { high: 5,  moderate: 3,  low: 2  },
+  [3]:  { high: 6,  moderate: 4,  low: 3  },
+  [4]:  { high: 7,  moderate: 5,  low: 4  },
+  [5]:  { high: 8,  moderate: 6,  low: 4  },
+  [6]:  { high: 9,  moderate: 7,  low: 5  },
+  [7]:  { high: 10, moderate: 7,  low: 5  },
+  [8]:  { high: 11, moderate: 8,  low: 6  },
+  [9]:  { high: 12, moderate: 9,  low: 6  },
+  [10]: { high: 13, moderate: 10, low: 7  },
+  [11]: { high: 14, moderate: 10, low: 7  },
+  [12]: { high: 15, moderate: 11, low: 8  },
+  [13]: { high: 16, moderate: 12, low: 8  },
+  [14]: { high: 17, moderate: 13, low: 9  },
+  [15]: { high: 18, moderate: 13, low: 9  },
+  [16]: { high: 19, moderate: 14, low: 9  },
+  [17]: { high: 19, moderate: 14, low: 10 },
+  [18]: { high: 20, moderate: 15, low: 10 },
+  [19]: { high: 21, moderate: 16, low: 11 },
+  [20]: { high: 22, moderate: 16, low: 11 },
+  [21]: { high: 23, moderate: 17, low: 12 },
+  [22]: { high: 24, moderate: 18, low: 12 },
+  [23]: { high: 25, moderate: 19, low: 13 },
+  [24]: { high: 26, moderate: 19, low: 13 },
+  [25]: { high: 27, moderate: 20, low: 14 },
+};
+
+type ResWeakTier = 'low' | 'moderate' | 'high';
+const RES_WEAK_TIERS: ResWeakTier[] = ['low', 'moderate', 'high'];
+
+function lookupAbility(level: number, tier: AbilityTier): number {
+  const l = Math.max(-1, Math.min(25, level));
+  return (ABILITY_TABLE[l] ?? ABILITY_TABLE[0])[tier];
+}
+function lookupPerception(level: number, tier: SaveTier): number {
+  const l = Math.max(-1, Math.min(25, level));
+  return (PERCEPTION_TABLE[l] ?? PERCEPTION_TABLE[0])[tier];
+}
+function lookupResWeak(level: number, tier: ResWeakTier): number {
+  const l = Math.max(-1, Math.min(25, level));
+  return (RES_WEAK_TABLE[l] ?? RES_WEAK_TABLE[0])[tier];
+}
+
 function lookupHp(level: number, tier: HpTier): number {
   const l = Math.max(-1, Math.min(25, level));
   return (HP_TABLE[l] ?? HP_TABLE[0])[tier];
@@ -247,35 +382,194 @@ function defaultAttack(level: number): AttackDraft {
   };
 }
 
+function ResWeakRow({
+  entry,
+  level,
+  onChange,
+  onRemove,
+}: {
+  entry: CustomResistance;
+  level: number;
+  onChange: (patch: Partial<CustomResistance>) => void;
+  onRemove: () => void;
+}) {
+  const [typeInput, setTypeInput] = useState(entry.type);
+  const [focused, setFocused] = useState(false);
+  const [excInput, setExcInput] = useState(entry.exceptions ?? '');
+  const [tier, setTier] = useState<ResWeakTier>('moderate');
+
+  return (
+    <div className={styles.attackCard}>
+      <div className={styles.attackRow1}>
+        <div className={styles.attackTraitInputWrap} style={{ flex: 1 }}>
+          <input
+            className={styles.attackNameInput}
+            value={typeInput}
+            placeholder="Type (e.g. fire)…"
+            onChange={e => { setTypeInput(e.target.value); onChange({ type: e.target.value.trim().toLowerCase() }); }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+          />
+          {focused && typeInput.length > 0 && (() => {
+            const q = typeInput.toLowerCase();
+            const sugg = DAMAGE_TYPES.filter(d => d.includes(q) && d !== typeInput.toLowerCase()).slice(0, 6);
+            return sugg.length > 0 ? (
+              <ul className={styles.suggestions}>
+                {sugg.map(d => (
+                  <li key={d} className={styles.suggestion} onMouseDown={e => {
+                    e.preventDefault(); setTypeInput(d); onChange({ type: d });
+                  }}>{d}</li>
+                ))}
+              </ul>
+            ) : null;
+          })()}
+        </div>
+        <div className={styles.tierBtns}>
+          {RES_WEAK_TIERS.map(t => (
+            <button key={t} title={t === 'high' ? 'High (max)' : t === 'low' ? 'Low (min)' : 'Moderate'}
+              className={`${styles.tierBtn} ${tier === t ? styles.tierBtnActive : ''}`}
+              onClick={() => { setTier(t); onChange({ value: lookupResWeak(level, t) }); }}
+            >{TIER_ABBREV[t]}</button>
+          ))}
+        </div>
+        <input className={styles.statInput} type="number" min={0} max={999}
+          value={entry.value}
+          onChange={e => onChange({ value: Number(e.target.value) })} />
+        <button className={styles.removeBtn} onClick={onRemove}>×</button>
+      </div>
+      <div className={styles.attackRow2} style={{ alignItems: 'center', gap: 5 }}>
+        <span className={styles.subLabel}>Except</span>
+        <input className={styles.attackNameInput}
+          value={excInput}
+          placeholder="exceptions (optional)…"
+          onChange={e => { setExcInput(e.target.value); onChange({ exceptions: e.target.value || undefined }); }}
+        />
+      </div>
+    </div>
+  );
+}
+
 interface WizardProps {
   partyLevel: number;
   onSave: (creature: CreatureRecord) => void;
   onCancel: () => void;
+  /** If provided, wizard opens in edit mode pre-populated with this creature */
+  editCreature?: CreatureRecord;
 }
 
-export function CustomCreatureWizard({ partyLevel, onSave, onCancel }: WizardProps) {
-  const [step, setStep] = useState(0);
-  const [name, setName] = useState('');
-  const [level, setLevel] = useState(partyLevel);
-  const [creatureType, setCreatureType] = useState('');
-  const [hp, setHp] = useState(() => lookupHp(partyLevel, 'moderate'));
-  const [ac, setAc] = useState(() => lookupAc(partyLevel, 'moderate'));
-  const [fort, setFort] = useState(() => lookupSave(partyLevel, 'moderate'));
-  const [ref, setRef] = useState(() => lookupSave(partyLevel, 'moderate'));
-  const [will, setWill] = useState(() => lookupSave(partyLevel, 'moderate'));
+export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreature }: WizardProps) {
+  const isEditing = editCreature != null;
+
+  // Derive initial values from editCreature if present
+  function initFromEdit<T>(editVal: T, fallback: T): T {
+    return isEditing ? editVal : fallback;
+  }
+
+  const editData = editCreature?.data as (ReturnType<typeof Object.assign> | undefined);
+  const editType = isEditing
+    ? (editCreature!.traits.find(t => CREATURE_TYPES.map(c => c.toLowerCase()).includes(t)) ?? '')
+    : '';
+  const editExtraTraits = isEditing
+    ? editCreature!.traits.filter(t => !CREATURE_TYPES.map(c => c.toLowerCase()).includes(t))
+    : [];
+  const editAttacks: AttackDraft[] = isEditing && editCreature!.customData?.attacks
+    ? editCreature!.customData.attacks.map(a => ({
+        name: a.name,
+        type: a.type,
+        bonus: a.bonus,
+        bonusTier: 'moderate' as AcTier,
+        damage: a.damage,
+        damageTier: 'moderate' as AcTier,
+        range: a.range,
+        traits: a.traits ?? [],
+        traitInput: '',
+      }))
+    : [];
+
+  const [step, setStep] = useState(isEditing ? 0 : 0);
+  const [name, setName] = useState(initFromEdit(editCreature?.name ?? '', ''));
+  const [level, setLevel] = useState(initFromEdit(editCreature?.level ?? partyLevel, partyLevel));
+  const [size, setSize] = useState(initFromEdit(editCreature?.size ?? 'med', 'med'));
+  const [creatureType, setCreatureType] = useState(
+    isEditing ? (CREATURE_TYPES.find(t => t.toLowerCase() === editType) ?? '') : ''
+  );
+  const [hp, setHp] = useState(() =>
+    isEditing ? (editData?.system?.attributes?.hp?.max ?? lookupHp(partyLevel, 'moderate')) : lookupHp(partyLevel, 'moderate')
+  );
+  const [ac, setAc] = useState(() =>
+    isEditing ? (editData?.system?.attributes?.ac?.value ?? lookupAc(partyLevel, 'moderate')) : lookupAc(partyLevel, 'moderate')
+  );
+  const [fort, setFort] = useState(() =>
+    isEditing ? (editData?.system?.saves?.fortitude?.value ?? lookupSave(partyLevel, 'moderate')) : lookupSave(partyLevel, 'moderate')
+  );
+  const [ref, setRef] = useState(() =>
+    isEditing ? (editData?.system?.saves?.reflex?.value ?? lookupSave(partyLevel, 'moderate')) : lookupSave(partyLevel, 'moderate')
+  );
+  const [will, setWill] = useState(() =>
+    isEditing ? (editData?.system?.saves?.will?.value ?? lookupSave(partyLevel, 'moderate')) : lookupSave(partyLevel, 'moderate')
+  );
   const [hpTier, setHpTier] = useState<HpTier>('moderate');
   const [acTier, setAcTier] = useState<AcTier>('moderate');
   const [fortTier, setFortTier] = useState<SaveTier>('moderate');
   const [refTier, setRefTier] = useState<SaveTier>('moderate');
   const [willTier, setWillTier] = useState<SaveTier>('moderate');
-  const [attacks, setAttacks] = useState<AttackDraft[]>(() => [defaultAttack(partyLevel)]);
-  const [abilities, setAbilities] = useState<CustomAbility[]>([]);
-  const [extraTraits, setExtraTraits] = useState<string[]>([]);
+  const [attacks, setAttacks] = useState<AttackDraft[]>(() =>
+    isEditing && editAttacks.length > 0 ? editAttacks : [defaultAttack(partyLevel)]
+  );
+  const [abilities, setAbilities] = useState<CustomAbility[]>(
+    initFromEdit(editCreature?.customData?.abilities ?? [], [])
+  );
+  const [extraTraits, setExtraTraits] = useState<string[]>(initFromEdit(editExtraTraits, []));
   const [traitInput, setTraitInput] = useState('');
   const traitInputRef = useRef<HTMLInputElement>(null);
   const [allTraits, setAllTraits] = useState<string[]>([]);
   const [focusedAttackIdx, setFocusedAttackIdx] = useState<number | null>(null);
   const [focusedAbilityIdx, setFocusedAbilityIdx] = useState<number | null>(null);
+  const [flavorText, setFlavorText] = useState(initFromEdit(editCreature?.customData?.flavorText ?? '', ''));
+
+  // Ability modifiers
+  const editAbils = editCreature?.data as any;
+  const [strMod, setStrMod] = useState<number>(initFromEdit(editAbils?.system?.abilities?.str?.mod ?? 0, 0));
+  const [dexMod, setDexMod] = useState<number>(initFromEdit(editAbils?.system?.abilities?.dex?.mod ?? 0, 0));
+  const [conMod, setConMod] = useState<number>(initFromEdit(editAbils?.system?.abilities?.con?.mod ?? 0, 0));
+  const [intMod, setIntMod] = useState<number>(initFromEdit(editAbils?.system?.abilities?.int?.mod ?? 0, 0));
+  const [wisMod, setWisMod] = useState<number>(initFromEdit(editAbils?.system?.abilities?.wis?.mod ?? 0, 0));
+  const [chaMod, setChaMod] = useState<number>(initFromEdit(editAbils?.system?.abilities?.cha?.mod ?? 0, 0));
+  const [strTier, setStrTier] = useState<AbilityTier>('moderate');
+  const [dexTier, setDexTier] = useState<AbilityTier>('moderate');
+  const [conTier, setConTier] = useState<AbilityTier>('moderate');
+  const [intTier, setIntTier] = useState<AbilityTier>('moderate');
+  const [wisTier, setWisTier] = useState<AbilityTier>('moderate');
+  const [chaTier, setChaTier] = useState<AbilityTier>('moderate');
+
+  // Perception
+  const [perception, setPerception] = useState<number>(() => {
+    if (isEditing) return editAbils?.system?.perception?.mod ?? editAbils?.system?.perception?.value ?? lookupPerception(partyLevel, 'moderate');
+    return lookupPerception(partyLevel, 'moderate');
+  });
+  const [perceptionTier, setPerceptionTier] = useState<SaveTier>('moderate');
+
+  // Speed
+  const editSpeeds: CustomSpeed[] = isEditing && editCreature!.customData?.speeds
+    ? editCreature!.customData.speeds
+    : [{ type: 'land', value: 25 }];
+  const [speeds, setSpeeds] = useState<CustomSpeed[]>(initFromEdit(editSpeeds, [{ type: 'land', value: 25 }]));
+
+  // Senses
+  const [senses, setSenses] = useState<CustomSense[]>(initFromEdit(editCreature?.customData?.senses ?? [], []));
+  const [senseNameInput, setSenseNameInput] = useState('');
+  const [senseRangeInput, setSenseRangeInput] = useState('');
+  const [focusedSenseInput, setFocusedSenseInput] = useState(false);
+
+  // Immunities
+  const [immunities, setImmunities] = useState<CustomImmunity[]>(initFromEdit(editCreature?.customData?.immunities ?? [], []));
+  const [immunityInput, setImmunityInput] = useState('');
+
+  // Resistances
+  const [resistances, setResistances] = useState<CustomResistance[]>(initFromEdit(editCreature?.customData?.resistances ?? [], []));
+  // Weaknesses
+  const [weaknesses, setWeaknesses] = useState<CustomResistance[]>(initFromEdit(editCreature?.customData?.weaknesses ?? [], []));
+
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { getAllTraits().then(setAllTraits).catch(() => {}); }, []);
@@ -288,13 +582,23 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel }: WizardPro
     setWill(lookupSave(lv, 'moderate'));
     setHpTier('moderate'); setAcTier('moderate');
     setFortTier('moderate'); setRefTier('moderate'); setWillTier('moderate');
+    const abMod = lookupAbility(lv, 'moderate');
+    setStrMod(abMod); setDexMod(abMod); setConMod(abMod);
+    setIntMod(abMod); setWisMod(abMod); setChaMod(abMod);
+    setStrTier('moderate'); setDexTier('moderate'); setConTier('moderate');
+    setIntTier('moderate'); setWisTier('moderate'); setChaTier('moderate');
+    setPerception(lookupPerception(lv, 'moderate'));
+    setPerceptionTier('moderate');
+    setSpeeds([{ type: 'land', value: 25 }]);
     setAttacks([defaultAttack(lv)]);
     setAbilities([]);
+    setSenses([]); setImmunities([]); setResistances([]); setWeaknesses([]);
   }
 
   function goNext() {
     if (!name.trim() || !creatureType) return;
-    applyTiers(level);
+    // Only reset tiers/stats when creating new (not editing)
+    if (!isEditing) applyTiers(level);
     setStep(1);
   }
 
@@ -320,18 +624,31 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel }: WizardPro
       }));
     const cleanAbilities: CustomAbility[] = abilities
       .filter(a => a.name.trim())
-      .map(({ name: n, description }) => ({ name: n.trim(), description }));
-    const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      .map(({ name: n, description, actionType }) => ({ name: n.trim(), description, actionType }));
+    // Preserve ID when editing; generate new one for new creatures
+    const id = isEditing ? editCreature!.id : `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const trimmedName = name.trim();
-    const allTraits = [creatureType.toLowerCase(), ...extraTraits];
+    const allTraitsList = [creatureType.toLowerCase(), ...extraTraits];
+    // Build speed string for PF2E system blob
+    const landSpeed = speeds.find(s => s.type === 'land');
+    const otherSpeeds = speeds.filter(s => s.type !== 'land').map(s => ({ type: s.type, value: s.value, label: s.type }));
+
+    // Build immunities/resistances/weaknesses for PF2E system blob
+    const pf2eImmunities = immunities.map(i => ({ type: i.type }));
+    const pf2eResistances = resistances.map(r => ({ type: r.type, value: r.value, exceptions: r.exceptions ? [r.exceptions] : undefined }));
+    const pf2eWeaknesses = weaknesses.map(w => ({ type: w.type, value: w.value, exceptions: w.exceptions ? [w.exceptions] : undefined }));
+
+    // Build senses for PF2E system blob
+    const pf2eSenses = senses.map(s => ({ type: s.name, range: s.range }));
+
     const record: CreatureRecord = {
       id,
       entityType: 'npc',
       name: trimmedName,
       nameLower: trimmedName.toLowerCase(),
       level,
-      traits: allTraits,
-      size: 'med',
+      traits: allTraitsList,
+      size,
       rarity: 'common',
       packSource: 'custom',
       blobSha: '',
@@ -343,14 +660,32 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel }: WizardPro
         items: [],
         system: {
           details: { level: { value: level }, publication: { title: 'Custom' } },
-          attributes: { hp: { value: hp, max: hp }, ac: { value: ac } },
+          attributes: {
+            hp: { value: hp, max: hp },
+            ac: { value: ac },
+            speed: landSpeed ? { value: landSpeed.value, otherSpeeds } : { value: 0, otherSpeeds },
+            immunities: pf2eImmunities.length ? pf2eImmunities : undefined,
+            resistances: pf2eResistances.length ? pf2eResistances : undefined,
+            weaknesses: pf2eWeaknesses.length ? pf2eWeaknesses : undefined,
+          },
           saves: { fortitude: { value: fort }, reflex: { value: ref }, will: { value: will } },
-          traits: { value: allTraits, rarity: 'common', size: { value: 'med' } },
+          abilities: {
+            str: { mod: strMod }, dex: { mod: dexMod }, con: { mod: conMod },
+            int: { mod: intMod }, wis: { mod: wisMod }, cha: { mod: chaMod },
+          },
+          perception: { mod: perception, senses: pf2eSenses },
+          traits: { value: allTraitsList, rarity: 'common', size: { value: size } },
         } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       },
       customData: {
         attacks: cleanAttacks.length ? cleanAttacks : undefined,
         abilities: cleanAbilities.length ? cleanAbilities : undefined,
+        flavorText: flavorText.trim() || undefined,
+        speeds: speeds.length ? speeds : undefined,
+        senses: senses.length ? senses : undefined,
+        immunities: immunities.length ? immunities : undefined,
+        resistances: resistances.length ? resistances : undefined,
+        weaknesses: weaknesses.length ? weaknesses : undefined,
       },
     };
     await db.creatures.put(record);
@@ -365,7 +700,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel }: WizardPro
     return (
       <div className={styles.wizard}>
         <div className={styles.wizardHeader}>
-          <span className={styles.wizardTitle}>New Custom Creature</span>
+          <span className={styles.wizardTitle}>{isEditing ? `Edit: ${editCreature!.name}` : 'New Custom Creature'}</span>
           <button className={styles.cancelBtn} onClick={onCancel}>✕</button>
         </div>
         <div className={styles.wizardBody}>
@@ -384,7 +719,17 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel }: WizardPro
             <span className={styles.levelVal}>{level}</span>
             <button className={styles.stepBtn} onClick={() => setLevel(l => Math.min(25, l + 1))}>+</button>
           </div>
-          <div className={styles.fieldLabel}>Creature Type <span className={styles.required}>*</span></div>
+          <div className={styles.fieldLabel}>Size</div>
+          <div className={styles.typeGrid}>
+            {SIZES.map(s => (
+              <button
+                key={s.value}
+                className={`${styles.typeChip} ${size === s.value ? styles.typeChipActive : ''}`}
+                onClick={() => setSize(s.value)}
+              >{s.label}</button>
+            ))}
+          </div>
+          <div className={styles.fieldLabel}>Creature Type</div>
           <div className={styles.typeGrid}>
             {CREATURE_TYPES.map(t => (
               <button
@@ -480,6 +825,212 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel }: WizardPro
               onChange={e => setVal(Number(e.target.value))}
             />
           </div>
+        ))}
+
+        {/* Perception */}
+        <div className={styles.sectionHead}>Perception</div>
+        <div className={styles.statRow}>
+          <span className={styles.statLabel}>Perc</span>
+          <div className={styles.tierBtns}>
+            {SAVE_TIERS.map(t => (
+              <button key={t} title={t}
+                className={`${styles.tierBtn} ${perceptionTier === t ? styles.tierBtnActive : ''}`}
+                onClick={() => { setPerceptionTier(t); setPerception(lookupPerception(level, t)); }}
+              >{TIER_ABBREV[t]}</button>
+            ))}
+          </div>
+          <input className={styles.statInput} type="number" min={-10} max={80}
+            value={perception} onChange={e => setPerception(Number(e.target.value))} />
+        </div>
+
+        {/* Senses */}
+        <div className={styles.sectionHead}>Senses</div>
+        {senses.map((s, i) => (
+          <div key={i} className={styles.senseRow}>
+            <span className={styles.senseChip}>
+              {s.name}{s.range != null ? ` ${s.range} ft.` : ''}
+              <button className={styles.traitRemove} onClick={() => setSenses(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+            </span>
+          </div>
+        ))}
+        <div className={styles.senseInputRow}>
+          <div className={styles.senseNameWrap}>
+            <input
+              className={styles.traitInput}
+              value={senseNameInput}
+              onChange={e => setSenseNameInput(e.target.value)}
+              onFocus={() => setFocusedSenseInput(true)}
+              onBlur={() => setFocusedSenseInput(false)}
+              placeholder="Sense name…"
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const n = senseNameInput.trim().toLowerCase();
+                  if (!n) return;
+                  const range = senseRangeInput.trim() ? Number(senseRangeInput) : undefined;
+                  setSenses(prev => [...prev, { name: n, range }]);
+                  setSenseNameInput(''); setSenseRangeInput('');
+                }
+              }}
+            />
+            {focusedSenseInput && senseNameInput.length > 0 && (() => {
+              const q = senseNameInput.toLowerCase();
+              const sugg = COMMON_SENSES.filter(s => s.includes(q) && !senses.some(x => x.name === s));
+              return sugg.length > 0 ? (
+                <ul className={styles.suggestions}>
+                  {sugg.map(s => (
+                    <li key={s} className={styles.suggestion} onMouseDown={e => {
+                      e.preventDefault();
+                      setSenseNameInput(s);
+                    }}>{s}</li>
+                  ))}
+                </ul>
+              ) : null;
+            })()}
+          </div>
+          <input className={styles.senseRangeInput} type="number" min={0} step={5}
+            value={senseRangeInput} onChange={e => setSenseRangeInput(e.target.value)}
+            placeholder="Range ft (blank=∞)" />
+          <button className={styles.addBtn} onMouseDown={e => {
+            e.preventDefault();
+            const n = senseNameInput.trim().toLowerCase();
+            if (!n) return;
+            const range = senseRangeInput.trim() ? Number(senseRangeInput) : undefined;
+            setSenses(prev => [...prev, { name: n, range }]);
+            setSenseNameInput(''); setSenseRangeInput('');
+          }}>+ Add</button>
+        </div>
+
+        {/* Ability Modifiers */}
+        <div className={styles.sectionHead}>Ability Modifiers</div>
+        {([
+          { label: 'Str', val: strMod, setVal: setStrMod, tier: strTier, setTier: (t: AbilityTier) => { setStrTier(t); setStrMod(lookupAbility(level, t)); } },
+          { label: 'Dex', val: dexMod, setVal: setDexMod, tier: dexTier, setTier: (t: AbilityTier) => { setDexTier(t); setDexMod(lookupAbility(level, t)); } },
+          { label: 'Con', val: conMod, setVal: setConMod, tier: conTier, setTier: (t: AbilityTier) => { setConTier(t); setConMod(lookupAbility(level, t)); } },
+          { label: 'Int', val: intMod, setVal: setIntMod, tier: intTier, setTier: (t: AbilityTier) => { setIntTier(t); setIntMod(lookupAbility(level, t)); } },
+          { label: 'Wis', val: wisMod, setVal: setWisMod, tier: wisTier, setTier: (t: AbilityTier) => { setWisTier(t); setWisMod(lookupAbility(level, t)); } },
+          { label: 'Cha', val: chaMod, setVal: setChaMod, tier: chaTier, setTier: (t: AbilityTier) => { setChaTier(t); setChaMod(lookupAbility(level, t)); } },
+        ] as const).map(({ label, val, setVal, tier, setTier }) => (
+          <div key={label} className={styles.statRow}>
+            <span className={styles.statLabel}>{label}</span>
+            <div className={styles.tierBtns}>
+              {ABILITY_TIERS.map(t => {
+                const isHidden = (level <= 0) && t === 'extreme';
+                return isHidden ? null : (
+                  <button key={t} title={t}
+                    className={`${styles.tierBtn} ${tier === t ? styles.tierBtnActive : ''}`}
+                    onClick={() => (setTier as (t: AbilityTier) => void)(t)}
+                  >{TIER_ABBREV[t]}</button>
+                );
+              })}
+            </div>
+            <input className={styles.statInput} type="number" min={-5} max={20}
+              value={val} onChange={e => (setVal as (n: number) => void)(Number(e.target.value))} />
+          </div>
+        ))}
+
+        {/* Speed */}
+        <div className={styles.sectionHead}>Speed</div>
+        {(['land', 'climb', 'swim', 'burrow', 'fly'] as SpeedType[]).map(type => {
+          const entry = speeds.find(s => s.type === type);
+          const active = entry != null;
+          return (
+            <div key={type} className={styles.speedRow}>
+              <button
+                className={`${styles.speedToggle} ${active ? styles.speedToggleActive : ''}`}
+                onClick={() => {
+                  if (active) {
+                    setSpeeds(prev => prev.filter(s => s.type !== type));
+                  } else {
+                    setSpeeds(prev => [...prev, { type, value: 25 }]);
+                  }
+                }}
+              >
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+              </button>
+              {active && (
+                <>
+                  <button className={styles.stepBtn}
+                    onClick={() => setSpeeds(prev => prev.map(s => s.type === type ? { ...s, value: Math.max(0, s.value - 5) } : s))}>−</button>
+                  <span className={styles.levelVal}>{entry!.value}</span>
+                  <button className={styles.stepBtn}
+                    onClick={() => setSpeeds(prev => prev.map(s => s.type === type ? { ...s, value: s.value + 5 } : s))}>+</button>
+                  <span className={styles.subLabel}>ft</span>
+                </>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Immunities */}
+        <div className={styles.sectionHead}>Immunities</div>
+        <div className={styles.traitRow}>
+          {immunities.map((im, i) => (
+            <span key={i} className={styles.traitChipExtra}>
+              {im.type}
+              <button className={styles.traitRemove} onClick={() => setImmunities(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+            </span>
+          ))}
+        </div>
+        <div className={styles.traitInputRow}>
+          <div className={styles.traitInputWrap}>
+            <input className={styles.traitInput} value={immunityInput}
+              onChange={e => setImmunityInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ',') {
+                  e.preventDefault();
+                  const t = immunityInput.trim().toLowerCase();
+                  if (t && !immunities.some(i => i.type === t)) setImmunities(prev => [...prev, { type: t }]);
+                  setImmunityInput('');
+                }
+              }}
+              placeholder="Add immunity… (Enter to add)"
+            />
+            {immunityInput.length > 0 && (() => {
+              const q = immunityInput.toLowerCase();
+              const sugg = DAMAGE_TYPES.filter(d => d.includes(q) && !immunities.some(i => i.type === d)).slice(0, 8);
+              return sugg.length > 0 ? (
+                <ul className={styles.suggestions}>
+                  {sugg.map(d => (
+                    <li key={d} className={styles.suggestion} onMouseDown={e => {
+                      e.preventDefault();
+                      if (!immunities.some(i => i.type === d)) setImmunities(prev => [...prev, { type: d }]);
+                      setImmunityInput('');
+                    }}>{d}</li>
+                  ))}
+                </ul>
+              ) : null;
+            })()}
+          </div>
+          <button className={styles.addBtn} onClick={() => {
+            const t = immunityInput.trim().toLowerCase();
+            if (t && !immunities.some(i => i.type === t)) setImmunities(prev => [...prev, { type: t }]);
+            setImmunityInput('');
+          }}>+ Add</button>
+        </div>
+
+        {/* Resistances */}
+        <div className={styles.sectionHead}>
+          Resistances
+          <button className={styles.addBtn} onClick={() => setResistances(prev => [...prev, { type: '', value: lookupResWeak(level, 'moderate') }])}>+ Add</button>
+        </div>
+        {resistances.map((r, i) => (
+          <ResWeakRow key={i} entry={r} level={level}
+            onChange={patch => setResistances(prev => prev.map((x, idx) => idx === i ? { ...x, ...patch } : x))}
+            onRemove={() => setResistances(prev => prev.filter((_, idx) => idx !== i))}
+          />
+        ))}
+
+        {/* Weaknesses */}
+        <div className={styles.sectionHead}>
+          Weaknesses
+          <button className={styles.addBtn} onClick={() => setWeaknesses(prev => [...prev, { type: '', value: lookupResWeak(level, 'moderate') }])}>+ Add</button>
+        </div>
+        {weaknesses.map((w, i) => (
+          <ResWeakRow key={i} entry={w} level={level}
+            onChange={patch => setWeaknesses(prev => prev.map((x, idx) => idx === i ? { ...x, ...patch } : x))}
+            onRemove={() => setWeaknesses(prev => prev.filter((_, idx) => idx !== i))}
+          />
         ))}
 
         {/* Attacks */}
@@ -643,11 +1194,20 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel }: WizardPro
             />
           </div>
         ))}
+        {/* Flavor Text */}
+        <div className={styles.sectionHead}>Description</div>
+        <textarea
+          className={styles.descInput}
+          value={flavorText}
+          onChange={e => setFlavorText(e.target.value)}
+          placeholder="Flavor text or GM notes (optional)…"
+          rows={4}
+        />
       </div>
       <div className={styles.wizardFooter}>
         <button className={styles.ghostBtn} onClick={() => setStep(0)}>← Back</button>
         <button className={styles.primaryBtn} onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save Creature'}
+          {saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Save Creature'}
         </button>
         <button className={styles.ghostBtn} onClick={onCancel}>Cancel</button>
       </div>
