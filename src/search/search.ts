@@ -22,6 +22,7 @@ export interface SearchFilters {
   packSources: string[];
   entityTypes: string[]; // [] = all; ['npc'] = creatures only; ['hazard'] = hazards only
   sortBy: 'name' | 'level';
+  sortDir: 'asc' | 'desc';
 }
 
 export const DEFAULT_FILTERS: SearchFilters = {
@@ -37,6 +38,7 @@ export const DEFAULT_FILTERS: SearchFilters = {
   packSources: [],
   entityTypes: [],
   sortBy: 'level',
+  sortDir: 'desc',
 };
 
 export interface SearchResult {
@@ -95,11 +97,22 @@ export async function searchCreatures(filters: SearchFilters): Promise<SearchRes
     })
     .toArray();
 
-  const all = filters.sortBy === 'level'
-    ? raw.sort((a, b) => a.level - b.level || a.nameLower.localeCompare(b.nameLower))
-    : raw.sort((a, b) => a.nameLower.localeCompare(b.nameLower));
+  // change order of sort depending on sortDir value
+  if (filters.sortDir === 'asc')  {
+    const all = filters.sortBy === 'level'
+      ? raw.sort((a, b) => a.level - b.level || a.nameLower.localeCompare(b.nameLower))
+      : raw.sort((a, b) => a.nameLower.localeCompare(b.nameLower));
 
-  return { results: all, totalCount: all.length };
+    return { results: all, totalCount: all.length };
+  }
+  else {
+    const all = filters.sortBy === 'level'
+      ? raw.sort((a, b) => b.level - a.level || a.nameLower.localeCompare(b.nameLower))
+      : raw.sort((a, b) => b.nameLower.localeCompare(a.nameLower));
+
+    return { results: all, totalCount: all.length };
+  }
+
 }
 
 export async function getAllTraits(): Promise<string[]> {
