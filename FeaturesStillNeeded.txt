@@ -28,7 +28,11 @@ Encounters:
     - monster ability index + hover info (e.g. Push, Improved Grab, Trample)
     - monster traits hover info (e.g. Humanoid, Unholy, Mindless)
 
-    - change combat tracker so that the info on the pre-combat screen is more similar to the actual combat running screen (shows basic stats)
+    - combat tracker:
+        - change pre-combat screen to be more similar to the actual combat running screen (shows basic stats, etc.)
+        - also add "duplicate" option in the pre-combat tracker, to make an extra copy of a creature already in there - especially relevant for placeholder creatures
+        - also fix the display, something borked it at some point
+
     - add "fatal dX" and "deadly dX" to be tracked the same as "fatal-dX" and "deadly-dX" currently are for the dice roller
     - consolidate all dice rollers to use the same window - currently there is a different dice roller version for different types of rolls
     - make encounter delete confirmation buttons bigger
@@ -36,6 +40,12 @@ Encounters:
     - for custom abilities, add suggested scaling dcs and damage for both single target and area damage abilities
     - in the custom creature wizard, add functionality for suggesting standard monster abilities (trample, swallow whole, etc.)
         - also add functionality to browse and add/scale abilities from all other monsters, filterable by creature type
+    
+    - party tracker (currently the "characters" tab):
+        - move party manager from "Characters" tab to "Encounters" ("Characters" tab should be for player characters)
+        - add support for multiple parties
+        - add functionality to add a party to an encounter
+
 Rules:
     - needs more exploratory and requirements written up
     
