@@ -310,6 +310,8 @@ interface EncounterManagerProps {
   onSelectEncounterCreature: (uid: string) => void;
   onUpdateConditions: (uid: string, conditions: Condition[]) => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
+  resultsOpen?: boolean;
+  onToggleResults?: () => void;
 }
 
 const ALL_CONDITIONS_ALPHA = [...new Set(CONDITION_CATEGORIES.flatMap(c => c.conditions))].sort((a, b) => a.localeCompare(b));
@@ -383,6 +385,8 @@ export function EncounterManager({
   onSelectEncounterCreature,
   onUpdateConditions,
   onRoll,
+  resultsOpen = true,
+  onToggleResults,
 }: EncounterManagerProps) {
   const [combatMode, setCombatMode] = useState(false);
   const [round, setRound] = useState(1);
@@ -898,6 +902,14 @@ export function EncounterManager({
     <div className={styles.manager}>
       {/* Encounter tabs */}
       <div className={styles.tabs} ref={tabsRef}>
+        <button
+          className={styles.openResultsBtn}
+          onClick={onToggleResults}
+          title={resultsOpen ? 'Hide search results' : 'Show search results'}
+          aria-label={resultsOpen ? 'Hide search results' : 'Show search results'}
+        >
+          {resultsOpen ? '‹‹' : '››'}
+        </button>
         {encounters.map((en, i) => (
           <div
             key={en.id}

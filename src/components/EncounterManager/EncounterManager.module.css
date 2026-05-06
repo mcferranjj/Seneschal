@@ -14,7 +14,7 @@
   align-items: stretch;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  overflow-x: auto;
+  overflow: hidden;
 }
 
 .tabWrapper {
@@ -117,6 +117,27 @@
 
 .addTabBtn:hover {
   color: var(--text);
+}
+
+.openResultsBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: var(--brown);
+  border: 1px solid var(--border);
+  color: var(--parchment);
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin: 6px 6px 0;
+  transition: background 0.12s;
+}
+
+.openResultsBtn:hover {
+  background: var(--text-mid);
 }
 
 /* ── XP Budget ── */
@@ -243,7 +264,7 @@
   flex-direction: column;
   gap: 5px;
   min-width: 0;
-  overflow-x: auto;
+  overflow: hidden;
 }
 
 .plannerCardTop {
@@ -278,14 +299,13 @@
   flex-shrink: 0;
 }
 
-/* Defense row in planner mode: single line, never wraps.
-   min-width prevents the encounter column from squeezing these stats off-screen. */
+/* Defense row in planner mode: single line, clipped if column is extremely narrow. */
 .plannerDefenseRow {
   display: flex;
   align-items: center;
   gap: 4px;
   flex-wrap: nowrap;
-  min-width: max-content;
+  overflow: hidden;
 }
 
 .plannerMeta {
@@ -937,7 +957,7 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
-  overflow-x: auto;
+  overflow: hidden;
 }
 
 .combatCardClickable {
@@ -1013,7 +1033,7 @@
   align-items: center;
   gap: 4px;
   flex-wrap: nowrap;
-  min-width: max-content;
+  overflow: hidden;
 }
 
 .combatDefStat {

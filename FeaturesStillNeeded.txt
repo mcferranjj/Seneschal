@@ -13,7 +13,6 @@ Encounters:
 
     - in the custom creature wizard, align the T/L/M/H/E grids so that every row is centered on M (aligning the rows with each other)
     - make creatures click and draggable into, out of, and around the combat tracker (dragging creatures in the tracker should automatically update their initiative)
-    - give search results a similar << minimize functionality as teh filters column
 
     - name generator
     - random monster quirk generator

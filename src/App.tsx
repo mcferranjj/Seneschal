@@ -35,8 +35,9 @@ export default function App() {
   const [lastSynced, setLastSynced] = useState<number | null>(null);
   const [syncProgress, setSyncProgress] = useState<SyncProgress>({ phase: 'idle' });
 
-  // Filter sidebar
+  // Filter + results sidebars
   const [filtersOpen, setFiltersOpen] = useState(true);
+  const [resultsOpen, setResultsOpen] = useState(true);
 
   // Custom creature wizard
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -60,36 +61,65 @@ export default function App() {
   const [partyLevel, setPartyLevel] = useState(3);
   const encounterStateLoaded = useRef(false);
 
-  // Column widths (px); statblock takes remaining flex space
+  // Column widths (px) — React state is the source of truth at rest.
+  // During a drag we write directly to the CSS custom property on the layout
+  // element to avoid re-rendering the whole tree on every pointermove.
   const [filtersWidth, setFiltersWidth] = useState(220);
   const [resultsWidth, setResultsWidth] = useState(260);
   const [encounterWidth, setEncounterWidth] = useState(280);
-  const dragRef = useRef<{ col: 'filters' | 'results' | 'encounter'; startX: number; startW: number } | null>(null);
 
+  const gmLayoutRef = useRef<HTMLDivElement>(null);
+
+  // Keep a ref to current widths so pointer handlers never close over stale state
+  // and never need to be recreated when widths change.
+  const widthsRef = useRef({ filtersWidth, resultsWidth, encounterWidth });
+  widthsRef.current = { filtersWidth, resultsWidth, encounterWidth };
+
+  const dragRef = useRef<{
+    col: 'filters' | 'results' | 'encounter';
+    startX: number;
+    startW: number;
+  } | null>(null);
+
+  const COL_META = {
+    filters:   { prop: '--filters-width',   min: 160, max: 400 },
+    results:   { prop: '--results-width',   min: 160, max: Infinity },
+    encounter: { prop: '--encounter-width', min: 160, max: Infinity },
+  } as const;
+
+  // Stable forever — reads widths from ref, no state dependencies
   const onHandlePointerDown = useCallback(
     (col: 'filters' | 'results' | 'encounter') => (e: PointerEvent<HTMLDivElement>) => {
       e.preventDefault();
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      dragRef.current = {
-        col,
-        startX: e.clientX,
-        startW: col === 'filters' ? filtersWidth : col === 'results' ? resultsWidth : encounterWidth,
-      };
+      const startW = widthsRef.current[`${col}Width` as keyof typeof widthsRef.current];
+      dragRef.current = { col, startX: e.clientX, startW };
     },
-    [filtersWidth, resultsWidth, encounterWidth]
+    [], // no dependencies — always stable
   );
 
+  // Stable forever — all mutable data accessed through refs
   const onHandlePointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current) return;
-    const delta = e.clientX - dragRef.current.startX;
-    const newW = Math.max(160, dragRef.current.startW + delta);
-    if (dragRef.current.col === 'filters') setFiltersWidth(Math.min(400, newW));
-    else if (dragRef.current.col === 'results') setResultsWidth(newW);
-    else setEncounterWidth(newW);
+    const drag = dragRef.current;
+    if (!drag || !gmLayoutRef.current) return;
+    const { prop, min, max } = COL_META[drag.col];
+    const raw = drag.startW + (e.clientX - drag.startX);
+    const newW = Math.min(max, Math.max(min, raw));
+    // Write straight to DOM — zero React renders during the drag
+    gmLayoutRef.current.style.setProperty(prop, `${newW}px`);
   }, []);
 
+  // Stable forever — commits the final DOM value to React state exactly once
   const onHandlePointerUp = useCallback(() => {
+    const drag = dragRef.current;
     dragRef.current = null;
+    if (!drag || !gmLayoutRef.current) return;
+    const { prop, min, max } = COL_META[drag.col];
+    const raw = parseInt(gmLayoutRef.current.style.getPropertyValue(prop), 10);
+    const px = isNaN(raw) ? drag.startW : Math.min(max, Math.max(min, raw));
+    if (drag.col === 'filters') setFiltersWidth(px);
+    else if (drag.col === 'results') setResultsWidth(px);
+    else setEncounterWidth(px);
   }, []);
 
   const syncingRef = useRef(false);
@@ -418,6 +448,16 @@ export default function App() {
     [activeEnc]
   );
 
+  // Keep CSS custom properties in sync with React state (initial mount + any
+  // programmatic changes). During a drag this effect does NOT run — we write
+  // directly to the DOM — so there are zero extra renders on pointermove.
+  useEffect(() => {
+    if (!gmLayoutRef.current) return;
+    gmLayoutRef.current.style.setProperty('--filters-width', `${filtersWidth}px`);
+    gmLayoutRef.current.style.setProperty('--results-width', `${resultsWidth}px`);
+    gmLayoutRef.current.style.setProperty('--encounter-width', `${encounterWidth}px`);
+  }, [filtersWidth, resultsWidth, encounterWidth]);
+
   // Suppress unused warning — lastSynced retained for future use
   void lastSynced;
 
@@ -439,8 +479,8 @@ export default function App() {
       )}
       <div className={styles.content}>
         {activeSection === 'gm' && (
-          <div className={`${styles.gmLayout} ${!filtersOpen ? styles.gmLayoutCollapsed : ''}`}>
-            <div className={`${styles.filterCol} ${filtersOpen ? styles.filterColOpen : ''}`} style={filtersOpen ? { width: filtersWidth } : {}}>
+          <div ref={gmLayoutRef} className={`${styles.gmLayout} ${!filtersOpen && resultsOpen ? styles.gmLayoutCollapsed : ''}`}>
+            <div className={`${styles.filterCol} ${filtersOpen ? styles.filterColOpen : ''}`}>
               <SearchPanel
                 filters={filters}
                 onChange={setFilters}
@@ -448,7 +488,15 @@ export default function App() {
                 partyLevel={partyLevel}
               />
             </div>
-            <div className={styles.resultsCol} style={{ flexBasis: resultsWidth, flexGrow: 0, flexShrink: 0 }}>
+            {filtersOpen && resultsOpen && (
+              <div
+                className={styles.resizeHandle}
+                onPointerDown={onHandlePointerDown('filters')}
+                onPointerMove={onHandlePointerMove}
+                onPointerUp={onHandlePointerUp}
+              />
+            )}
+            <div className={`${styles.resultsCol} ${resultsOpen ? styles.resultsColOpen : ''}`}>
               {isSyncing && <SyncProgressBar progress={syncProgress} />}
               <ResultsList
                 results={results}
@@ -466,21 +514,15 @@ export default function App() {
                 onOpenWizard={openWizard}
               />
             </div>
-            {filtersOpen && (
+            {resultsOpen && (
               <div
                 className={styles.resizeHandle}
-                onPointerDown={onHandlePointerDown('filters')}
+                onPointerDown={onHandlePointerDown('results')}
                 onPointerMove={onHandlePointerMove}
                 onPointerUp={onHandlePointerUp}
               />
             )}
-            <div
-              className={styles.resizeHandle}
-              onPointerDown={onHandlePointerDown('results')}
-              onPointerMove={onHandlePointerMove}
-              onPointerUp={onHandlePointerUp}
-            />
-            <div className={styles.encounterCol} style={{ flexBasis: encounterWidth, flexGrow: 0, flexShrink: 0 }}>
+            <div className={styles.encounterCol}>
               <EncounterManager
                 encounters={encounters}
                 activeEnc={activeEnc}
@@ -502,6 +544,15 @@ export default function App() {
                 onSelectEncounterCreature={selectEncounterCreature}
                 onUpdateConditions={updateConditions}
                 onRoll={addRollEntry}
+                resultsOpen={resultsOpen}
+                onToggleResults={() => {
+                  if (resultsOpen) {
+                    setResultsOpen(false);
+                    setFiltersOpen(false);
+                  } else {
+                    setResultsOpen(true);
+                  }
+                }}
               />
             </div>
             <div
