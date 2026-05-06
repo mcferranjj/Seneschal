@@ -77,6 +77,12 @@
   background: var(--crimson);
 }
 
+.resizeHandleHidden {
+  flex-basis: 0;
+  pointer-events: none;
+  background: transparent;
+}
+
 .statblockCol {
   flex: 1 1 0;
   min-width: 0;
@@ -86,10 +92,6 @@
   overflow: hidden;
 }
 
-/* When filter panel is collapsed: even 1/1/2 split across results/encounter/statblock */
-.gmLayoutCollapsed .resultsColOpen { flex: 1 1 0; }
-.gmLayoutCollapsed .encounterCol   { flex: 1 1 0; }
-.gmLayoutCollapsed .statblockCol { flex: 2 1 0; }
 
 /* ── Sync progress banner ── */
 .progressBar {

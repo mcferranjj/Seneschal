@@ -479,7 +479,7 @@ export default function App() {
       )}
       <div className={styles.content}>
         {activeSection === 'gm' && (
-          <div ref={gmLayoutRef} className={`${styles.gmLayout} ${!filtersOpen && resultsOpen ? styles.gmLayoutCollapsed : ''}`}>
+          <div ref={gmLayoutRef} className={styles.gmLayout}>
             <div className={`${styles.filterCol} ${filtersOpen ? styles.filterColOpen : ''}`}>
               <SearchPanel
                 filters={filters}
@@ -488,14 +488,12 @@ export default function App() {
                 partyLevel={partyLevel}
               />
             </div>
-            {filtersOpen && resultsOpen && (
-              <div
-                className={styles.resizeHandle}
-                onPointerDown={onHandlePointerDown('filters')}
-                onPointerMove={onHandlePointerMove}
-                onPointerUp={onHandlePointerUp}
-              />
-            )}
+            <div
+              className={`${styles.resizeHandle} ${!(filtersOpen && resultsOpen) ? styles.resizeHandleHidden : ''}`}
+              onPointerDown={onHandlePointerDown('filters')}
+              onPointerMove={onHandlePointerMove}
+              onPointerUp={onHandlePointerUp}
+            />
             <div className={`${styles.resultsCol} ${resultsOpen ? styles.resultsColOpen : ''}`}>
               {isSyncing && <SyncProgressBar progress={syncProgress} />}
               <ResultsList
@@ -514,14 +512,12 @@ export default function App() {
                 onOpenWizard={openWizard}
               />
             </div>
-            {resultsOpen && (
-              <div
-                className={styles.resizeHandle}
-                onPointerDown={onHandlePointerDown('results')}
-                onPointerMove={onHandlePointerMove}
-                onPointerUp={onHandlePointerUp}
-              />
-            )}
+            <div
+              className={`${styles.resizeHandle} ${!resultsOpen ? styles.resizeHandleHidden : ''}`}
+              onPointerDown={onHandlePointerDown('results')}
+              onPointerMove={onHandlePointerMove}
+              onPointerUp={onHandlePointerUp}
+            />
             <div className={styles.encounterCol}>
               <EncounterManager
                 encounters={encounters}
