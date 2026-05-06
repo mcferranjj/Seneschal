@@ -607,7 +607,7 @@ export function EncounterManager({
     setCustomName('');
     setCustomLevel(partyLevel);
     setUseQuickWizard(false);
-    setWizardIsEnemy(false);
+    setWizardIsEnemy(true);
     applyTiers(partyLevel);
     setWizardStep(0);
     setShowCustomForm(true);
@@ -681,28 +681,96 @@ export function EncounterManager({
     setCustomAttacks(prev => prev.map((a, idx) => idx === i ? { ...a, ...patch } : a));
   }
 
+  // All 5 tier slots in display order; rows with fewer tiers get spacers so M always aligns.
+  const ALL_TIER_SLOTS: SaveTier[] = ['terrible', 'low', 'moderate', 'high', 'extreme'];
+
+  function renderWizard(step0Title: string) {
+    return (
+      <div className={styles.customForm}>
+        {wizardStep === 0 ? (
+          <>
+            <div className={styles.wizardTitle}>{step0Title}</div>
+            <input
+              className={styles.customInput}
+              value={customName}
+              autoFocus
+              onChange={e => setCustomName(e.target.value)}
+              placeholder="Name…"
+              onKeyDown={e => e.key === 'Enter' && wizardNext()}
+            />
+            <div className={styles.wizardCheckRow}>
+              <label className={styles.quickWizardCheck}>
+                <input
+                  type="checkbox"
+                  checked={useQuickWizard}
+                  onChange={e => setUseQuickWizard(e.target.checked)}
+                />
+                Use quick wizard?
+              </label>
+              <label className={styles.quickWizardCheck}>
+                <input
+                  type="checkbox"
+                  checked={wizardIsEnemy}
+                  onChange={e => setWizardIsEnemy(e.target.checked)}
+                />
+                Enemy?
+              </label>
+            </div>
+            <div className={styles.customLevelRow}>
+              <span className={styles.partyLabel}>Level</span>
+              <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}>−</button>
+              <span className={styles.partyVal}>{customLevel}</span>
+              <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.min(25, l + 1))}>+</button>
+            </div>
+            <div className={styles.customActions}>
+              <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>
+                {useQuickWizard ? 'Next →' : 'Add'}
+              </button>
+              <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={styles.wizardTitle}>
+              {customName} (Lvl {customLevel}) — Stats
+            </div>
+            <div className={styles.wizardHint}>Click a tier to prefill · T=Terrible L=Low M=Moderate H=High E=Extreme</div>
+            {renderWizardStats()}
+            <div className={styles.customActions}>
+              <button className={styles.cancelBtn} onClick={() => setWizardStep(0)}>← Back</button>
+              <button className={styles.addCustomBtn} onClick={wizardNext}>Add</button>
+              <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   function renderWizardStats() {
     return (
       <div className={styles.wizardStatList}>
         {/* ── Defenses ── */}
         <div className={styles.wizardSectionHead}>Defenses</div>
         {([
-          { label: 'HP',   tiers: HP_TIERS,   tier: hpTier,   setTier: (t: HpTier)   => { setHpTier(t);   setCustomHp(lookupHp(customLevel, t));   }, val: customHp,   setVal: setCustomHp,   min: 1,   max: 9999, type: 'number' as const },
-          { label: 'AC',   tiers: AC_TIERS,   tier: acTier,   setTier: (t: AcTier)   => { setAcTier(t);   setCustomAc(lookupAc(customLevel, t));   }, val: customAc,   setVal: setCustomAc,   min: 1,   max: 99,   type: 'number' as const },
-          { label: 'Fort', tiers: SAVE_TIERS, tier: fortTier, setTier: (t: SaveTier) => { setFortTier(t); setCustomFort(lookupSave(customLevel, t)); }, val: customFort, setVal: setCustomFort, min: -10, max: 60,   type: 'number' as const },
-          { label: 'Ref',  tiers: SAVE_TIERS, tier: refTier,  setTier: (t: SaveTier) => { setRefTier(t);  setCustomRef(lookupSave(customLevel, t));  }, val: customRef,  setVal: setCustomRef,  min: -10, max: 60,   type: 'number' as const },
-          { label: 'Will', tiers: SAVE_TIERS, tier: willTier, setTier: (t: SaveTier) => { setWillTier(t); setCustomWill(lookupSave(customLevel, t)); }, val: customWill, setVal: setCustomWill, min: -10, max: 60,   type: 'number' as const },
+          { label: 'HP',   tiers: HP_TIERS   as readonly string[], tier: hpTier,   setTier: (t: HpTier)   => { setHpTier(t);   setCustomHp(lookupHp(customLevel, t));   }, val: customHp,   setVal: setCustomHp,   min: 1,   max: 9999 },
+          { label: 'AC',   tiers: AC_TIERS   as readonly string[], tier: acTier,   setTier: (t: AcTier)   => { setAcTier(t);   setCustomAc(lookupAc(customLevel, t));   }, val: customAc,   setVal: setCustomAc,   min: 1,   max: 99   },
+          { label: 'Fort', tiers: SAVE_TIERS as readonly string[], tier: fortTier, setTier: (t: SaveTier) => { setFortTier(t); setCustomFort(lookupSave(customLevel, t)); }, val: customFort, setVal: setCustomFort, min: -10, max: 60   },
+          { label: 'Ref',  tiers: SAVE_TIERS as readonly string[], tier: refTier,  setTier: (t: SaveTier) => { setRefTier(t);  setCustomRef(lookupSave(customLevel, t));  }, val: customRef,  setVal: setCustomRef,  min: -10, max: 60   },
+          { label: 'Will', tiers: SAVE_TIERS as readonly string[], tier: willTier, setTier: (t: SaveTier) => { setWillTier(t); setCustomWill(lookupSave(customLevel, t)); }, val: customWill, setVal: setCustomWill, min: -10, max: 60   },
         ] as const).map(({ label, tiers, tier, setTier, val, setVal, min, max }) => (
           <div key={label} className={styles.wizardStatRow}>
             <span className={styles.wizardStatLabel}>{label}</span>
             <div className={styles.tierBtns}>
-              {(tiers as readonly string[]).map(t => (
-                <button
-                  key={t}
-                  title={t.charAt(0).toUpperCase() + t.slice(1)}
-                  className={`${styles.tierBtn} ${tier === t ? styles.tierBtnActive : ''}`}
-                  onClick={() => (setTier as (t: string) => void)(t)}
-                >{TIER_ABBREV[t as keyof typeof TIER_ABBREV]}</button>
+              {ALL_TIER_SLOTS.map(slot => (
+                tiers.includes(slot)
+                  ? <button
+                      key={slot}
+                      title={slot.charAt(0).toUpperCase() + slot.slice(1)}
+                      className={`${styles.tierBtn} ${tier === slot ? styles.tierBtnActive : ''}`}
+                      onClick={() => (setTier as (t: string) => void)(slot)}
+                    >{TIER_ABBREV[slot]}</button>
+                  : <span key={slot} className={styles.tierBtnSpacer} />
               ))}
             </div>
             <input
@@ -741,20 +809,24 @@ export function EncounterManager({
             <div className={styles.attackDraftRow2}>
               <span className={styles.attackSubLabel}>Atk</span>
               <div className={styles.tierBtns}>
-                {AC_TIERS.map(t => (
-                  <button key={t} title={t} className={`${styles.tierBtn} ${atk.bonusTier === t ? styles.tierBtnActive : ''}`}
-                    onClick={() => updateAttack(i, { bonusTier: t, bonus: lookupAttack(customLevel, t) })}
-                  >{TIER_ABBREV[t]}</button>
+                {ALL_TIER_SLOTS.map(slot => (
+                  (AC_TIERS as readonly string[]).includes(slot)
+                    ? <button key={slot} title={slot} className={`${styles.tierBtn} ${atk.bonusTier === slot ? styles.tierBtnActive : ''}`}
+                        onClick={() => updateAttack(i, { bonusTier: slot as AcTier, bonus: lookupAttack(customLevel, slot as AcTier) })}
+                      >{TIER_ABBREV[slot]}</button>
+                    : <span key={slot} className={styles.tierBtnSpacer} />
                 ))}
               </div>
               <input className={styles.wizardStatInput} type="number" min={-10} max={70}
                 value={atk.bonus} onChange={e => updateAttack(i, { bonus: Number(e.target.value) })} />
               <span className={styles.attackSubLabel}>Dmg</span>
               <div className={styles.tierBtns}>
-                {AC_TIERS.map(t => (
-                  <button key={t} title={t} className={`${styles.tierBtn} ${atk.damageTier === t ? styles.tierBtnActive : ''}`}
-                    onClick={() => updateAttack(i, { damageTier: t, damage: lookupDamage(customLevel, t) })}
-                  >{TIER_ABBREV[t]}</button>
+                {ALL_TIER_SLOTS.map(slot => (
+                  (AC_TIERS as readonly string[]).includes(slot)
+                    ? <button key={slot} title={slot} className={`${styles.tierBtn} ${atk.damageTier === slot ? styles.tierBtnActive : ''}`}
+                        onClick={() => updateAttack(i, { damageTier: slot as AcTier, damage: lookupDamage(customLevel, slot as AcTier) })}
+                      >{TIER_ABBREV[slot]}</button>
+                    : <span key={slot} className={styles.tierBtnSpacer} />
                 ))}
               </div>
               <input className={styles.wizardDmgInput} type="text"
@@ -959,73 +1031,16 @@ export function EncounterManager({
               );
             })}
 
-            {showCustomForm ? (
-              <div className={styles.customForm}>
-                {wizardStep === 0 ? (
-                  <>
-                    <div className={styles.wizardTitle}>Placeholder Creature — Name & Level</div>
-                    <input
-                      className={styles.customInput}
-                      value={customName}
-                      autoFocus
-                      onChange={e => setCustomName(e.target.value)}
-                      placeholder="Name…"
-                      onKeyDown={e => e.key === 'Enter' && wizardNext()}
-                    />
-                    <div className={styles.wizardCheckRow}>
-                      <label className={styles.quickWizardCheck}>
-                        <input
-                          type="checkbox"
-                          checked={useQuickWizard}
-                          onChange={e => setUseQuickWizard(e.target.checked)}
-                        />
-                        Use quick wizard?
-                      </label>
-                      <label className={styles.quickWizardCheck}>
-                        <input
-                          type="checkbox"
-                          checked={wizardIsEnemy}
-                          onChange={e => setWizardIsEnemy(e.target.checked)}
-                        />
-                        Enemy?
-                      </label>
-                    </div>
-                    <div className={styles.customLevelRow}>
-                      <span className={styles.partyLabel}>Level</span>
-                      <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}>−</button>
-                      <span className={styles.partyVal}>{customLevel}</span>
-                      <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.min(25, l + 1))}>+</button>
-                    </div>
-                    <div className={styles.customActions}>
-                      <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>
-                        {useQuickWizard ? 'Next →' : 'Add'}
-                      </button>
-                      <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className={styles.wizardTitle}>
-                      {customName} (Lvl {customLevel}) — Stats
-                    </div>
-                    <div className={styles.wizardHint}>Click a tier to prefill · T=Terrible L=Low M=Moderate H=High E=Extreme</div>
-                    {renderWizardStats()}
-                    <div className={styles.customActions}>
-                      <button className={styles.cancelBtn} onClick={() => setWizardStep(0)}>← Back</button>
-                      <button className={styles.addCustomBtn} onClick={wizardNext}>Add</button>
-                      <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <button
-                className={styles.addPlaceholderBtn}
-                onClick={openWizard}
-              >
-                ＋ Add Placeholder Creature
-              </button>
-            )}
+            {showCustomForm
+              ? renderWizard('Placeholder Creature — Name & Level')
+              : (
+                <button
+                  className={styles.addPlaceholderBtn}
+                  onClick={openWizard}
+                >
+                  ＋ Add Placeholder Creature
+                </button>
+              )}
           </div>
 
           {enc.creatures.length > 0 && (
@@ -1318,71 +1333,16 @@ export function EncounterManager({
             })}
 
             {/* Add creatures during combat */}
-            {showCustomForm ? (
-              <div className={styles.customForm}>
-                {wizardStep === 0 ? (
-                  <>
-                    <div className={styles.wizardTitle}>Add to Combat — Name & Level</div>
-                    <input
-                      className={styles.customInput}
-                      value={customName}
-                      autoFocus
-                      onChange={e => setCustomName(e.target.value)}
-                      placeholder="Name…"
-                      onKeyDown={e => e.key === 'Enter' && wizardNext()}
-                    />
-                    <div className={styles.wizardCheckRow}>
-                      <label className={styles.quickWizardCheck}>
-                        <input
-                          type="checkbox"
-                          checked={useQuickWizard}
-                          onChange={e => setUseQuickWizard(e.target.checked)}
-                        />
-                        Use quick wizard?
-                      </label>
-                      <label className={styles.quickWizardCheck}>
-                        <input
-                          type="checkbox"
-                          checked={wizardIsEnemy}
-                          onChange={e => setWizardIsEnemy(e.target.checked)}
-                        />
-                        Enemy?
-                      </label>
-                    </div>
-                    <div className={styles.customLevelRow}>
-                      <span className={styles.partyLabel}>Level</span>
-                      <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}>−</button>
-                      <span className={styles.partyVal}>{customLevel}</span>
-                      <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.min(25, l + 1))}>+</button>
-                    </div>
-                    <div className={styles.customActions}>
-                      <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>
-                        {useQuickWizard ? 'Next →' : 'Add'}
-                      </button>
-                      <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className={styles.wizardTitle}>{customName} (Lvl {customLevel})</div>
-                    <div className={styles.wizardHint}>Click a tier to prefill · T=Terrible L=Low M=Moderate H=High E=Extreme</div>
-                    {renderWizardStats()}
-                    <div className={styles.customActions}>
-                      <button className={styles.cancelBtn} onClick={() => setWizardStep(0)}>← Back</button>
-                      <button className={styles.addCustomBtn} onClick={wizardNext}>Add</button>
-                      <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <button
-                className={styles.addPlaceholderBtn}
-                onClick={openWizard}
-              >
-                ＋ Add Placeholder Creature
-              </button>
-            )}
+            {showCustomForm
+              ? renderWizard('Add to Combat — Name & Level')
+              : (
+                <button
+                  className={styles.addPlaceholderBtn}
+                  onClick={openWizard}
+                >
+                  ＋ Add Placeholder Creature
+                </button>
+              )}
           </div>
         </div>
       )}

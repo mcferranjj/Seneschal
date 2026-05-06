@@ -378,13 +378,17 @@
 }
 
 .tierBtns {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
   gap: 2px;
   flex: 1;
 }
 
+.tierBtnSpacer {
+  /* empty cell to keep M column aligned */
+}
+
 .tierBtn {
-  flex: 1;
   padding: 2px 0;
   border-radius: 3px;
   border: 1px solid var(--border);
@@ -409,7 +413,7 @@
 }
 
 .wizardStatInput {
-  width: 44px;
+  width: 56px;
   flex-shrink: 0;
   padding: 2px 4px;
   border: 1px solid var(--border);
