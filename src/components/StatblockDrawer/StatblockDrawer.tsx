@@ -23,6 +23,7 @@ import {
   linkKeywords,
   linkRolls,
 } from './statblockHelpers';
+import { getRecallKnowledge } from '../EncounterManager/EncounterManager';
 
 function processHtml(raw: string): string {
   return linkRolls(linkKeywords(stripFoundryMacros(raw)));
@@ -320,12 +321,19 @@ function StatblockContent({
       )}
 
       <div className={styles.body}>
-        {/* Source */}
-        {publication && (
-          <p className={styles.sourceLine}>
-            Source <em>{publication}</em>
-          </p>
-        )}
+        {/* Recall Knowledge DC — top of body (creatures only, not hazards) */}
+        {creature.entityType !== 'hazard' && (() => {
+          const rk = getRecallKnowledge(level, traits, rarity);
+          return (
+            <p className={styles.rkLine}>
+              <span className={styles.rkLineLabel}>Recall Knowledge DC </span>
+              <span className={styles.rkLineDc}>{rk.dc}</span>
+              {rk.skills.length > 0 && (
+                <span className={styles.rkLineSkills}> ({rk.skills.join(' / ')})</span>
+              )}
+            </p>
+          );
+        })()}
 
         {/* Active conditions banner */}
         {activeConditions && activeConditions.length > 0 && (
@@ -508,7 +516,6 @@ function StatblockContent({
           const isAgile = atk.traits?.includes('agile') ?? false;
           const map2 = bonus - (isAgile ? 4 : 5);
           const map3 = bonus - (isAgile ? 8 : 10);
-          const traitStr = atk.traits?.length ? `(${atk.traits.join(', ')})` : '';
           const rangeStr = atk.range != null ? `range ${atk.range} ft.` : null;
           const fullTraitStr = [rangeStr, ...(atk.traits ?? [])].filter(Boolean).join(', ');
           const displayTraitStr = fullTraitStr ? `(${fullTraitStr})` : '';
@@ -597,6 +604,13 @@ function StatblockContent({
               </p>
             </div>
           </>
+        )}
+
+        {/* Source — moved to bottom */}
+        {publication && (
+          <p className={styles.sourceLine} style={{ marginTop: 10 }}>
+            Source <em>{publication}</em>
+          </p>
         )}
 
         {/* Add to Encounter */}

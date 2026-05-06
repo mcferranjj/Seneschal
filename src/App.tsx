@@ -195,6 +195,7 @@ export default function App() {
         strMod,
         dexMod,
         traits: c.traits,
+        rarity: c.rarity,
         init: 0,
         conditions: [],
       };
@@ -319,6 +320,26 @@ export default function App() {
     [activeEnc]
   );
 
+  const duplicateCreature = useCallback(
+    (uid: string) => {
+      setEncounters(prev =>
+        prev.map((enc, i) => {
+          if (i !== activeEnc) return enc;
+          const original = enc.creatures.find(c => c.uid === uid);
+          if (!original) return enc;
+          const duplicate: EncounterCreature = {
+            ...original,
+            uid: `${original.custom ? 'custom' : original.creatureId ?? 'creature'}-${Date.now()}-${Math.random()}`,
+            hp: original.maxHp,
+            conditions: [],
+          };
+          return { ...enc, creatures: [...enc.creatures, duplicate] };
+        })
+      );
+    },
+    [activeEnc]
+  );
+
   // uid of the specific encounter creature instance whose statblock is shown
   const [selectedEncounterUid, setSelectedEncounterUid] = useState<string | null>(null);
 
@@ -328,6 +349,12 @@ export default function App() {
       setSelected(creature);
       setSelectedEncounterUid(encounterUid ?? null);
     }
+  }, []);
+
+  // Select a custom/placeholder creature by its encounter uid (no DB record)
+  const selectEncounterCreature = useCallback((_uid: string) => {
+    // Custom creatures don't have a statblock in the DB — nothing to show in the drawer.
+    // This hook exists so future expansion can open a custom creature view.
   }, []);
 
   const openWizard = useCallback(() => {
@@ -467,10 +494,12 @@ export default function App() {
                 onDeleteEncounter={deleteEncounter}
                 onReorderEncounters={reorderEncounters}
                 onRemoveCreature={removeCreature}
+                onDuplicateCreature={duplicateCreature}
                 onUpdateHP={updateHP}
                 onSetHP={setHPDirect}
                 onAddCustomCreature={addCustomCreature}
                 onSelectCreature={(id, uid) => selectCreatureById(id, uid)}
+                onSelectEncounterCreature={selectEncounterCreature}
                 onUpdateConditions={updateConditions}
                 onRoll={addRollEntry}
               />

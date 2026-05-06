@@ -232,6 +232,30 @@
   color: var(--text-mute);
 }
 
+/* Recall Knowledge line — same typographic weight/size as .sourceLine */
+.rkLine {
+  margin: 0 0 5px;
+  font-size: 0.72rem;
+  color: var(--text-mute);
+}
+
+/* "RK DC" prefix — matches the <strong> weight used in source/conditions lines */
+.rkLineLabel {
+  font-weight: 700;
+  color: var(--text-mute);
+}
+
+/* The numeric DC value */
+.rkLineDc {
+  font-weight: 700;
+  color: var(--text-mute);
+}
+
+/* Skills list — italic like the <em> source title */
+.rkLineSkills {
+  font-style: italic;
+}
+
 .infoLine {
   margin: 3px 0;
 }

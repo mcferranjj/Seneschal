@@ -234,15 +234,22 @@ interface CombatCreature extends EncounterCreature {
 // ── Recall Knowledge ─────────────────────────────────────────────────────────
 // Base DCs for recalling knowledge, indexed by creature level (−1 through 25).
 // From PF2E Remaster GM Core Table 5-6.
-const RK_DC_TABLE: Record<number, number> = {
+export const RK_DC_TABLE: Record<number, number> = {
   [-1]: 13, [0]: 14, [1]: 15, [2]: 16, [3]: 18, [4]: 19, [5]: 20, [6]: 22,
   [7]: 23, [8]: 24, [9]: 26, [10]: 27, [11]: 28, [12]: 30, [13]: 31, [14]: 32,
   [15]: 34, [16]: 35, [17]: 36, [18]: 38, [19]: 39, [20]: 40, [21]: 42, [22]: 44,
   [23]: 46, [24]: 48, [25]: 50,
 };
 
+// Rarity DC adjustments per PF2E Remaster GM Core
+export const RK_RARITY_ADJUSTMENT: Record<string, number> = {
+  uncommon: 2,
+  rare:     5,
+  unique:   10,
+};
+
 // Per-creature-type recall knowledge skills
-const RK_SKILLS: Record<string, string[]> = {
+export const RK_SKILLS: Record<string, string[]> = {
   aberration:  ['Occultism'],
   animal:      ['Nature'],
   astral:      ['Occultism'],
@@ -262,17 +269,23 @@ const RK_SKILLS: Record<string, string[]> = {
   undead:      ['Religion'],
 };
 
-function getRecallKnowledge(level: number, traits: string[]): { dc: number; skills: string[] } | null {
+/**
+ * Compute the Recall Knowledge DC and relevant skills for a creature.
+ * Works for DB creatures, custom creatures, and placeholders alike.
+ * - Always returns a DC (based on level + rarity adjustment).
+ * - Returns skills only when creature type traits are present; otherwise skills is [].
+ */
+export function getRecallKnowledge(level: number, traits: string[], rarity = 'common'): { dc: number; skills: string[] } {
   const l = Math.max(-1, Math.min(25, level));
-  const dc = RK_DC_TABLE[l] ?? 14;
+  const baseDc = RK_DC_TABLE[l] ?? 14;
+  const rarityAdj = RK_RARITY_ADJUSTMENT[rarity.toLowerCase()] ?? 0;
+  const dc = baseDc + rarityAdj;
   const skills = new Set<string>();
   for (const t of traits) {
     const tLower = t.toLowerCase();
     const s = RK_SKILLS[tLower];
     if (s) s.forEach(sk => skills.add(sk));
   }
-  // Default to Recall Knowledge skill (no type match)
-  if (skills.size === 0) return null;
   return { dc, skills: [...skills].sort() };
 }
 
@@ -289,10 +302,12 @@ interface EncounterManagerProps {
   onDeleteEncounter: (idx: number) => void;
   onReorderEncounters: (fromIdx: number, toIdx: number) => void;
   onRemoveCreature: (uid: string) => void;
+  onDuplicateCreature: (uid: string) => void;
   onUpdateHP: (uid: string, delta: number) => void;
   onSetHP: (uid: string, newHp: number) => void;
   onAddCustomCreature: (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: CustomAttack[], abilities?: CustomAbility[], isEnemy?: boolean) => void;
   onSelectCreature: (id: string, encounterUid: string) => void;
+  onSelectEncounterCreature: (uid: string) => void;
   onUpdateConditions: (uid: string, conditions: Condition[]) => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
 }
@@ -360,10 +375,12 @@ export function EncounterManager({
   onDeleteEncounter,
   onReorderEncounters,
   onRemoveCreature,
+  onDuplicateCreature,
   onUpdateHP,
   onSetHP,
   onAddCustomCreature,
   onSelectCreature,
+  onSelectEncounterCreature,
   onUpdateConditions,
   onRoll,
 }: EncounterManagerProps) {
@@ -1011,22 +1028,73 @@ export function EncounterManager({
             {enc.creatures.map(c => {
               const xp = (c.custom && c.isEnemy === false) ? 0 : xpFor(c.level, partyLevel);
               return (
-                <div key={c.uid} className={styles.creatureCard}>
-                  <div className={styles.creatureInfo}>
-                    <span
-                      className={`${styles.creatureName} ${c.creatureId ? styles.creatureNameClickable : ''}`}
-                      onClick={() => c.creatureId && onSelectCreature(c.creatureId, c.uid)}
-                      title={c.creatureId ? 'View statblock' : undefined}
-                    >
+                <div
+                  key={c.uid}
+                  className={styles.plannerCard}
+                  onClick={() => {
+                    if (c.creatureId) onSelectCreature(c.creatureId, c.uid);
+                    else onSelectEncounterCreature(c.uid);
+                  }}
+                  title={c.creatureId ? 'View statblock' : undefined}
+                  style={{ cursor: c.creatureId ? 'pointer' : 'default' }}
+                >
+                  {/* Top row: name + HP + buttons */}
+                  <div className={styles.plannerCardTop}>
+                    <span className={`${styles.plannerName} ${c.creatureId ? styles.creatureNameClickable : ''}`}>
                       {c.name}
                     </span>
-                    <span className={styles.creatureMeta}>
-                      Lvl {c.level}{xp > 0 ? ` · ${xp} XP` : ''}
+                    <span className={styles.plannerHp} title="Hit Points">
+                      <span className={styles.combatDefLabel}>HP</span>
+                      <span className={styles.combatDefVal}>{c.maxHp > 0 ? c.maxHp : '—'}</span>
+                    </span>
+                    <div className={styles.plannerBtns}>
+                      <button
+                        className={styles.duplicateBtn}
+                        onClick={e => { e.stopPropagation(); onDuplicateCreature(c.uid); }}
+                        title="Duplicate creature"
+                      >
+                        ⧉
+                      </button>
+                      <button
+                        className={styles.removeBtn}
+                        onClick={e => { e.stopPropagation(); onRemoveCreature(c.uid); }}
+                        title="Remove from encounter"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Defense stats row — never wraps */}
+                  <div className={styles.plannerDefenseRow}>
+                    <span className={styles.combatDefStat} title="Armor Class">
+                      <span className={styles.combatDefLabel}>AC</span>
+                      <span className={styles.combatDefVal}>{c.ac > 0 ? c.ac : '—'}</span>
+                    </span>
+                    <span className={styles.combatDefStat} title="Fortitude">
+                      <span className={styles.combatDefLabel}>F</span>
+                      <span className={styles.combatDefVal}>
+                        {c.fort != null ? (c.fort >= 0 ? `+${c.fort}` : c.fort) : '—'}
+                      </span>
+                    </span>
+                    <span className={styles.combatDefStat} title="Reflex">
+                      <span className={styles.combatDefLabel}>R</span>
+                      <span className={styles.combatDefVal}>
+                        {c.ref != null ? (c.ref >= 0 ? `+${c.ref}` : c.ref) : '—'}
+                      </span>
+                    </span>
+                    <span className={styles.combatDefStat} title="Will">
+                      <span className={styles.combatDefLabel}>W</span>
+                      <span className={styles.combatDefVal}>
+                        {c.will != null ? (c.will >= 0 ? `+${c.will}` : c.will) : '—'}
+                      </span>
                     </span>
                   </div>
-                  <button className={styles.removeBtn} onClick={() => onRemoveCreature(c.uid)}>
-                    ✕
-                  </button>
+
+                  {/* Bottom row: level, XP */}
+                  <div className={styles.plannerMeta}>
+                    <span>Lvl {c.level}{xp > 0 ? ` · ${xp} XP` : ''}</span>
+                  </div>
                 </div>
               );
             })}
@@ -1055,7 +1123,7 @@ export function EncounterManager({
         /* Combat tracker */
         <div className={styles.combat}>
           <div className={styles.combatHeader}>
-            <span className={styles.roundLabel}>Round {round}</span>
+            <span className={styles.roundLabel}>Rnd {round}</span>
             <button className={styles.nextTurnBtn} onClick={nextTurn}>
               Next Turn
             </button>
@@ -1069,13 +1137,20 @@ export function EncounterManager({
               const hpPct = c.maxHp > 0 ? c.hp / c.maxHp : 0;
               const hpColor =
                 hpPct > 0.5 ? '#3a7a3a' : hpPct > 0.25 ? '#8a6a18' : '#8a2a18';
+              // Helper: open this creature's statblock (works for DB creatures only)
+              const openStatblock = () => {
+                if (c.creatureId) onSelectCreature(c.creatureId, c.uid);
+              };
+
               return (
                 <div
                   key={c.uid}
-                  className={`${styles.combatCard} ${isActive ? styles.combatCardActive : ''}`}
+                  className={`${styles.combatCard} ${isActive ? styles.combatCardActive : ''} ${c.creatureId ? styles.combatCardClickable : ''}`}
+                  onClick={c.creatureId ? openStatblock : undefined}
+                  title={c.creatureId ? 'Click to view statblock' : undefined}
                 >
+                  {/* Row 1: init badge · name · hp */}
                   <div className={styles.combatCardTop}>
-                    {/* Initiative badge */}
                     {editingInit === c.uid ? (
                       <input
                         className={styles.initInput}
@@ -1084,6 +1159,7 @@ export function EncounterManager({
                         autoFocus
                         onChange={e => setEditInitVal(e.target.value)}
                         onBlur={() => commitInit(c.uid)}
+                        onClick={e => e.stopPropagation()}
                         onKeyDown={e => {
                           if (e.key === 'Enter') commitInit(c.uid);
                           if (e.key === 'Escape') setEditingInit(null);
@@ -1093,90 +1169,17 @@ export function EncounterManager({
                       <div
                         className={`${styles.initBadge} ${isActive ? styles.initBadgeActive : ''} ${styles.initBadgeClickable}`}
                         title="Click to edit initiative"
-                        onClick={() => { setEditingInit(c.uid); setEditInitVal(String(c.init)); }}
+                        onClick={e => { e.stopPropagation(); setEditingInit(c.uid); setEditInitVal(String(c.init)); }}
                       >
                         {c.init}
                       </div>
                     )}
 
-                    {/* Name + defenses block */}
-                    <div className={styles.combatCreatureInfo}>
-                      <span
-                        className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''} ${c.creatureId ? styles.creatureNameClickable : ''}`}
-                        onClick={() => c.creatureId && onSelectCreature(c.creatureId, c.uid)}
-                        title={c.creatureId ? 'View statblock' : undefined}
-                      >
-                        {c.name}
-                        {isActive && <span className={styles.activePill}>ACTIVE</span>}
-                      </span>
-                      {(() => {
-                        const pen = computePenalties(c.conditions);
-                        const effAc   = c.ac > 0 ? c.ac + pen.ac : c.ac;
-                        const effFort = c.fort != null ? c.fort + pen.fort : c.fort;
-                        const effRef  = c.ref  != null ? c.ref  + pen.ref  : c.ref;
-                        const effWill = c.will != null ? c.will + pen.will : c.will;
-                        const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
-                        return (
-                          <div className={styles.combatDefenseRow}>
-                            {c.ac > 0 && (
-                            <span
-                              className={styles.combatDefStat}
-                              title="Armor Class"
-                              onClick={e => setDiceRoll({ expr: `1d20`, label: 'Armor Class', x: e.clientX, y: e.clientY - 160 })}
-                            >
-                              <span className={styles.combatDefLabel}>AC</span>
-                              <span className={styles.combatDefVal} style={pen.ac !== 0 ? debuffStyle : undefined}>{effAc}</span>
-                            </span>
-                            )}
-                            {c.fort != null && effFort != null && (
-                              <span
-                                className={styles.combatDefStat}
-                                title="Fortitude"
-                                onClick={e => setDiceRoll({ expr: `1d20${effFort >= 0 ? `+${effFort}` : effFort}`, label: `${c.name} · Fortitude`, x: e.clientX, y: e.clientY - 160 })}
-                              >
-                                <span className={styles.combatDefLabel}>F</span>
-                                <span className={styles.combatDefVal} style={pen.fort !== 0 ? debuffStyle : undefined}>{effFort >= 0 ? `+${effFort}` : effFort}</span>
-                              </span>
-                            )}
-                            {c.ref != null && effRef != null && (
-                              <span
-                                className={styles.combatDefStat}
-                                title="Reflex"
-                                onClick={e => setDiceRoll({ expr: `1d20${effRef >= 0 ? `+${effRef}` : effRef}`, label: `${c.name} · Reflex`, x: e.clientX, y: e.clientY - 160 })}
-                              >
-                                <span className={styles.combatDefLabel}>R</span>
-                                <span className={styles.combatDefVal} style={pen.ref !== 0 ? debuffStyle : undefined}>{effRef >= 0 ? `+${effRef}` : effRef}</span>
-                              </span>
-                            )}
-                            {c.will != null && effWill != null && (
-                              <span
-                                className={styles.combatDefStat}
-                                title="Will"
-                                onClick={e => setDiceRoll({ expr: `1d20${effWill >= 0 ? `+${effWill}` : effWill}`, label: `${c.name} · Will`, x: e.clientX, y: e.clientY - 160 })}
-                              >
-                                <span className={styles.combatDefLabel}>W</span>
-                                <span className={styles.combatDefVal} style={pen.will !== 0 ? debuffStyle : undefined}>{effWill >= 0 ? `+${effWill}` : effWill}</span>
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
+                    <span className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''}`}>
+                      {c.name}
+                    </span>
 
-                    {/* Recall Knowledge */}
-                    {(() => {
-                      const rk = c.traits && c.traits.length > 0 ? getRecallKnowledge(c.level, c.traits) : null;
-                      if (!rk) return null;
-                      return (
-                        <div className={styles.rkRow} title="Recall Knowledge DC">
-                          <span className={styles.rkLabel}>RK</span>
-                          <span className={styles.rkVal}>DC {rk.dc}</span>
-                          <span className={styles.rkSkills}>{rk.skills.join(' / ')}</span>
-                        </div>
-                      );
-                    })()}
-
-                    {/* HP display */}
+                    {/* HP — on the same row as the name */}
                     {editingHp === c.uid ? (
                       <input
                         className={styles.hpInput}
@@ -1186,6 +1189,7 @@ export function EncounterManager({
                         placeholder={String(c.hp)}
                         onChange={e => setEditHpVal(e.target.value)}
                         onFocus={e => e.target.select()}
+                        onClick={e => e.stopPropagation()}
                         onBlur={() => commitHp(c.uid)}
                         onKeyDown={e => {
                           if (e.key === 'Enter') commitHp(c.uid);
@@ -1197,12 +1201,66 @@ export function EncounterManager({
                         className={`${styles.hpDisplay} ${styles.hpDisplayClickable}`}
                         style={{ color: hpColor }}
                         title="Click to set HP; type +4 or -14 for relative change"
-                        onClick={() => { setEditingHp(c.uid); setEditHpVal(''); }}
+                        onClick={e => { e.stopPropagation(); setEditingHp(c.uid); setEditHpVal(''); }}
                       >
                         {c.hp}/{c.maxHp}
                       </span>
                     )}
                   </div>
+
+                  {/* Row 2: defense stats — always a single unwrapped line */}
+                  {(() => {
+                    const pen = computePenalties(c.conditions);
+                    const effAc   = c.ac > 0 ? c.ac + pen.ac : null;
+                    const effFort = c.fort != null ? c.fort + pen.fort : null;
+                    const effRef  = c.ref  != null ? c.ref  + pen.ref  : null;
+                    const effWill = c.will != null ? c.will + pen.will : null;
+                    const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
+                    return (
+                      <div className={styles.combatDefenseRow}>
+                        <span
+                          className={styles.combatDefStat}
+                          title="Armor Class"
+                          onClick={effAc != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20`, label: 'Armor Class', x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                        >
+                          <span className={styles.combatDefLabel}>AC</span>
+                          <span className={styles.combatDefVal} style={pen.ac !== 0 ? debuffStyle : undefined}>
+                            {effAc != null ? effAc : '—'}
+                          </span>
+                        </span>
+                        <span
+                          className={styles.combatDefStat}
+                          title="Fortitude"
+                          onClick={effFort != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effFort >= 0 ? `+${effFort}` : effFort}`, label: `${c.name} · Fortitude`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                        >
+                          <span className={styles.combatDefLabel}>F</span>
+                          <span className={styles.combatDefVal} style={pen.fort !== 0 ? debuffStyle : undefined}>
+                            {effFort != null ? (effFort >= 0 ? `+${effFort}` : effFort) : '—'}
+                          </span>
+                        </span>
+                        <span
+                          className={styles.combatDefStat}
+                          title="Reflex"
+                          onClick={effRef != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effRef >= 0 ? `+${effRef}` : effRef}`, label: `${c.name} · Reflex`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                        >
+                          <span className={styles.combatDefLabel}>R</span>
+                          <span className={styles.combatDefVal} style={pen.ref !== 0 ? debuffStyle : undefined}>
+                            {effRef != null ? (effRef >= 0 ? `+${effRef}` : effRef) : '—'}
+                          </span>
+                        </span>
+                        <span
+                          className={styles.combatDefStat}
+                          title="Will"
+                          onClick={effWill != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effWill >= 0 ? `+${effWill}` : effWill}`, label: `${c.name} · Will`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                        >
+                          <span className={styles.combatDefLabel}>W</span>
+                          <span className={styles.combatDefVal} style={pen.will !== 0 ? debuffStyle : undefined}>
+                            {effWill != null ? (effWill >= 0 ? `+${effWill}` : effWill) : '—'}
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   {/* Attacks */}
                   {c.attacks && c.attacks.length > 0 && (
@@ -1222,7 +1280,7 @@ export function EncounterManager({
                             <span
                               className={`${styles.combatAtkName} ${styles.rollable}`}
                               title="Click to roll attack"
-                              onClick={e => setDiceRoll({ expr: `1d20${effBonus >= 0 ? `+${effBonus}` : effBonus}`, label: `${c.name} · ${atk.name}`, x: e.clientX, y: e.clientY - 160 })}
+                              onClick={e => { e.stopPropagation(); setDiceRoll({ expr: `1d20${effBonus >= 0 ? `+${effBonus}` : effBonus}`, label: `${c.name} · ${atk.name}`, x: e.clientX, y: e.clientY - 160 }); }}
                               style={atkRollPen !== 0 ? { color: '#c0392b' } : undefined}
                             >
                               {atk.name} {effBonus >= 0 ? `+${effBonus}` : effBonus}
@@ -1230,7 +1288,7 @@ export function EncounterManager({
                             <span
                               className={`${styles.combatAtkDmg} ${styles.rollable}`}
                               title="Click to roll damage"
-                              onClick={e => setDiceRoll({ expr: dmgExpr, label: `${c.name} · ${atk.name} dmg`, x: e.clientX, y: e.clientY - 160 })}
+                              onClick={e => { e.stopPropagation(); setDiceRoll({ expr: dmgExpr, label: `${c.name} · ${atk.name} dmg`, x: e.clientX, y: e.clientY - 160 }); }}
                               style={dmgPen !== 0 ? { color: '#c0392b' } : undefined}
                             >
                               {dmgExpr}
@@ -1262,7 +1320,7 @@ export function EncounterManager({
                   )}
 
                   {/* Conditions */}
-                  <div className={styles.conditionRow}>
+                  <div className={styles.conditionRow} onClick={e => e.stopPropagation()}>
                     {c.conditions.map(cond => {
                       const isValued = cond.value != null;
                       return (
@@ -1271,6 +1329,7 @@ export function EncounterManager({
                           className={styles.conditionChip}
                           title={isValued ? `Left-click to edit · Right-click to remove` : `Click to remove`}
                           onClick={e => {
+                            e.stopPropagation();
                             if (isValued) {
                               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                               const spaceBelow = window.innerHeight - rect.bottom - 4;
@@ -1287,6 +1346,7 @@ export function EncounterManager({
                           }}
                           onContextMenu={e => {
                             e.preventDefault();
+                            e.stopPropagation();
                             removeCondition(c.uid, cond.name);
                           }}
                         >
@@ -1298,6 +1358,7 @@ export function EncounterManager({
                     <button
                       className={styles.addConditionBtn}
                       onClick={e => {
+                        e.stopPropagation();
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                         const spaceBelow = window.innerHeight - rect.bottom - 4;
                         const spaceAbove = rect.top - 4;
@@ -1322,7 +1383,7 @@ export function EncounterManager({
                       <button
                         key={v}
                         className={`${styles.hpBtn} ${v > 0 ? styles.hpBtnHeal : styles.hpBtnDmg}`}
-                        onClick={() => onUpdateHP(c.uid, v)}
+                        onClick={e => { e.stopPropagation(); onUpdateHP(c.uid, v); }}
                       >
                         {v > 0 ? `+${v}` : v}
                       </button>

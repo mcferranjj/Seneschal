@@ -60,6 +60,7 @@ export interface EncounterCreature {
   attacks?: CustomAttack[];
   abilities?: CustomAbility[];
   traits?: string[]; // creature type traits for recall knowledge
+  rarity?: string;  // for recall knowledge DC adjustment
   init: number;
   conditions: Condition[];
   custom?: boolean;
