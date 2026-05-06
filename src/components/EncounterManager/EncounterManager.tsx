@@ -431,6 +431,24 @@ export function EncounterManager({
   const [condPickerPos, setCondPickerPos] = useState<{ x: number; y: number } | null>(null);
   const condPickerDragRef = useRef<{ startMouseX: number; startMouseY: number; startX: number; startY: number } | null>(null);
 
+  // Combat header width — used to shorten "Round N"→"Rnd N", "Next Turn"→"Next", "✕ End"→"✕"
+  const combatHeaderRef = useRef<HTMLDivElement>(null);
+  const combatHeaderRoRef = useRef<ResizeObserver | null>(null);
+  const [combatHeaderNarrow, setCombatHeaderNarrow] = useState(false);
+  const combatHeaderCallbackRef = useCallback((el: HTMLDivElement | null) => {
+    // Disconnect any previous observer
+    combatHeaderRoRef.current?.disconnect();
+    combatHeaderRoRef.current = null;
+    (combatHeaderRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const width = el.getBoundingClientRect().width;
+      setCombatHeaderNarrow(width < 212);
+    });
+    ro.observe(el);
+    combatHeaderRoRef.current = ro;
+  }, []);
+
   // isEnemy checkbox in wizard
   const [wizardIsEnemy, setWizardIsEnemy] = useState(true);
 
@@ -1010,20 +1028,22 @@ export function EncounterManager({
                 >
                   +
                 </button>
-                <span className={styles.partyLabel}>× Lvl</span>
-                <button
-                  className={styles.stepBtn}
-                  onClick={() => onPartyLevelChange(Math.max(1, partyLevel - 1))}
-                >
-                  −
-                </button>
-                <span className={styles.partyVal}>{partyLevel}</span>
-                <button
-                  className={styles.stepBtn}
-                  onClick={() => onPartyLevelChange(Math.min(20, partyLevel + 1))}
-                >
-                  +
-                </button>
+                <div className={styles.partyLvlGroup}>
+                  <span className={styles.partyLabel}>× Lvl</span>
+                  <button
+                    className={styles.stepBtn}
+                    onClick={() => onPartyLevelChange(Math.max(1, partyLevel - 1))}
+                  >
+                    −
+                  </button>
+                  <span className={styles.partyVal}>{partyLevel}</span>
+                  <button
+                    className={styles.stepBtn}
+                    onClick={() => onPartyLevelChange(Math.min(20, partyLevel + 1))}
+                  >
+                    +
+                  </button>
+                </div>
               </div>
               <span className={styles.xpTotal}>{totalXP} XP</span>
             </div>
@@ -1134,13 +1154,13 @@ export function EncounterManager({
       ) : (
         /* Combat tracker */
         <div className={styles.combat}>
-          <div className={styles.combatHeader}>
-            <span className={styles.roundLabel}>Rnd {round}</span>
+          <div className={styles.combatHeader} ref={combatHeaderCallbackRef}>
+            <span className={styles.roundLabel}>{combatHeaderNarrow ? `Rnd ${round}` : `Round ${round}`}</span>
             <button className={styles.nextTurnBtn} onClick={nextTurn}>
-              Next Turn
+              {combatHeaderNarrow ? 'Next' : 'Next Turn'}
             </button>
             <button className={styles.endCombatBtn} onClick={endCombat}>
-              ✕ End
+              {combatHeaderNarrow ? '✕' : '✕ End'}
             </button>
           </div>
           <div className={styles.combatList}>

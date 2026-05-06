@@ -191,6 +191,19 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-wrap: wrap;
+  row-gap: 3px;
+}
+
+/* When the party controls wrap, keep "Party N +" on one line and "× Lvl N +" on the next */
+.partyControlsSplit {
+  display: contents;
+}
+
+.partyLvlGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .partyLabel {
@@ -914,7 +927,7 @@
   font-weight: 700;
   color: var(--text);
   white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 1;
 }
 
 .nextTurnBtn {
@@ -926,6 +939,8 @@
   font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .endCombatBtn {
@@ -937,6 +952,8 @@
   border: 1px solid var(--border);
   font-size: 0.72rem;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .combatList {
