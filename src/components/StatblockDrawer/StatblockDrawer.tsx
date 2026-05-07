@@ -1,10 +1,12 @@
-import { useState, useCallback, useEffect } from 'react';
+
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { CreatureRecord } from '../../db/schema';
 import type { PF2ECreature, PF2EItem } from '../../types/pf2e';
 import type { RollHistoryEntry } from '../../types/diceHistory';
-import type { Condition } from '../../types/encounter';
+import type { Condition, CustomSpellcastingEntry, CustomSpell } from '../../types/encounter';
 import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
-import { DiceRoller, DamageRoller } from '../DiceRoller/DiceRoller';
+import { DiceRoller, DamageRoller, MultiDamageRoller } from '../DiceRoller/DiceRoller';
+import type { DamageGroupInput } from '../DiceRoller/DiceRoller';
 import { CustomCreatureWizard } from '../CustomCreatureWizard/CustomCreatureWizard';
 import {
   getLevel,
@@ -22,7 +24,12 @@ import {
   stripFoundryMacros,
   linkKeywords,
   linkRolls,
+  extractDamageGroups,
+  isLimitedUse,
+  applyEliteWeakToHtml,
 } from './statblockHelpers';
+import type { DamageGroup } from './statblockHelpers';
+import { getRecallKnowledge, eliteWeakHpDelta, eliteWeakLevel } from '../EncounterManager/EncounterManager';
 
 function processHtml(raw: string): string {
   return linkRolls(linkKeywords(stripFoundryMacros(raw)));
@@ -88,6 +95,9 @@ interface DrawerProps {
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
   /** Active conditions on the currently-selected creature in the encounter */
   activeConditions?: Condition[];
+  /** Elite/Weak adjustment applied to this creature instance in the encounter */
+  activeEliteWeak?: 'elite' | 'weak';
+  onCopyAsCustom?: (creature: CreatureRecord) => void;
 }
 
 export function StatblockDrawer({
@@ -103,6 +113,8 @@ export function StatblockDrawer({
   onEditCreature,
   onRoll,
   activeConditions,
+  activeEliteWeak,
+  onCopyAsCustom,
 }: DrawerProps) {
   return (
     <aside className={styles.drawer} aria-label="Creature statblock">
@@ -121,11 +133,13 @@ export function StatblockDrawer({
             onAddToEncounter={onAddToEncounter}
             onRoll={onRoll}
             activeConditions={activeConditions}
+            activeEliteWeak={activeEliteWeak}
             onDelete={onDeleteCreature}
             onEdit={onEditCreature}
+            onCopyAsCustom={onCopyAsCustom}
           />
         ) : (
-          <StatblockContent creature={creature} onClose={onClose} onAddToEncounter={onAddToEncounter} onRoll={onRoll} activeConditions={activeConditions} />
+          <StatblockContent creature={creature} onClose={onClose} onAddToEncounter={onAddToEncounter} onRoll={onRoll} activeConditions={activeConditions} activeEliteWeak={activeEliteWeak} onCopyAsCustom={onCopyAsCustom} />
         )
       ) : (
         <div className={styles.emptyState}>
@@ -163,16 +177,20 @@ function StatblockContent({
   onAddToEncounter,
   onRoll,
   activeConditions,
+  activeEliteWeak,
   onDelete,
   onEdit,
+  onCopyAsCustom,
 }: {
   creature: CreatureRecord;
   onClose: () => void;
   onAddToEncounter: (creature: CreatureRecord) => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
   activeConditions?: Condition[];
+  activeEliteWeak?: 'elite' | 'weak';
   onDelete?: (id: string) => void;
   onEdit?: (creature: CreatureRecord) => void;
+  onCopyAsCustom?: (creature: CreatureRecord) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [diceRoll, setDiceRoll] = useState<{
@@ -184,6 +202,10 @@ function StatblockContent({
     expr: string; label?: string; traits?: string[];
     x: number; y: number;
   } | null>(null);
+  const [multiDamageRoll, setMultiDamageRoll] = useState<{
+    groups: DamageGroupInput[]; abilityName: string;
+    x: number; y: number;
+  } | null>(null);
 
   const roll = useCallback((mod: number | undefined, label: string, e: React.MouseEvent) => {
     if (mod == null) return;
@@ -191,6 +213,7 @@ function StatblockContent({
     const expr = `1d20${mod >= 0 ? `+${mod}` : mod}`;
     setDiceRoll({ expr, label, x: e.clientX, y: e.clientY - 160 });
     setDamageRoll(null);
+    setMultiDamageRoll(null);
   }, []);
 
   const rollAttack = useCallback((
@@ -202,12 +225,21 @@ function StatblockContent({
     const expr = `1d20${mod >= 0 ? `+${mod}` : mod}`;
     setDiceRoll({ expr, label, damageExpr, damageLabel, damageTraits, x: e.clientX, y: e.clientY - 160 });
     setDamageRoll(null);
+    setMultiDamageRoll(null);
   }, []);
 
   const rollDamage = useCallback((expr: string, label: string, traits: string[], e: React.MouseEvent) => {
     e.stopPropagation();
     setDamageRoll({ expr, label, traits, x: e.clientX, y: e.clientY - 160 });
     setDiceRoll(null);
+    setMultiDamageRoll(null);
+  }, []);
+
+  const rollAllDamage = useCallback((groups: DamageGroup[], abilityName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMultiDamageRoll({ groups, abilityName, x: e.clientX, y: e.clientY - 160 });
+    setDiceRoll(null);
+    setDamageRoll(null);
   }, []);
 
   const handleBodyClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -222,6 +254,14 @@ function StatblockContent({
   const activeConditionList = activeConditions ?? [];
   const pen = computePenalties(activeConditionList);
   const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
+
+  // Elite/Weak adjustment modifiers
+  const ewMod = activeEliteWeak === 'elite' ? 2 : activeEliteWeak === 'weak' ? -2 : 0;
+  const ewStyle = ewMod > 0
+    ? { color: '#8a6a18', fontWeight: 700 } as const
+    : ewMod < 0
+      ? { color: '#2a5a8a', fontWeight: 700 } as const
+      : undefined;
 
   const c = creature.data as PF2ECreature;
   const level = getLevel(c);
@@ -277,6 +317,7 @@ function StatblockContent({
   const offenseActions = allActions.filter(i => i.system?.actionType?.value !== 'reaction');
   const passives = getPassives(c);
 
+  const hasSpellcasting = c.items.some(i => i.type === 'spellcastingEntry');
   const publicNotes = c.system?.details?.publicNotes ?? '';
   const publication = c.system?.details?.publication?.title;
 
@@ -292,9 +333,14 @@ function StatblockContent({
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerMain}>
-          <span className={styles.creatureName}>{c.name}</span>
+          <span className={styles.creatureName}>
+            {c.name}{activeEliteWeak === 'elite' ? ' (Elite)' : activeEliteWeak === 'weak' ? ' (Weak)' : ''}
+          </span>
           <span className={styles.creatureLevel}>
-            {creature.entityType === 'hazard' ? 'Hazard' : 'Creature'} {level}{creature.entityType !== 'hazard' && ` · ${size}`}
+            {creature.entityType === 'hazard' ? 'Hazard' : 'Creature'}{' '}
+            {activeEliteWeak ? eliteWeakLevel(level, activeEliteWeak) : level}
+            {activeEliteWeak && ` (base ${level})`}
+            {creature.entityType !== 'hazard' && ` · ${size}`}
           </span>
         </div>
         <div className={styles.headerActions}>
@@ -312,6 +358,11 @@ function StatblockContent({
           {creature.packSource === 'custom' && onEdit && (
             <button className={styles.editBtn} onClick={() => onEdit(creature)} title="Edit custom creature">
               ✎
+            </button>
+          )}
+          {onCopyAsCustom && (
+            <button className={styles.copyBtn} onClick={() => onCopyAsCustom(creature)} title="Copy and edit as custom creature">
+              ⧉
             </button>
           )}
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close statblock">
@@ -345,10 +396,32 @@ function StatblockContent({
       )}
 
       <div className={styles.body}>
-        {/* Source */}
-        {publication && (
-          <p className={styles.sourceLine}>
-            Source <em>{publication}</em>
+        {/* Recall Knowledge DC — top of body (creatures only, not hazards) */}
+        {creature.entityType !== 'hazard' && (() => {
+          const rk = getRecallKnowledge(level, traits, rarity);
+          return (
+            <p className={styles.rkLine}>
+              <span className={styles.rkLineLabel}>Recall Knowledge DC </span>
+              <span className={styles.rkLineDc}>{rk.dc}</span>
+              {rk.skills.length > 0 && (
+                <span className={styles.rkLineSkills}> ({rk.skills.join(' / ')})</span>
+              )}
+            </p>
+          );
+        })()}
+
+        {/* Elite/Weak adjustment banner */}
+        {activeEliteWeak && (
+          <p className={styles.eliteWeakBanner} style={activeEliteWeak === 'elite' ? { borderColor: '#8a6a18', background: 'rgba(138,106,24,0.08)' } : { borderColor: '#2a5a8a', background: 'rgba(42,90,138,0.08)' }}>
+            <strong style={{ color: activeEliteWeak === 'elite' ? '#8a6a18' : '#2a5a8a' }}>
+              {activeEliteWeak === 'elite' ? '★ Elite' : '▽ Weak'}
+            </strong>
+            {' '}
+            <span style={{ color: 'var(--text-mute)' }}>
+              {activeEliteWeak === 'elite'
+                ? '+2 AC, saves, perception & skills · +2/+4 damage · +HP'
+                : '−2 AC, saves, perception & skills · −2/−4 damage · −HP'}
+            </span>
           </p>
         )}
 
@@ -364,15 +437,16 @@ function StatblockContent({
         <p className={styles.infoLine}>
           {(() => {
             const percMod = c.system?.perception?.mod ?? c.system?.perception?.value;
-            const effPercMod = percMod != null ? percMod + pen.perception : percMod;
+            const effPercMod = percMod != null ? percMod + pen.perception + ewMod : percMod;
             const rest = senses.replace(/^Perception [+-]?\d+;?\s*/, '').replace(/^Perception [+-]?\d+$/, '');
+            const percStyle = pen.perception !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
             return (
               <>
                 <span
                   className={styles.rollMod}
                   title="Roll Perception"
                   onClick={e => roll(effPercMod, 'Perception', e)}
-                  style={pen.perception !== 0 ? debuffStyle : undefined}
+                  style={percStyle}
                 >
                   <strong>Perception</strong> {formatMod(effPercMod)}
                 </span>
@@ -382,29 +456,63 @@ function StatblockContent({
           })()}
         </p>
 
-        {/* Languages */}
-        {langs && (
+        {/* Custom creature Skills (from customData) */}
+        {creature.packSource === 'custom' && (creature.customData?.skills ?? []).length > 0 && (
           <p className={styles.infoLine}>
-            <strong>Languages</strong> {langs}
+            <strong>Skills</strong>{' '}
+            {(creature.customData!.skills!).map((sk, i) => {
+              const effMod = sk.mod + ewMod;
+              return (
+                <span key={sk.name + i}>
+                  {i > 0 && ', '}
+                  <span
+                    className={styles.rollMod}
+                    title={`Roll ${sk.name}`}
+                    onClick={e => roll(effMod, sk.name, e)}
+                    style={ewMod !== 0 ? ewStyle : undefined}
+                  >
+                    {sk.name} {formatMod(effMod)}
+                  </span>
+                </span>
+              );
+            })}
           </p>
         )}
+
+        {/* Languages — for custom creatures use customData.languages; for official use system blob */}
+        {creature.packSource === 'custom'
+          ? (creature.customData?.languages ?? []).length > 0 && (
+              <p className={styles.infoLine}>
+                <strong>Languages</strong> {creature.customData!.languages!.join(', ')}
+              </p>
+            )
+          : langs && (
+              <p className={styles.infoLine}>
+                <strong>Languages</strong> {langs}
+              </p>
+            )
+        }
 
         {/* Skills */}
         {skills.length > 0 && (
           <p className={styles.infoLine}>
             <strong>Skills</strong>{' '}
-            {skills.map((s, i) => (
-              <span key={s.name}>
-                {i > 0 && ', '}
-                <span
-                  className={styles.rollMod}
-                  title={`Roll ${skillDisplayName(s.name)}`}
-                  onClick={e => roll(s.mod, skillDisplayName(s.name), e)}
-                >
-                  {skillDisplayName(s.name)} {formatMod(s.mod)}
+            {skills.map((s, i) => {
+              const effSkillMod = s.mod + ewMod;
+              return (
+                <span key={s.name}>
+                  {i > 0 && ', '}
+                  <span
+                    className={styles.rollMod}
+                    title={`Roll ${skillDisplayName(s.name)}`}
+                    onClick={e => roll(effSkillMod, skillDisplayName(s.name), e)}
+                    style={ewMod !== 0 ? ewStyle : undefined}
+                  >
+                    {skillDisplayName(s.name)} {formatMod(effSkillMod)}
+                  </span>
                 </span>
-              </span>
-            ))}
+              );
+            })}
           </p>
         )}
 
@@ -435,20 +543,24 @@ function StatblockContent({
 
         {/* AC + Saves */}
         {(() => {
-          const effAc   = typeof ac === 'number'   ? ac   + pen.ac   : ac;
-          const effFort = fort != null ? fort + pen.fort : fort;
-          const effRef  = ref  != null ? ref  + pen.ref  : ref;
-          const effWill = will != null ? will + pen.will : will;
+          const effAc   = typeof ac === 'number'   ? ac   + pen.ac   + ewMod : ac;
+          const effFort = fort != null ? fort + pen.fort + ewMod : fort;
+          const effRef  = ref  != null ? ref  + pen.ref  + ewMod : ref;
+          const effWill = will != null ? will + pen.will + ewMod : will;
+          const acStyle   = pen.ac   !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
+          const fortStyle = pen.fort !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
+          const refStyle  = pen.ref  !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
+          const willStyle = pen.will !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
           return (
             <p className={styles.defenseLine}>
               <strong>AC</strong>{' '}
-              <span style={pen.ac !== 0 ? debuffStyle : undefined}>{effAc}</span>
+              <span style={acStyle}>{effAc}</span>
               {acDetail && ` (${acDetail})`};{' '}
               <span
                 className={styles.rollMod}
                 title="Roll Fortitude"
                 onClick={e => roll(effFort, 'Fortitude', e)}
-                style={pen.fort !== 0 ? debuffStyle : undefined}
+                style={fortStyle}
               >
                 <strong>Fort</strong> {formatMod(effFort)}
               </span>
@@ -457,7 +569,7 @@ function StatblockContent({
                 className={styles.rollMod}
                 title="Roll Reflex"
                 onClick={e => roll(effRef, 'Reflex', e)}
-                style={pen.ref !== 0 ? debuffStyle : undefined}
+                style={refStyle}
               >
                 <strong>Ref</strong> {formatMod(effRef)}
               </span>
@@ -466,7 +578,7 @@ function StatblockContent({
                 className={styles.rollMod}
                 title="Roll Will"
                 onClick={e => roll(effWill, 'Will', e)}
-                style={pen.will !== 0 ? debuffStyle : undefined}
+                style={willStyle}
               >
                 <strong>Will</strong> {formatMod(effWill)}
               </span>
@@ -482,31 +594,41 @@ function StatblockContent({
 
 
         {/* HP */}
-        <p className={styles.defenseLine}>
-          <strong>HP</strong> <span>{hp}</span>
-          {hpDetail && ` (${hpDetail})`}
-          {immunities && (
-            <>
-              ; <strong>Immunities</strong> {immunities}
-            </>
-          )}
-          {resistances && (
-            <>
-              ; <strong>Resistances</strong> {resistances}
-            </>
-          )}
-          {weaknesses && (
-            <>
-              ; <strong>Weaknesses</strong> {weaknesses}
-            </>
-          )}
-        </p>
+        {(() => {
+          const hpDelta = activeEliteWeak && typeof hp === 'number' ? eliteWeakHpDelta(level, activeEliteWeak) : 0;
+          const effHp = typeof hp === 'number' ? Math.max(1, hp + hpDelta) : hp;
+          return (
+            <p className={styles.defenseLine}>
+              <strong>HP</strong>{' '}
+              <span style={hpDelta !== 0 ? ewStyle : undefined}>{effHp}</span>
+              {hpDelta !== 0 && typeof hp === 'number' && (
+                <span style={{ color: 'var(--text-mute)', fontSize: '0.78em' }}> (base {hp})</span>
+              )}
+              {hpDetail && ` (${hpDetail})`}
+              {immunities && (
+                <>
+                  ; <strong>Immunities</strong> {immunities}
+                </>
+              )}
+              {resistances && (
+                <>
+                  ; <strong>Resistances</strong> {resistances}
+                </>
+              )}
+              {weaknesses && (
+                <>
+                  ; <strong>Weaknesses</strong> {weaknesses}
+                </>
+              )}
+            </p>
+          );
+        })()}
 
         {passives.map(item => (
-          <ItemBlock key={item._id} item={item} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} />
         ))}
         {reactions.map(item => (
-          <ItemBlock key={item._id} item={item} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} />
         ))}
 
         <hr className={styles.divider} />
@@ -524,23 +646,29 @@ function StatblockContent({
             conditions={activeConditionList}
             strMod={str}
             dexMod={dex}
+            ewMod={ewMod}
+            ewStyle={ewStyle}
           />
         ))}
 
         {/* Custom creature attacks (stored in customData, not items) */}
         {creature.packSource === 'custom' && (creature.customData?.attacks ?? []).map((atk, i) => {
-          const bonus = atk.bonus;
+          const bonus = atk.bonus + ewMod;
           const isAgile = atk.traits?.includes('agile') ?? false;
           const map2 = bonus - (isAgile ? 4 : 5);
           const map3 = bonus - (isAgile ? 8 : 10);
-          const traitStr = atk.traits?.length ? `(${atk.traits.join(', ')})` : '';
           const rangeStr = atk.range != null ? `range ${atk.range} ft.` : null;
           const fullTraitStr = [rangeStr, ...(atk.traits ?? [])].filter(Boolean).join(', ');
           const displayTraitStr = fullTraitStr ? `(${fullTraitStr})` : '';
           const damageExprMatch = atk.damage?.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
-          const damageExpr = damageExprMatch
+          const baseDamageExpr = damageExprMatch
             ? (damageExprMatch[2] ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}` : damageExprMatch[1])
             : '';
+          const ewDmgMod = ewMod; // ±2 damage for standard at-will strikes
+          const damageExpr = baseDamageExpr && ewDmgMod !== 0
+            ? `${baseDamageExpr}${ewDmgMod >= 0 ? `+${ewDmgMod}` : ewDmgMod}`
+            : baseDamageExpr;
+          const displayDamage = ewDmgMod !== 0 && damageExpr ? damageExpr : atk.damage;
           const damageLabel = `${atk.name} damage`;
           const typeLabel = atk.type === 'ranged' ? 'Ranged' : 'Melee';
           return (
@@ -548,17 +676,18 @@ function StatblockContent({
               <span className={styles.attackTypeLabel}>{typeLabel}</span>
               {' ◆ '}
               <span className={styles.rollMod} title="Roll attack (1st action)"
-                onClick={e => rollAttack(bonus, atk.name, damageExpr, damageLabel, atk.traits ?? [], e)}>
+                style={ewMod !== 0 ? ewStyle : undefined}
+                onClick={e => rollAttack(bonus, atk.name, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
                 <strong>{atk.name}</strong> {formatMod(bonus)}
               </span>
               {' ['}
               <span className={styles.mapRoll} title="Roll attack (2nd action, MAP)"
-                onClick={e => rollAttack(map2, `${atk.name} (MAP 2)`, damageExpr, damageLabel, atk.traits ?? [], e)}>
+                onClick={e => rollAttack(map2, `${atk.name} (MAP 2)`, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
                 {formatMod(map2)}
               </span>
               {'/'}
               <span className={styles.mapRoll} title="Roll attack (3rd action, MAP)"
-                onClick={e => rollAttack(map3, `${atk.name} (MAP 3)`, damageExpr, damageLabel, atk.traits ?? [], e)}>
+                onClick={e => rollAttack(map3, `${atk.name} (MAP 3)`, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
                 {formatMod(map3)}
               </span>
               {']'}
@@ -568,11 +697,12 @@ function StatblockContent({
                   {', '}
                   {damageExpr ? (
                     <span className={styles.rollMod} title="Roll damage"
+                      style={ewMod !== 0 ? ewStyle : undefined}
                       onClick={e => rollDamage(damageExpr, damageLabel, atk.traits ?? [], e)}>
-                      <strong>Damage</strong> {atk.damage}
+                      <strong>Damage</strong> {displayDamage}
                     </span>
                   ) : (
-                    <><strong>Damage</strong> {atk.damage}</>
+                    <><strong>Damage</strong> {displayDamage}</>
                   )}
                 </>
               )}
@@ -581,8 +711,39 @@ function StatblockContent({
         })}
 
         {offenseActions.map(item => (
-          <ItemBlock key={item._id} item={item} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} />
         ))}
+
+        {/* Spellcasting — official creatures read from items; custom from customData */}
+        {creature.packSource === 'custom'
+          ? (creature.customData?.spellcasting ?? []).map((entry, ei) => (
+              <SpellcastingBlock
+                key={entry.id ?? ei}
+                entry={entry}
+                ewMod={ewMod}
+                ewStyle={ewStyle}
+                onRollAll={rollAllDamage}
+              />
+            ))
+          : (
+              <OfficialSpellcastingBlock
+                items={c.items as Array<{ type: string; _id: string; name: string; system: Record<string, unknown> }>}
+                ewMod={ewMod}
+                ewStyle={ewStyle}
+                onRollAll={rollAllDamage}
+              />
+            )
+        }
+
+        {/* Elite/Weak ability note — shown for all creature types */}
+        {activeEliteWeak && (
+          <p className={styles.eliteWeakAbilityNote} style={ewMod > 0 ? { color: '#8a6a18' } : { color: '#2a5a8a' }}>
+            {activeEliteWeak === 'elite' ? '★ Elite' : '▽ Weak'}{': '}
+            ability DCs {ewMod > 0 ? 'increase' : 'decrease'} by 2.
+            At-will abilities deal {ewMod > 0 ? '+2' : '−2'} damage;
+            limited-use abilities (recharge, per-day, etc.) deal {ewMod > 0 ? '+4' : '−4'} damage.
+          </p>
+        )}
 
         {/* Custom creature abilities */}
         {creature.packSource === 'custom' && (creature.customData?.abilities ?? []).map((ab, i) => {
@@ -590,18 +751,48 @@ function StatblockContent({
             single: ' ◆', two: ' ◆◆', three: ' ◆◆◆', reaction: ' ↺', free: ' ◇', passive: '',
           };
           const sym = ab.actionType ? (actionSymbols[ab.actionType] ?? '') : '';
+          const limited = ab.frequency != null && ab.frequency !== '';
+          const dmgMod = ewMod !== 0 ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2)) : 0;
+          const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
+          const rawDesc = ab.description ?? '';
+          const adjustedDesc = (dmgMod !== 0 || dcMod !== 0) ? applyEliteWeakToHtml(rawDesc, dmgMod, dcMod) : rawDesc;
+          const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];
+          const hasDamage = damageGroups.length > 0;
           return (
             <div key={i} className={styles.itemBlock}>
               <p className={styles.itemHeader}>
                 <strong className={styles.itemName}>{ab.name}</strong>
                 {sym && <span className={styles.actionSymbol}>{sym}</span>}
+                {ab.trigger && (
+                  <> <strong>Trigger</strong> {ab.trigger};</>
+                )}
+                {ab.requirements && (
+                  <> <strong>Requirements</strong> {ab.requirements};</>
+                )}
+                {ab.frequency && (
+                  <> <strong>Frequency</strong> {ab.frequency}</>
+                )}
               </p>
-              {ab.description && <p className={styles.itemDesc}>{ab.description}</p>}
+              {adjustedDesc && (
+                <div
+                  className={styles.itemDesc}
+                  dangerouslySetInnerHTML={{ __html: processHtml(adjustedDesc) }}
+                />
+              )}
+              {hasDamage && (
+                <button
+                  className={styles.rollAllDmgBtn}
+                  style={dmgMod !== 0 ? { borderColor: ewStyle?.color, color: ewStyle?.color } : undefined}
+                  onClick={e => rollAllDamage(damageGroups, ab.name, e)}
+                >
+                  🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
+                </button>
+              )}
             </div>
           );
         })}
 
-        {publicNotes && (
+        {publicNotes && !hasSpellcasting && (
           <>
             <hr className={styles.divider} />
             <div className={styles.flavorBox}>
@@ -622,6 +813,13 @@ function StatblockContent({
               </p>
             </div>
           </>
+        )}
+
+        {/* Source — moved to bottom */}
+        {publication && (
+          <p className={styles.sourceLine} style={{ marginTop: 10 }}>
+            Source <em>{publication}</em>
+          </p>
         )}
 
         {/* Add to Encounter */}
@@ -668,17 +866,29 @@ function StatblockContent({
           onRoll={onRoll}
         />
       )}
+      {multiDamageRoll && (
+        <MultiDamageRoller
+          groups={multiDamageRoll.groups}
+          abilityName={multiDamageRoll.abilityName}
+          anchorX={multiDamageRoll.x}
+          anchorY={multiDamageRoll.y}
+          onClose={() => setMultiDamageRoll(null)}
+          onRoll={onRoll}
+        />
+      )}
     </div>
   );
 }
 
-function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod, dexMod }: {
+function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod, dexMod, ewMod = 0, ewStyle }: {
   item: PF2EItem;
   onRollAttack: (mod: number, label: string, damageExpr: string, damageLabel: string, damageTraits: string[], e: React.MouseEvent) => void;
   onRollDamage: (expr: string, label: string, traits: string[], e: React.MouseEvent) => void;
   conditions?: Condition[];
   strMod?: number;
   dexMod?: number;
+  ewMod?: number;
+  ewStyle?: React.CSSProperties;
 }) {
   const bonus = item.system?.bonus?.value;
   const damage = getDamageString(item.system?.damageRolls);
@@ -701,7 +911,10 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
   const isDebuffedDmg = dmgPen !== 0;
   const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
 
-  const effBonus = bonus != null ? bonus + atkRollPen : null;
+  // Elite/Weak: +2 attack; +2 damage for standard at-will strikes
+  const ewDmgMod = ewMod;
+
+  const effBonus = bonus != null ? bonus + atkRollPen + ewMod : null;
   const map2 = effBonus != null ? effBonus - (isAgile ? 4 : 5) : null;
   const map3 = effBonus != null ? effBonus - (isAgile ? 8 : 10) : null;
 
@@ -726,9 +939,10 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
         ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}`
         : damageExprMatch[1])
     : '';
-  // Apply flat enfeebled damage penalty to the roll expression
-  const damageExpr = baseDamageExpr && dmgPen !== 0
-    ? `${baseDamageExpr}${dmgPen >= 0 ? `+${dmgPen}` : dmgPen}`
+  // Combine condition damage penalty and elite/weak damage modifier
+  const totalDmgMod = dmgPen + ewDmgMod;
+  const damageExpr = baseDamageExpr && totalDmgMod !== 0
+    ? `${baseDamageExpr}${totalDmgMod >= 0 ? `+${totalDmgMod}` : totalDmgMod}`
     : baseDamageExpr;
   const damageLabel = `${item.name} damage`;
 
@@ -736,8 +950,8 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
     onRollAttack(mod, `${item.name}${mapLabel}`, damageExpr, damageLabel, traits, e);
   }
 
-  // Display damage string: show adjusted expression if debuffed, otherwise raw text
-  const displayDamage = isDebuffedDmg && damageExpr ? damageExpr : fullDamage;
+  // Display damage string: show adjusted expression if debuffed or elite/weak adjusted, otherwise raw text
+  const displayDamage = (isDebuffedDmg || ewDmgMod !== 0) && damageExpr ? damageExpr : fullDamage;
 
   return (
     <p className={styles.attackLine}>
@@ -749,14 +963,14 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
           <span
             className={styles.rollMod}
             title="Roll attack (1st action)"
-            style={isDebuffedAtk ? debuffStyle : undefined}
+            style={isDebuffedAtk ? debuffStyle : ewMod !== 0 ? ewStyle : undefined}
             onClick={e => fireAttack(effBonus, '', e)}
           >
             <strong>{item.name}</strong> {formatMod(effBonus)}
           </span>
           {/* MAP brackets — each individually clickable */}
           {map2 != null && map3 != null && (
-            <span className={styles.mapBracket} style={isDebuffedAtk ? { color: '#c0392b' } : undefined}>
+            <span className={styles.mapBracket} style={isDebuffedAtk ? { color: '#c0392b' } : ewMod !== 0 ? { color: ewStyle?.color } : undefined}>
               {' ['}
               <span
                 className={styles.mapRoll}
@@ -796,7 +1010,7 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
             <span
               className={styles.rollMod}
               title="Roll damage"
-              style={isDebuffedDmg ? debuffStyle : undefined}
+              style={isDebuffedDmg ? debuffStyle : ewDmgMod !== 0 ? ewStyle : undefined}
               onClick={e => onRollDamage(damageExpr, damageLabel, traits, e)}
             >
               <strong>Damage</strong> {displayDamage}
@@ -810,12 +1024,33 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
   );
 }
 
-function ItemBlock({ item }: { item: PF2EItem }) {
+function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle }: {
+  item: PF2EItem;
+  onRollAll?: (groups: DamageGroup[], abilityName: string, e: React.MouseEvent) => void;
+  ewMod?: number;
+  ewStyle?: React.CSSProperties;
+}) {
   const symbol = actionSymbol(item);
-  const desc = item.system?.description?.value ?? '';
+  const rawDesc = item.system?.description?.value ?? '';
   const traits = item.system?.traits?.value ?? [];
   const trigger = item.system?.trigger?.value;
   const traitStr = traits.length > 0 ? `(${traits.join(', ')})` : '';
+
+  // Determine elite/weak damage modifier for this ability
+  const limited = isLimitedUse(item);
+  const dmgMod = ewMod !== 0
+    ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2))
+    : 0;
+
+  // DC adjustment is always ±2; damage mod is ±2 (at-will) or ±4 (limited)
+  const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
+  const adjustedDesc = (dmgMod !== 0 || dcMod !== 0)
+    ? applyEliteWeakToHtml(rawDesc, dmgMod, dcMod)
+    : rawDesc;
+
+  // Extract damage groups from the (adjusted) raw description
+  const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];
+  const hasDamage = damageGroups.length > 0 && onRollAll != null;
 
   return (
     <div className={styles.itemBlock}>
@@ -830,12 +1065,361 @@ function ItemBlock({ item }: { item: PF2EItem }) {
           </>
         )}
       </p>
-      {desc && (
+      {adjustedDesc && (
         <div
           className={styles.itemDesc}
-          dangerouslySetInnerHTML={{ __html: processHtml(desc) }}
+          dangerouslySetInnerHTML={{ __html: processHtml(adjustedDesc) }}
         />
       )}
+      {hasDamage && (
+        <button
+          className={styles.rollAllDmgBtn}
+          style={dmgMod !== 0 ? { borderColor: ewStyle?.color, color: ewStyle?.color } : undefined}
+          onClick={e => onRollAll!(damageGroups, item.name, e)}
+        >
+          🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
+        </button>
+      )}
     </div>
+  );
+}
+
+// ── Spell popup (shared between custom and official spellcasting) ──────────────
+
+function SpellPopup({ name, description, traits, ewMod, ewStyle, onRollAll, anchorRef, onClose }: {
+  name: string;
+  description: string;
+  traits?: string[];
+  ewMod: number;
+  ewStyle?: React.CSSProperties;
+  onRollAll?: (groups: DamageGroup[], name: string, e: React.MouseEvent) => void;
+  anchorRef: React.RefObject<HTMLElement | null>;
+  onClose: () => void;
+}) {
+  const popupRef = useRef<HTMLDivElement>(null);
+  const traitStr = traits && traits.length > 0 ? `(${traits.join(', ')})` : '';
+  const limited = /1\/day|2\/day|3\/day|focus/i.test(description);
+  const dmgMod = ewMod !== 0 ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2)) : 0;
+  const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
+  const adjustedDesc = (dmgMod !== 0 || dcMod !== 0) ? applyEliteWeakToHtml(description, dmgMod, dcMod) : description;
+  const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];
+  const hasDamage = damageGroups.length > 0 && onRollAll != null;
+  const html = processHtml(adjustedDesc);
+
+  // Compute viewport-clamped position from anchor element
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; maxH: number } | null>(null);
+
+  useEffect(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const POPUP_W = 320;
+    const POPUP_MAX_H = 420;
+    const MARGIN = 8;
+    const spaceBelow = window.innerHeight - rect.bottom - MARGIN;
+    const spaceAbove = rect.top - MARGIN;
+    // Open below unless above has meaningfully more room and below is tight
+    let posResult: { top?: number; bottom?: number; left: number; maxH: number };
+    // Align left with anchor; clamp so popup stays within viewport
+    let left = rect.left;
+    if (left + POPUP_W > window.innerWidth - MARGIN) {
+      left = window.innerWidth - POPUP_W - MARGIN;
+    }
+    left = Math.max(MARGIN, left);
+    const fitsBelow = spaceBelow >= POPUP_MAX_H;
+    const openBelow = fitsBelow || spaceBelow >= spaceAbove;
+    if (openBelow) {
+      // Below: anchor top edge at rect.bottom, let max-height clip naturally
+      posResult = { top: rect.bottom + 4, left, maxH: Math.min(POPUP_MAX_H, spaceBelow) };
+    } else {
+      // Above: anchor bottom edge just above the clicked link using CSS bottom
+      posResult = { bottom: window.innerHeight - rect.top + 4, left, maxH: Math.min(POPUP_MAX_H, spaceAbove) };
+    }
+    setPos(posResult);
+  }, [anchorRef]);
+
+  // Close on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node) &&
+          anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose, anchorRef]);
+
+  if (!pos) return null;
+
+  return (
+    <div
+      ref={popupRef}
+      className={styles.spellPopup}
+      style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, maxHeight: pos.maxH }}
+    >
+      <div className={styles.spellPopupHeader}>
+        <strong className={styles.itemName}>{name}</strong>
+        {traitStr && <span className={styles.itemTraits}> {traitStr}</span>}
+        <button className={styles.spellPopupClose} onClick={onClose}>✕</button>
+      </div>
+      {html && (
+        <div
+          className={styles.itemDesc}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      )}
+      {hasDamage && (
+        <button
+          className={styles.rollAllDmgBtn}
+          style={dmgMod !== 0 ? { borderColor: ewStyle?.color, color: ewStyle?.color } : undefined}
+          onClick={e => { onRollAll!(damageGroups, name, e); onClose(); }}
+        >
+          🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Inline clickable spell name that opens a popup
+function SpellNameLink({ spell, ewMod, ewStyle, onRollAll }: {
+  spell: { name: string; description: string; traits?: string[] };
+  ewMod: number;
+  ewStyle?: React.CSSProperties;
+  onRollAll?: (groups: DamageGroup[], name: string, e: React.MouseEvent) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  return (
+    <span className={styles.spellNameWrap}>
+      <span
+        ref={ref}
+        className={styles.spellNameLink}
+        onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+        title={`View ${spell.name}`}
+      >
+        {spell.name}
+      </span>
+      {open && (
+        <SpellPopup
+          name={spell.name}
+          description={spell.description}
+          traits={spell.traits}
+          ewMod={ewMod}
+          ewStyle={ewStyle}
+          onRollAll={onRollAll}
+          anchorRef={ref}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </span>
+  );
+}
+
+const SPELL_ORDINALS = ['', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
+
+// Compact inline spellcasting block — matches the style in the reference image
+function SpellcastingBlock({ entry, ewMod = 0, ewStyle, onRollAll }: {
+  entry: CustomSpellcastingEntry;
+  ewMod?: number;
+  ewStyle?: React.CSSProperties;
+  onRollAll?: (groups: DamageGroup[], name: string, e: React.MouseEvent) => void;
+}) {
+  const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
+  const effDc = entry.dc + dcMod;
+  const effAtk = entry.attackMod + ewMod;
+  const traditionLabel = entry.tradition.charAt(0).toUpperCase() + entry.tradition.slice(1);
+  const typeLabel = entry.type === 'innate' ? 'Innate' : entry.type === 'spontaneous' ? 'Spontaneous' : 'Prepared';
+
+  // Build rank/frequency groups
+  type SpellGroup = { label: string; spells: CustomSpell[]; sortKey: number };
+  const groups: SpellGroup[] = [];
+
+  if (entry.type === 'innate') {
+    const byFreq: Record<string, CustomSpell[]> = {};
+    for (const sp of entry.spells) {
+      const key = sp.frequency ?? 'at-will';
+      if (!byFreq[key]) byFreq[key] = [];
+      byFreq[key].push(sp);
+    }
+    const ORDER: Array<[string, string, number]> = [
+      ['constant', 'Constant', 0],
+      ['at-will', 'At Will', 1],
+      ['cantrip', 'Cantrips (At Will)', 2],
+      ['focus', `Focus (${entry.focusPoints ?? 1})`, 3],
+      ['3/day', '3/Day', 4],
+      ['2/day', '2/Day', 5],
+      ['1/day', '1/Day', 6],
+    ];
+    for (const [key, label, sortKey] of ORDER) {
+      if (byFreq[key]?.length) groups.push({ label, spells: byFreq[key], sortKey });
+    }
+  } else {
+    // Prepared / spontaneous: group by rank descending, cantrips last
+    const byRank: Record<number, CustomSpell[]> = {};
+    for (const sp of entry.spells) {
+      const rank = sp.rank ?? 0;
+      if (!byRank[rank]) byRank[rank] = [];
+      byRank[rank].push(sp);
+    }
+    const ranks = Object.keys(byRank).map(Number).sort((a, b) => {
+      if (a === 0) return 1; if (b === 0) return -1; return b - a;
+    });
+    for (const rank of ranks) {
+      const label = rank === 0
+        ? `Cantrips (${SPELL_ORDINALS[entry.spells.filter(s => (s.rank ?? 0) > 0).reduce((m, s) => Math.max(m, s.rank ?? 0), 1)]})`
+        : (SPELL_ORDINALS[rank] ?? `Rank ${rank}`);
+      groups.push({ label, spells: byRank[rank], sortKey: rank === 0 ? -1 : rank });
+    }
+  }
+
+  return (
+    <p className={styles.spellcastingLine}>
+      <strong>{traditionLabel} {typeLabel} Spells</strong>
+      {' '}
+      <strong>DC</strong>{' '}
+      <span style={ewMod !== 0 ? ewStyle : undefined}>{effDc}</span>
+      {entry.attackMod !== 0 && (
+        <>, <strong>attack</strong>{' '}
+          <span style={ewMod !== 0 ? ewStyle : undefined}>{formatMod(effAtk)}</span>
+        </>
+      )}
+      {'; '}
+      {groups.map((grp, gi) => (
+        <span key={grp.label}>
+          {gi > 0 && '; '}
+          <strong>{grp.label}</strong>{' '}
+          {grp.spells.map((sp, si) => (
+            <span key={sp.name + si}>
+              {si > 0 && ', '}
+              <SpellNameLink spell={sp} ewMod={ewMod} ewStyle={ewStyle} onRollAll={onRollAll} />
+            </span>
+          ))}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+// Official spellcasting block — reads from PF2EItem list
+function OfficialSpellcastingBlock({ items, ewMod = 0, ewStyle, onRollAll }: {
+  items: Array<{ type: string; _id: string; name: string; system: Record<string, unknown> }>;
+  ewMod?: number;
+  ewStyle?: React.CSSProperties;
+  onRollAll?: (groups: DamageGroup[], name: string, e: React.MouseEvent) => void;
+}) {
+  const entries = items.filter(i => i.type === 'spellcastingEntry');
+  if (entries.length === 0) return null;
+
+  const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
+
+  return (
+    <>
+      {entries.map(entry => {
+        const sys = entry.system;
+        const spelldc = sys['spelldc'] as { dc?: number; value?: number } | undefined;
+        const dc = (spelldc?.dc ?? 15) + dcMod;
+        const atkMod = (spelldc?.value ?? 7) + ewMod;
+        const tradition = ((sys['tradition'] as { value?: string } | undefined)?.value ?? '');
+        const prepared = ((sys['prepared'] as { value?: string } | undefined)?.value ?? '');
+        const traditionLabel = tradition.charAt(0).toUpperCase() + tradition.slice(1);
+        const typeLabel = prepared === 'spontaneous' ? 'Spontaneous'
+          : prepared === 'innate' ? 'Innate'
+          : 'Prepared';
+
+        const entrySpells = items.filter(
+          i => i.type === 'spell' &&
+            (i.system['location'] as { value?: string } | undefined)?.value === entry._id
+        );
+
+        // Group spells
+        type SpellGroup = { label: string; spells: typeof entrySpells; sortKey: number };
+        const groups: SpellGroup[] = [];
+
+        if (prepared === 'innate') {
+          const byFreq: Record<string, typeof entrySpells> = {};
+          for (const sp of entrySpells) {
+            const rank = (sp.system['level'] as { value?: number } | undefined)?.value ?? 0;
+            const usesMax = (sp.system['location'] as { uses?: { max?: number } } | undefined)?.uses?.max;
+            let key = 'at-will';
+            if (rank === 0) key = 'cantrip';
+            else if (usesMax === 3) key = '3/day';
+            else if (usesMax === 2) key = '2/day';
+            else if (usesMax === 1) key = '1/day';
+            const descLower = ((sp.system['description'] as { value?: string } | undefined)?.value ?? '').toLowerCase();
+            if (key === 'at-will' && /constant/i.test(descLower)) key = 'constant';
+            if (!byFreq[key]) byFreq[key] = [];
+            byFreq[key].push(sp);
+          }
+          const ORDER: Array<[string, string, number]> = [
+            ['constant', 'Constant', 0],
+            ['at-will', 'At Will', 1],
+            ['cantrip', 'Cantrips (At Will)', 2],
+            ['3/day', '3/Day', 3],
+            ['2/day', '2/Day', 4],
+            ['1/day', '1/Day', 5],
+          ];
+          for (const [key, label, sortKey] of ORDER) {
+            if (byFreq[key]?.length) groups.push({ label, spells: byFreq[key], sortKey });
+          }
+        } else {
+          const byRank: Record<number, typeof entrySpells> = {};
+          for (const sp of entrySpells) {
+            const rank = (sp.system['level'] as { value?: number } | undefined)?.value ?? 0;
+            if (!byRank[rank]) byRank[rank] = [];
+            byRank[rank].push(sp);
+          }
+          const maxRank = Object.keys(byRank).map(Number).filter(r => r > 0).reduce((m, r) => Math.max(m, r), 1);
+          const ranks = Object.keys(byRank).map(Number).sort((a, b) => {
+            if (a === 0) return 1; if (b === 0) return -1; return b - a;
+          });
+          for (const rank of ranks) {
+            const label = rank === 0
+              ? `Cantrips (${SPELL_ORDINALS[maxRank]})`
+              : (SPELL_ORDINALS[rank] ?? `Rank ${rank}`);
+            groups.push({ label, spells: byRank[rank], sortKey: rank === 0 ? -1 : rank });
+          }
+        }
+
+        if (groups.length === 0) return null;
+
+        return (
+          <p key={entry._id} className={styles.spellcastingLine}>
+            <strong>{traditionLabel} {typeLabel} Spells</strong>
+            {' '}
+            <strong>DC</strong>{' '}
+            <span style={ewMod !== 0 ? ewStyle : undefined}>{dc}</span>
+            {atkMod !== 0 && (
+              <>, <strong>attack</strong>{' '}
+                <span style={ewMod !== 0 ? ewStyle : undefined}>{formatMod(atkMod)}</span>
+              </>
+            )}
+            {'; '}
+            {groups.map((grp, gi) => (
+              <span key={grp.label}>
+                {gi > 0 && '; '}
+                <strong>{grp.label}</strong>{' '}
+                {grp.spells.map((sp, si) => {
+                  const desc = (sp.system['description'] as { value?: string } | undefined)?.value ?? '';
+                  const traits = (sp.system['traits'] as { value?: string[] } | undefined)?.value ?? [];
+                  return (
+                    <span key={sp._id + si}>
+                      {si > 0 && ', '}
+                      <SpellNameLink
+                        spell={{ name: sp.name, description: desc, traits }}
+                        ewMod={ewMod}
+                        ewStyle={ewStyle}
+                        onRollAll={onRollAll}
+                      />
+                    </span>
+                  );
+                })}
+              </span>
+            ))}
+          </p>
+        );
+      })}
+    </>
   );
 }

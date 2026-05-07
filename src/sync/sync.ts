@@ -200,3 +200,15 @@ export async function getLastSynced(): Promise<number | null> {
 export async function getCreatureCount(): Promise<number> {
   return db.creatures.count();
 }
+
+/**
+ * Wipe all synced creature data and metadata so the next sync starts fresh.
+ * Does NOT touch encounter state or characters.
+ */
+export async function resetDatabase(): Promise<void> {
+  await Promise.all([
+    db.creatures.clear(),
+    db.meta.clear(),
+    db.traitDescriptions.clear(),
+  ]);
+}

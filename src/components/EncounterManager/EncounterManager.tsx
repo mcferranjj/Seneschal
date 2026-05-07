@@ -234,15 +234,22 @@ interface CombatCreature extends EncounterCreature {
 // ── Recall Knowledge ─────────────────────────────────────────────────────────
 // Base DCs for recalling knowledge, indexed by creature level (−1 through 25).
 // From PF2E Remaster GM Core Table 5-6.
-const RK_DC_TABLE: Record<number, number> = {
+export const RK_DC_TABLE: Record<number, number> = {
   [-1]: 13, [0]: 14, [1]: 15, [2]: 16, [3]: 18, [4]: 19, [5]: 20, [6]: 22,
   [7]: 23, [8]: 24, [9]: 26, [10]: 27, [11]: 28, [12]: 30, [13]: 31, [14]: 32,
   [15]: 34, [16]: 35, [17]: 36, [18]: 38, [19]: 39, [20]: 40, [21]: 42, [22]: 44,
   [23]: 46, [24]: 48, [25]: 50,
 };
 
+// Rarity DC adjustments per PF2E Remaster GM Core
+export const RK_RARITY_ADJUSTMENT: Record<string, number> = {
+  uncommon: 2,
+  rare:     5,
+  unique:   10,
+};
+
 // Per-creature-type recall knowledge skills
-const RK_SKILLS: Record<string, string[]> = {
+export const RK_SKILLS: Record<string, string[]> = {
   aberration:  ['Occultism'],
   animal:      ['Nature'],
   astral:      ['Occultism'],
@@ -262,17 +269,23 @@ const RK_SKILLS: Record<string, string[]> = {
   undead:      ['Religion'],
 };
 
-function getRecallKnowledge(level: number, traits: string[]): { dc: number; skills: string[] } | null {
+/**
+ * Compute the Recall Knowledge DC and relevant skills for a creature.
+ * Works for DB creatures, custom creatures, and placeholders alike.
+ * - Always returns a DC (based on level + rarity adjustment).
+ * - Returns skills only when creature type traits are present; otherwise skills is [].
+ */
+export function getRecallKnowledge(level: number, traits: string[], rarity = 'common'): { dc: number; skills: string[] } {
   const l = Math.max(-1, Math.min(25, level));
-  const dc = RK_DC_TABLE[l] ?? 14;
+  const baseDc = RK_DC_TABLE[l] ?? 14;
+  const rarityAdj = RK_RARITY_ADJUSTMENT[rarity.toLowerCase()] ?? 0;
+  const dc = baseDc + rarityAdj;
   const skills = new Set<string>();
   for (const t of traits) {
     const tLower = t.toLowerCase();
     const s = RK_SKILLS[tLower];
     if (s) s.forEach(sk => skills.add(sk));
   }
-  // Default to Recall Knowledge skill (no type match)
-  if (skills.size === 0) return null;
   return { dc, skills: [...skills].sort() };
 }
 
@@ -289,12 +302,17 @@ interface EncounterManagerProps {
   onDeleteEncounter: (idx: number) => void;
   onReorderEncounters: (fromIdx: number, toIdx: number) => void;
   onRemoveCreature: (uid: string) => void;
+  onDuplicateCreature: (uid: string) => void;
   onUpdateHP: (uid: string, delta: number) => void;
   onSetHP: (uid: string, newHp: number) => void;
   onAddCustomCreature: (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: CustomAttack[], abilities?: CustomAbility[], isEnemy?: boolean) => void;
   onSelectCreature: (id: string, encounterUid: string) => void;
+  onSelectEncounterCreature: (uid: string) => void;
   onUpdateConditions: (uid: string, conditions: Condition[]) => void;
+  onSetEliteWeak: (uid: string, adjustment: 'elite' | 'weak' | undefined) => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
+  resultsOpen?: boolean;
+  onToggleResults?: () => void;
 }
 
 const ALL_CONDITIONS_ALPHA = [...new Set(CONDITION_CATEGORIES.flatMap(c => c.conditions))].sort((a, b) => a.localeCompare(b));
@@ -347,6 +365,29 @@ function getDifficulty(totalXP: number, partySize: number) {
   return                          { label: 'Trivial',  color: '#5a7a3a', pct: (totalXP / extreme) * 100 };
 }
 
+/** Returns the HP delta for an elite/weak adjustment based on the creature's starting level. */
+export function eliteWeakHpDelta(startingLevel: number, adjustment: 'elite' | 'weak'): number {
+  if (adjustment === 'elite') {
+    if (startingLevel <= 1) return 10;
+    if (startingLevel <= 4) return 15;
+    if (startingLevel <= 19) return 20;
+    return 30;
+  } else {
+    if (startingLevel <= 2) return -10;
+    if (startingLevel <= 5) return -15;
+    if (startingLevel <= 20) return -20;
+    return -30;
+  }
+}
+
+/** Returns the effective level after elite/weak adjustment. */
+export function eliteWeakLevel(baseLevel: number, adjustment: 'elite' | 'weak' | undefined): number {
+  if (!adjustment) return baseLevel;
+  if (adjustment === 'elite') return baseLevel <= 0 ? baseLevel + 2 : baseLevel + 1;
+  // weak
+  return baseLevel <= 1 ? baseLevel - 2 : baseLevel - 1;
+}
+
 export function EncounterManager({
   encounters,
   activeEnc,
@@ -360,12 +401,17 @@ export function EncounterManager({
   onDeleteEncounter,
   onReorderEncounters,
   onRemoveCreature,
+  onDuplicateCreature,
   onUpdateHP,
   onSetHP,
   onAddCustomCreature,
   onSelectCreature,
+  onSelectEncounterCreature,
   onUpdateConditions,
+  onSetEliteWeak,
   onRoll,
+  resultsOpen = true,
+  onToggleResults,
 }: EncounterManagerProps) {
   const [combatMode, setCombatMode] = useState(false);
   const [round, setRound] = useState(1);
@@ -409,6 +455,24 @@ export function EncounterManager({
   // Condition picker drag state
   const [condPickerPos, setCondPickerPos] = useState<{ x: number; y: number } | null>(null);
   const condPickerDragRef = useRef<{ startMouseX: number; startMouseY: number; startX: number; startY: number } | null>(null);
+
+  // Combat header width — used to shorten "Round N"→"Rnd N", "Next Turn"→"Next", "✕ End"→"✕"
+  const combatHeaderRef = useRef<HTMLDivElement>(null);
+  const combatHeaderRoRef = useRef<ResizeObserver | null>(null);
+  const [combatHeaderNarrow, setCombatHeaderNarrow] = useState(false);
+  const combatHeaderCallbackRef = useCallback((el: HTMLDivElement | null) => {
+    // Disconnect any previous observer
+    combatHeaderRoRef.current?.disconnect();
+    combatHeaderRoRef.current = null;
+    (combatHeaderRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const width = el.getBoundingClientRect().width;
+      setCombatHeaderNarrow(width < 212);
+    });
+    ro.observe(el);
+    combatHeaderRoRef.current = ro;
+  }, []);
 
   // isEnemy checkbox in wizard
   const [wizardIsEnemy, setWizardIsEnemy] = useState(true);
@@ -473,7 +537,7 @@ export function EncounterManager({
   // Custom creatures with isEnemy=false don't count toward XP budget
   const totalXP = enc.creatures.reduce((s, c) => {
     if (c.custom && c.isEnemy === false) return s;
-    return s + xpFor(c.level, partyLevel);
+    return s + xpFor(eliteWeakLevel(c.level, c.eliteWeak), partyLevel);
   }, 0);
   const diff = getDifficulty(totalXP, partySize);
 
@@ -607,7 +671,7 @@ export function EncounterManager({
     setCustomName('');
     setCustomLevel(partyLevel);
     setUseQuickWizard(false);
-    setWizardIsEnemy(false);
+    setWizardIsEnemy(true);
     applyTiers(partyLevel);
     setWizardStep(0);
     setShowCustomForm(true);
@@ -681,28 +745,96 @@ export function EncounterManager({
     setCustomAttacks(prev => prev.map((a, idx) => idx === i ? { ...a, ...patch } : a));
   }
 
+  // All 5 tier slots in display order; rows with fewer tiers get spacers so M always aligns.
+  const ALL_TIER_SLOTS: SaveTier[] = ['terrible', 'low', 'moderate', 'high', 'extreme'];
+
+  function renderWizard(step0Title: string) {
+    return (
+      <div className={styles.customForm}>
+        {wizardStep === 0 ? (
+          <>
+            <div className={styles.wizardTitle}>{step0Title}</div>
+            <input
+              className={styles.customInput}
+              value={customName}
+              autoFocus
+              onChange={e => setCustomName(e.target.value)}
+              placeholder="Name…"
+              onKeyDown={e => e.key === 'Enter' && wizardNext()}
+            />
+            <div className={styles.wizardCheckRow}>
+              <label className={styles.quickWizardCheck}>
+                <input
+                  type="checkbox"
+                  checked={useQuickWizard}
+                  onChange={e => setUseQuickWizard(e.target.checked)}
+                />
+                Use quick wizard?
+              </label>
+              <label className={styles.quickWizardCheck}>
+                <input
+                  type="checkbox"
+                  checked={wizardIsEnemy}
+                  onChange={e => setWizardIsEnemy(e.target.checked)}
+                />
+                Enemy?
+              </label>
+            </div>
+            <div className={styles.customLevelRow}>
+              <span className={styles.partyLabel}>Level</span>
+              <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}>−</button>
+              <span className={styles.partyVal}>{customLevel}</span>
+              <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.min(25, l + 1))}>+</button>
+            </div>
+            <div className={styles.customActions}>
+              <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>
+                {useQuickWizard ? 'Next →' : 'Add'}
+              </button>
+              <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={styles.wizardTitle}>
+              {customName} (Lvl {customLevel}) — Stats
+            </div>
+            <div className={styles.wizardHint}>Click a tier to prefill · T=Terrible L=Low M=Moderate H=High E=Extreme</div>
+            {renderWizardStats()}
+            <div className={styles.customActions}>
+              <button className={styles.cancelBtn} onClick={() => setWizardStep(0)}>← Back</button>
+              <button className={styles.addCustomBtn} onClick={wizardNext}>Add</button>
+              <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   function renderWizardStats() {
     return (
       <div className={styles.wizardStatList}>
         {/* ── Defenses ── */}
         <div className={styles.wizardSectionHead}>Defenses</div>
         {([
-          { label: 'HP',   tiers: HP_TIERS,   tier: hpTier,   setTier: (t: HpTier)   => { setHpTier(t);   setCustomHp(lookupHp(customLevel, t));   }, val: customHp,   setVal: setCustomHp,   min: 1,   max: 9999, type: 'number' as const },
-          { label: 'AC',   tiers: AC_TIERS,   tier: acTier,   setTier: (t: AcTier)   => { setAcTier(t);   setCustomAc(lookupAc(customLevel, t));   }, val: customAc,   setVal: setCustomAc,   min: 1,   max: 99,   type: 'number' as const },
-          { label: 'Fort', tiers: SAVE_TIERS, tier: fortTier, setTier: (t: SaveTier) => { setFortTier(t); setCustomFort(lookupSave(customLevel, t)); }, val: customFort, setVal: setCustomFort, min: -10, max: 60,   type: 'number' as const },
-          { label: 'Ref',  tiers: SAVE_TIERS, tier: refTier,  setTier: (t: SaveTier) => { setRefTier(t);  setCustomRef(lookupSave(customLevel, t));  }, val: customRef,  setVal: setCustomRef,  min: -10, max: 60,   type: 'number' as const },
-          { label: 'Will', tiers: SAVE_TIERS, tier: willTier, setTier: (t: SaveTier) => { setWillTier(t); setCustomWill(lookupSave(customLevel, t)); }, val: customWill, setVal: setCustomWill, min: -10, max: 60,   type: 'number' as const },
+          { label: 'HP',   tiers: HP_TIERS   as readonly string[], tier: hpTier,   setTier: (t: HpTier)   => { setHpTier(t);   setCustomHp(lookupHp(customLevel, t));   }, val: customHp,   setVal: setCustomHp,   min: 1,   max: 9999 },
+          { label: 'AC',   tiers: AC_TIERS   as readonly string[], tier: acTier,   setTier: (t: AcTier)   => { setAcTier(t);   setCustomAc(lookupAc(customLevel, t));   }, val: customAc,   setVal: setCustomAc,   min: 1,   max: 99   },
+          { label: 'Fort', tiers: SAVE_TIERS as readonly string[], tier: fortTier, setTier: (t: SaveTier) => { setFortTier(t); setCustomFort(lookupSave(customLevel, t)); }, val: customFort, setVal: setCustomFort, min: -10, max: 60   },
+          { label: 'Ref',  tiers: SAVE_TIERS as readonly string[], tier: refTier,  setTier: (t: SaveTier) => { setRefTier(t);  setCustomRef(lookupSave(customLevel, t));  }, val: customRef,  setVal: setCustomRef,  min: -10, max: 60   },
+          { label: 'Will', tiers: SAVE_TIERS as readonly string[], tier: willTier, setTier: (t: SaveTier) => { setWillTier(t); setCustomWill(lookupSave(customLevel, t)); }, val: customWill, setVal: setCustomWill, min: -10, max: 60   },
         ] as const).map(({ label, tiers, tier, setTier, val, setVal, min, max }) => (
           <div key={label} className={styles.wizardStatRow}>
             <span className={styles.wizardStatLabel}>{label}</span>
             <div className={styles.tierBtns}>
-              {(tiers as readonly string[]).map(t => (
-                <button
-                  key={t}
-                  title={t.charAt(0).toUpperCase() + t.slice(1)}
-                  className={`${styles.tierBtn} ${tier === t ? styles.tierBtnActive : ''}`}
-                  onClick={() => (setTier as (t: string) => void)(t)}
-                >{TIER_ABBREV[t as keyof typeof TIER_ABBREV]}</button>
+              {ALL_TIER_SLOTS.map(slot => (
+                tiers.includes(slot)
+                  ? <button
+                      key={slot}
+                      title={slot.charAt(0).toUpperCase() + slot.slice(1)}
+                      className={`${styles.tierBtn} ${tier === slot ? styles.tierBtnActive : ''}`}
+                      onClick={() => (setTier as (t: string) => void)(slot)}
+                    >{TIER_ABBREV[slot]}</button>
+                  : <span key={slot} className={styles.tierBtnSpacer} />
               ))}
             </div>
             <input
@@ -741,20 +873,24 @@ export function EncounterManager({
             <div className={styles.attackDraftRow2}>
               <span className={styles.attackSubLabel}>Atk</span>
               <div className={styles.tierBtns}>
-                {AC_TIERS.map(t => (
-                  <button key={t} title={t} className={`${styles.tierBtn} ${atk.bonusTier === t ? styles.tierBtnActive : ''}`}
-                    onClick={() => updateAttack(i, { bonusTier: t, bonus: lookupAttack(customLevel, t) })}
-                  >{TIER_ABBREV[t]}</button>
+                {ALL_TIER_SLOTS.map(slot => (
+                  (AC_TIERS as readonly string[]).includes(slot)
+                    ? <button key={slot} title={slot} className={`${styles.tierBtn} ${atk.bonusTier === slot ? styles.tierBtnActive : ''}`}
+                        onClick={() => updateAttack(i, { bonusTier: slot as AcTier, bonus: lookupAttack(customLevel, slot as AcTier) })}
+                      >{TIER_ABBREV[slot]}</button>
+                    : <span key={slot} className={styles.tierBtnSpacer} />
                 ))}
               </div>
               <input className={styles.wizardStatInput} type="number" min={-10} max={70}
                 value={atk.bonus} onChange={e => updateAttack(i, { bonus: Number(e.target.value) })} />
               <span className={styles.attackSubLabel}>Dmg</span>
               <div className={styles.tierBtns}>
-                {AC_TIERS.map(t => (
-                  <button key={t} title={t} className={`${styles.tierBtn} ${atk.damageTier === t ? styles.tierBtnActive : ''}`}
-                    onClick={() => updateAttack(i, { damageTier: t, damage: lookupDamage(customLevel, t) })}
-                  >{TIER_ABBREV[t]}</button>
+                {ALL_TIER_SLOTS.map(slot => (
+                  (AC_TIERS as readonly string[]).includes(slot)
+                    ? <button key={slot} title={slot} className={`${styles.tierBtn} ${atk.damageTier === slot ? styles.tierBtnActive : ''}`}
+                        onClick={() => updateAttack(i, { damageTier: slot as AcTier, damage: lookupDamage(customLevel, slot as AcTier) })}
+                      >{TIER_ABBREV[slot]}</button>
+                    : <span key={slot} className={styles.tierBtnSpacer} />
                 ))}
               </div>
               <input className={styles.wizardDmgInput} type="text"
@@ -809,6 +945,14 @@ export function EncounterManager({
     <div className={styles.manager}>
       {/* Encounter tabs */}
       <div className={styles.tabs} ref={tabsRef}>
+        <button
+          className={styles.openResultsBtn}
+          onClick={onToggleResults}
+          title={resultsOpen ? 'Hide search results' : 'Show search results'}
+          aria-label={resultsOpen ? 'Hide search results' : 'Show search results'}
+        >
+          {resultsOpen ? '‹‹' : '››'}
+        </button>
         {encounters.map((en, i) => (
           <div
             key={en.id}
@@ -909,20 +1053,22 @@ export function EncounterManager({
                 >
                   +
                 </button>
-                <span className={styles.partyLabel}>× Lvl</span>
-                <button
-                  className={styles.stepBtn}
-                  onClick={() => onPartyLevelChange(Math.max(1, partyLevel - 1))}
-                >
-                  −
-                </button>
-                <span className={styles.partyVal}>{partyLevel}</span>
-                <button
-                  className={styles.stepBtn}
-                  onClick={() => onPartyLevelChange(Math.min(20, partyLevel + 1))}
-                >
-                  +
-                </button>
+                <div className={styles.partyLvlGroup}>
+                  <span className={styles.partyLabel}>× Lvl</span>
+                  <button
+                    className={styles.stepBtn}
+                    onClick={() => onPartyLevelChange(Math.max(1, partyLevel - 1))}
+                  >
+                    −
+                  </button>
+                  <span className={styles.partyVal}>{partyLevel}</span>
+                  <button
+                    className={styles.stepBtn}
+                    onClick={() => onPartyLevelChange(Math.min(20, partyLevel + 1))}
+                  >
+                    +
+                  </button>
+                </div>
               </div>
               <span className={styles.xpTotal}>{totalXP} XP</span>
             </div>
@@ -937,95 +1083,130 @@ export function EncounterManager({
               </div>
             )}
             {enc.creatures.map(c => {
-              const xp = (c.custom && c.isEnemy === false) ? 0 : xpFor(c.level, partyLevel);
+              const effLevel = eliteWeakLevel(c.level, c.eliteWeak);
+              const xp = (c.custom && c.isEnemy === false) ? 0 : xpFor(effLevel, partyLevel);
+              const ewMod = c.eliteWeak === 'elite' ? 2 : c.eliteWeak === 'weak' ? -2 : 0;
+              const ewValStyle = c.eliteWeak === 'elite'
+                ? { color: '#8a6a18', fontWeight: 700 } as const
+                : c.eliteWeak === 'weak'
+                  ? { color: '#2a5a8a', fontWeight: 700 } as const
+                  : undefined;
+              const effAc   = c.ac > 0   ? c.ac + ewMod       : null;
+              const effFort = c.fort != null ? c.fort + ewMod  : null;
+              const effRef  = c.ref  != null ? c.ref  + ewMod  : null;
+              const effWill = c.will != null ? c.will + ewMod  : null;
+              const hpDelta = c.eliteWeak && c.maxHp > 0 ? eliteWeakHpDelta(c.level, c.eliteWeak) : 0;
+              const effMaxHp = c.maxHp > 0 ? Math.max(1, c.maxHp + hpDelta) : null;
               return (
-                <div key={c.uid} className={styles.creatureCard}>
-                  <div className={styles.creatureInfo}>
-                    <span
-                      className={`${styles.creatureName} ${c.creatureId ? styles.creatureNameClickable : ''}`}
-                      onClick={() => c.creatureId && onSelectCreature(c.creatureId, c.uid)}
-                      title={c.creatureId ? 'View statblock' : undefined}
-                    >
-                      {c.name}
+                <div
+                  key={c.uid}
+                  className={styles.plannerCard}
+                  onClick={() => {
+                    if (c.creatureId) onSelectCreature(c.creatureId, c.uid);
+                    else onSelectEncounterCreature(c.uid);
+                  }}
+                  title={c.creatureId ? 'View statblock' : undefined}
+                  style={{ cursor: c.creatureId ? 'pointer' : 'default' }}
+                >
+                  {/* Top row: name + HP + buttons */}
+                  <div className={styles.plannerCardTop}>
+                    <span className={`${styles.plannerName} ${c.creatureId ? styles.creatureNameClickable : ''}`}>
+                      {c.name}{c.eliteWeak === 'elite' ? ' (Elite)' : c.eliteWeak === 'weak' ? ' (Weak)' : ''}
                     </span>
-                    <span className={styles.creatureMeta}>
-                      Lvl {c.level}{xp > 0 ? ` · ${xp} XP` : ''}
+                    <span className={styles.plannerHp} title="Hit Points">
+                      <span className={styles.combatDefLabel}>HP</span>
+                      <span className={styles.combatDefVal} style={hpDelta !== 0 ? ewValStyle : undefined}>
+                        {effMaxHp != null ? effMaxHp : '—'}
+                      </span>
+                    </span>
+                    <div className={styles.plannerBtns}>
+                      <button
+                        className={styles.duplicateBtn}
+                        onClick={e => { e.stopPropagation(); onDuplicateCreature(c.uid); }}
+                        title="Duplicate creature"
+                      >
+                        ⧉
+                      </button>
+                      <button
+                        className={styles.removeBtn}
+                        onClick={e => { e.stopPropagation(); onRemoveCreature(c.uid); }}
+                        title="Remove from encounter"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Defense stats row — never wraps */}
+                  <div className={styles.plannerDefenseRow}>
+                    <span className={styles.combatDefStat} title="Armor Class">
+                      <span className={styles.combatDefLabel}>AC</span>
+                      <span className={styles.combatDefVal} style={ewMod !== 0 && effAc != null ? ewValStyle : undefined}>
+                        {effAc != null ? effAc : '—'}
+                      </span>
+                    </span>
+                    <span className={styles.combatDefStat} title="Fortitude">
+                      <span className={styles.combatDefLabel}>F</span>
+                      <span className={styles.combatDefVal} style={ewMod !== 0 && effFort != null ? ewValStyle : undefined}>
+                        {effFort != null ? (effFort >= 0 ? `+${effFort}` : effFort) : '—'}
+                      </span>
+                    </span>
+                    <span className={styles.combatDefStat} title="Reflex">
+                      <span className={styles.combatDefLabel}>R</span>
+                      <span className={styles.combatDefVal} style={ewMod !== 0 && effRef != null ? ewValStyle : undefined}>
+                        {effRef != null ? (effRef >= 0 ? `+${effRef}` : effRef) : '—'}
+                      </span>
+                    </span>
+                    <span className={styles.combatDefStat} title="Will">
+                      <span className={styles.combatDefLabel}>W</span>
+                      <span className={styles.combatDefVal} style={ewMod !== 0 && effWill != null ? ewValStyle : undefined}>
+                        {effWill != null ? (effWill >= 0 ? `+${effWill}` : effWill) : '—'}
+                      </span>
                     </span>
                   </div>
-                  <button className={styles.removeBtn} onClick={() => onRemoveCreature(c.uid)}>
-                    ✕
-                  </button>
+
+                  {/* Bottom row: level/XP + Elite/Weak toggle buttons */}
+                  <div className={styles.plannerMetaRow}>
+                    <span className={styles.plannerMeta}>
+                      Lvl {effLevel}{c.eliteWeak ? ` (base ${c.level})` : ''}{xp > 0 ? ` · ${xp} XP` : ''}
+                    </span>
+                    <div className={styles.eliteWeakBtns} onClick={e => e.stopPropagation()}>
+                      <button
+                        className={`${styles.eliteBtn} ${c.eliteWeak === 'elite' ? styles.eliteBtnActive : ''}`}
+                        title="Elite adjustment (+1 level, +2 AC/saves/skills, +HP)"
+                        onClick={e => {
+                          e.stopPropagation();
+                          onSetEliteWeak(c.uid, c.eliteWeak === 'elite' ? undefined : 'elite');
+                        }}
+                      >
+                        Elite
+                      </button>
+                      <button
+                        className={`${styles.weakBtn} ${c.eliteWeak === 'weak' ? styles.weakBtnActive : ''}`}
+                        title="Weak adjustment (−1 level, −2 AC/saves/skills, −HP)"
+                        onClick={e => {
+                          e.stopPropagation();
+                          onSetEliteWeak(c.uid, c.eliteWeak === 'weak' ? undefined : 'weak');
+                        }}
+                      >
+                        Weak
+                      </button>
+                    </div>
+                  </div>
                 </div>
               );
             })}
 
-            {showCustomForm ? (
-              <div className={styles.customForm}>
-                {wizardStep === 0 ? (
-                  <>
-                    <div className={styles.wizardTitle}>Placeholder Creature — Name & Level</div>
-                    <input
-                      className={styles.customInput}
-                      value={customName}
-                      autoFocus
-                      onChange={e => setCustomName(e.target.value)}
-                      placeholder="Name…"
-                      onKeyDown={e => e.key === 'Enter' && wizardNext()}
-                    />
-                    <div className={styles.wizardCheckRow}>
-                      <label className={styles.quickWizardCheck}>
-                        <input
-                          type="checkbox"
-                          checked={useQuickWizard}
-                          onChange={e => setUseQuickWizard(e.target.checked)}
-                        />
-                        Use quick wizard?
-                      </label>
-                      <label className={styles.quickWizardCheck}>
-                        <input
-                          type="checkbox"
-                          checked={wizardIsEnemy}
-                          onChange={e => setWizardIsEnemy(e.target.checked)}
-                        />
-                        Enemy?
-                      </label>
-                    </div>
-                    <div className={styles.customLevelRow}>
-                      <span className={styles.partyLabel}>Level</span>
-                      <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}>−</button>
-                      <span className={styles.partyVal}>{customLevel}</span>
-                      <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.min(25, l + 1))}>+</button>
-                    </div>
-                    <div className={styles.customActions}>
-                      <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>
-                        {useQuickWizard ? 'Next →' : 'Add'}
-                      </button>
-                      <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className={styles.wizardTitle}>
-                      {customName} (Lvl {customLevel}) — Stats
-                    </div>
-                    <div className={styles.wizardHint}>Click a tier to prefill · T=Terrible L=Low M=Moderate H=High E=Extreme</div>
-                    {renderWizardStats()}
-                    <div className={styles.customActions}>
-                      <button className={styles.cancelBtn} onClick={() => setWizardStep(0)}>← Back</button>
-                      <button className={styles.addCustomBtn} onClick={wizardNext}>Add</button>
-                      <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <button
-                className={styles.addPlaceholderBtn}
-                onClick={openWizard}
-              >
-                ＋ Add Placeholder Creature
-              </button>
-            )}
+            {showCustomForm
+              ? renderWizard('Placeholder Creature — Name & Level')
+              : (
+                <button
+                  className={styles.addPlaceholderBtn}
+                  onClick={openWizard}
+                >
+                  ＋ Add Placeholder Creature
+                </button>
+              )}
           </div>
 
           {enc.creatures.length > 0 && (
@@ -1039,28 +1220,36 @@ export function EncounterManager({
       ) : (
         /* Combat tracker */
         <div className={styles.combat}>
-          <div className={styles.combatHeader}>
-            <span className={styles.roundLabel}>Round {round}</span>
+          <div className={styles.combatHeader} ref={combatHeaderCallbackRef}>
+            <span className={styles.roundLabel}>{combatHeaderNarrow ? `Rnd ${round}` : `Round ${round}`}</span>
             <button className={styles.nextTurnBtn} onClick={nextTurn}>
-              Next Turn
+              {combatHeaderNarrow ? 'Next' : 'Next Turn'}
             </button>
             <button className={styles.endCombatBtn} onClick={endCombat}>
-              ✕ End
+              {combatHeaderNarrow ? '✕' : '✕ End'}
             </button>
           </div>
           <div className={styles.combatList}>
             {liveCombatCreatures.map((c, i) => {
               const isActive = i === activeTurn;
+              const combatEwMod = c.eliteWeak === 'elite' ? 2 : c.eliteWeak === 'weak' ? -2 : 0;
               const hpPct = c.maxHp > 0 ? c.hp / c.maxHp : 0;
               const hpColor =
                 hpPct > 0.5 ? '#3a7a3a' : hpPct > 0.25 ? '#8a6a18' : '#8a2a18';
+              // Helper: open this creature's statblock (works for DB creatures only)
+              const openStatblock = () => {
+                if (c.creatureId) onSelectCreature(c.creatureId, c.uid);
+              };
+
               return (
                 <div
                   key={c.uid}
-                  className={`${styles.combatCard} ${isActive ? styles.combatCardActive : ''}`}
+                  className={`${styles.combatCard} ${isActive ? styles.combatCardActive : ''} ${c.creatureId ? styles.combatCardClickable : ''}`}
+                  onClick={c.creatureId ? openStatblock : undefined}
+                  title={c.creatureId ? 'Click to view statblock' : undefined}
                 >
+                  {/* Row 1: init badge · name · hp */}
                   <div className={styles.combatCardTop}>
-                    {/* Initiative badge */}
                     {editingInit === c.uid ? (
                       <input
                         className={styles.initInput}
@@ -1069,6 +1258,7 @@ export function EncounterManager({
                         autoFocus
                         onChange={e => setEditInitVal(e.target.value)}
                         onBlur={() => commitInit(c.uid)}
+                        onClick={e => e.stopPropagation()}
                         onKeyDown={e => {
                           if (e.key === 'Enter') commitInit(c.uid);
                           if (e.key === 'Escape') setEditingInit(null);
@@ -1078,90 +1268,17 @@ export function EncounterManager({
                       <div
                         className={`${styles.initBadge} ${isActive ? styles.initBadgeActive : ''} ${styles.initBadgeClickable}`}
                         title="Click to edit initiative"
-                        onClick={() => { setEditingInit(c.uid); setEditInitVal(String(c.init)); }}
+                        onClick={e => { e.stopPropagation(); setEditingInit(c.uid); setEditInitVal(String(c.init)); }}
                       >
                         {c.init}
                       </div>
                     )}
 
-                    {/* Name + defenses block */}
-                    <div className={styles.combatCreatureInfo}>
-                      <span
-                        className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''} ${c.creatureId ? styles.creatureNameClickable : ''}`}
-                        onClick={() => c.creatureId && onSelectCreature(c.creatureId, c.uid)}
-                        title={c.creatureId ? 'View statblock' : undefined}
-                      >
-                        {c.name}
-                        {isActive && <span className={styles.activePill}>ACTIVE</span>}
-                      </span>
-                      {(() => {
-                        const pen = computePenalties(c.conditions);
-                        const effAc   = c.ac > 0 ? c.ac + pen.ac : c.ac;
-                        const effFort = c.fort != null ? c.fort + pen.fort : c.fort;
-                        const effRef  = c.ref  != null ? c.ref  + pen.ref  : c.ref;
-                        const effWill = c.will != null ? c.will + pen.will : c.will;
-                        const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
-                        return (
-                          <div className={styles.combatDefenseRow}>
-                            {c.ac > 0 && (
-                            <span
-                              className={styles.combatDefStat}
-                              title="Armor Class"
-                              onClick={e => setDiceRoll({ expr: `1d20`, label: 'Armor Class', x: e.clientX, y: e.clientY - 160 })}
-                            >
-                              <span className={styles.combatDefLabel}>AC</span>
-                              <span className={styles.combatDefVal} style={pen.ac !== 0 ? debuffStyle : undefined}>{effAc}</span>
-                            </span>
-                            )}
-                            {c.fort != null && effFort != null && (
-                              <span
-                                className={styles.combatDefStat}
-                                title="Fortitude"
-                                onClick={e => setDiceRoll({ expr: `1d20${effFort >= 0 ? `+${effFort}` : effFort}`, label: `${c.name} · Fortitude`, x: e.clientX, y: e.clientY - 160 })}
-                              >
-                                <span className={styles.combatDefLabel}>F</span>
-                                <span className={styles.combatDefVal} style={pen.fort !== 0 ? debuffStyle : undefined}>{effFort >= 0 ? `+${effFort}` : effFort}</span>
-                              </span>
-                            )}
-                            {c.ref != null && effRef != null && (
-                              <span
-                                className={styles.combatDefStat}
-                                title="Reflex"
-                                onClick={e => setDiceRoll({ expr: `1d20${effRef >= 0 ? `+${effRef}` : effRef}`, label: `${c.name} · Reflex`, x: e.clientX, y: e.clientY - 160 })}
-                              >
-                                <span className={styles.combatDefLabel}>R</span>
-                                <span className={styles.combatDefVal} style={pen.ref !== 0 ? debuffStyle : undefined}>{effRef >= 0 ? `+${effRef}` : effRef}</span>
-                              </span>
-                            )}
-                            {c.will != null && effWill != null && (
-                              <span
-                                className={styles.combatDefStat}
-                                title="Will"
-                                onClick={e => setDiceRoll({ expr: `1d20${effWill >= 0 ? `+${effWill}` : effWill}`, label: `${c.name} · Will`, x: e.clientX, y: e.clientY - 160 })}
-                              >
-                                <span className={styles.combatDefLabel}>W</span>
-                                <span className={styles.combatDefVal} style={pen.will !== 0 ? debuffStyle : undefined}>{effWill >= 0 ? `+${effWill}` : effWill}</span>
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
+                    <span className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''}`}>
+                      {c.name}{c.eliteWeak === 'elite' ? ' (Elite)' : c.eliteWeak === 'weak' ? ' (Weak)' : ''}
+                    </span>
 
-                    {/* Recall Knowledge */}
-                    {(() => {
-                      const rk = c.traits && c.traits.length > 0 ? getRecallKnowledge(c.level, c.traits) : null;
-                      if (!rk) return null;
-                      return (
-                        <div className={styles.rkRow} title="Recall Knowledge DC">
-                          <span className={styles.rkLabel}>RK</span>
-                          <span className={styles.rkVal}>DC {rk.dc}</span>
-                          <span className={styles.rkSkills}>{rk.skills.join(' / ')}</span>
-                        </div>
-                      );
-                    })()}
-
-                    {/* HP display */}
+                    {/* HP — on the same row as the name */}
                     {editingHp === c.uid ? (
                       <input
                         className={styles.hpInput}
@@ -1171,6 +1288,7 @@ export function EncounterManager({
                         placeholder={String(c.hp)}
                         onChange={e => setEditHpVal(e.target.value)}
                         onFocus={e => e.target.select()}
+                        onClick={e => e.stopPropagation()}
                         onBlur={() => commitHp(c.uid)}
                         onKeyDown={e => {
                           if (e.key === 'Enter') commitHp(c.uid);
@@ -1182,12 +1300,69 @@ export function EncounterManager({
                         className={`${styles.hpDisplay} ${styles.hpDisplayClickable}`}
                         style={{ color: hpColor }}
                         title="Click to set HP; type +4 or -14 for relative change"
-                        onClick={() => { setEditingHp(c.uid); setEditHpVal(''); }}
+                        onClick={e => { e.stopPropagation(); setEditingHp(c.uid); setEditHpVal(''); }}
                       >
                         {c.hp}/{c.maxHp}
                       </span>
                     )}
                   </div>
+
+                  {/* Row 2: defense stats — always a single unwrapped line */}
+                  {(() => {
+                    const pen = computePenalties(c.conditions);
+                    const effAc   = c.ac > 0 ? c.ac + pen.ac + combatEwMod : null;
+                    const effFort = c.fort != null ? c.fort + pen.fort + combatEwMod : null;
+                    const effRef  = c.ref  != null ? c.ref  + pen.ref  + combatEwMod : null;
+                    const effWill = c.will != null ? c.will + pen.will + combatEwMod : null;
+                    const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
+                    const combatEwStyle = combatEwMod > 0
+                      ? { color: '#8a6a18', fontWeight: 700 } as const
+                      : { color: '#2a5a8a', fontWeight: 700 } as const;
+                    return (
+                      <div className={styles.combatDefenseRow}>
+                        <span
+                          className={styles.combatDefStat}
+                          title="Armor Class"
+                          onClick={effAc != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20`, label: 'Armor Class', x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                        >
+                          <span className={styles.combatDefLabel}>AC</span>
+                          <span className={styles.combatDefVal} style={pen.ac !== 0 ? debuffStyle : combatEwMod !== 0 && effAc != null ? combatEwStyle : undefined}>
+                            {effAc != null ? effAc : '—'}
+                          </span>
+                        </span>
+                        <span
+                          className={styles.combatDefStat}
+                          title="Fortitude"
+                          onClick={effFort != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effFort >= 0 ? `+${effFort}` : effFort}`, label: `${c.name} · Fortitude`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                        >
+                          <span className={styles.combatDefLabel}>F</span>
+                          <span className={styles.combatDefVal} style={pen.fort !== 0 ? debuffStyle : combatEwMod !== 0 && effFort != null ? combatEwStyle : undefined}>
+                            {effFort != null ? (effFort >= 0 ? `+${effFort}` : effFort) : '—'}
+                          </span>
+                        </span>
+                        <span
+                          className={styles.combatDefStat}
+                          title="Reflex"
+                          onClick={effRef != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effRef >= 0 ? `+${effRef}` : effRef}`, label: `${c.name} · Reflex`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                        >
+                          <span className={styles.combatDefLabel}>R</span>
+                          <span className={styles.combatDefVal} style={pen.ref !== 0 ? debuffStyle : combatEwMod !== 0 && effRef != null ? combatEwStyle : undefined}>
+                            {effRef != null ? (effRef >= 0 ? `+${effRef}` : effRef) : '—'}
+                          </span>
+                        </span>
+                        <span
+                          className={styles.combatDefStat}
+                          title="Will"
+                          onClick={effWill != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effWill >= 0 ? `+${effWill}` : effWill}`, label: `${c.name} · Will`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                        >
+                          <span className={styles.combatDefLabel}>W</span>
+                          <span className={styles.combatDefVal} style={pen.will !== 0 ? debuffStyle : combatEwMod !== 0 && effWill != null ? combatEwStyle : undefined}>
+                            {effWill != null ? (effWill >= 0 ? `+${effWill}` : effWill) : '—'}
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   {/* Attacks */}
                   {c.attacks && c.attacks.length > 0 && (
@@ -1207,7 +1382,7 @@ export function EncounterManager({
                             <span
                               className={`${styles.combatAtkName} ${styles.rollable}`}
                               title="Click to roll attack"
-                              onClick={e => setDiceRoll({ expr: `1d20${effBonus >= 0 ? `+${effBonus}` : effBonus}`, label: `${c.name} · ${atk.name}`, x: e.clientX, y: e.clientY - 160 })}
+                              onClick={e => { e.stopPropagation(); setDiceRoll({ expr: `1d20${effBonus >= 0 ? `+${effBonus}` : effBonus}`, label: `${c.name} · ${atk.name}`, x: e.clientX, y: e.clientY - 160 }); }}
                               style={atkRollPen !== 0 ? { color: '#c0392b' } : undefined}
                             >
                               {atk.name} {effBonus >= 0 ? `+${effBonus}` : effBonus}
@@ -1215,7 +1390,7 @@ export function EncounterManager({
                             <span
                               className={`${styles.combatAtkDmg} ${styles.rollable}`}
                               title="Click to roll damage"
-                              onClick={e => setDiceRoll({ expr: dmgExpr, label: `${c.name} · ${atk.name} dmg`, x: e.clientX, y: e.clientY - 160 })}
+                              onClick={e => { e.stopPropagation(); setDiceRoll({ expr: dmgExpr, label: `${c.name} · ${atk.name} dmg`, x: e.clientX, y: e.clientY - 160 }); }}
                               style={dmgPen !== 0 ? { color: '#c0392b' } : undefined}
                             >
                               {dmgExpr}
@@ -1247,7 +1422,7 @@ export function EncounterManager({
                   )}
 
                   {/* Conditions */}
-                  <div className={styles.conditionRow}>
+                  <div className={styles.conditionRow} onClick={e => e.stopPropagation()}>
                     {c.conditions.map(cond => {
                       const isValued = cond.value != null;
                       return (
@@ -1256,6 +1431,7 @@ export function EncounterManager({
                           className={styles.conditionChip}
                           title={isValued ? `Left-click to edit · Right-click to remove` : `Click to remove`}
                           onClick={e => {
+                            e.stopPropagation();
                             if (isValued) {
                               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                               const spaceBelow = window.innerHeight - rect.bottom - 4;
@@ -1272,6 +1448,7 @@ export function EncounterManager({
                           }}
                           onContextMenu={e => {
                             e.preventDefault();
+                            e.stopPropagation();
                             removeCondition(c.uid, cond.name);
                           }}
                         >
@@ -1283,6 +1460,7 @@ export function EncounterManager({
                     <button
                       className={styles.addConditionBtn}
                       onClick={e => {
+                        e.stopPropagation();
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                         const spaceBelow = window.innerHeight - rect.bottom - 4;
                         const spaceAbove = rect.top - 4;
@@ -1307,7 +1485,7 @@ export function EncounterManager({
                       <button
                         key={v}
                         className={`${styles.hpBtn} ${v > 0 ? styles.hpBtnHeal : styles.hpBtnDmg}`}
-                        onClick={() => onUpdateHP(c.uid, v)}
+                        onClick={e => { e.stopPropagation(); onUpdateHP(c.uid, v); }}
                       >
                         {v > 0 ? `+${v}` : v}
                       </button>
@@ -1318,71 +1496,16 @@ export function EncounterManager({
             })}
 
             {/* Add creatures during combat */}
-            {showCustomForm ? (
-              <div className={styles.customForm}>
-                {wizardStep === 0 ? (
-                  <>
-                    <div className={styles.wizardTitle}>Add to Combat — Name & Level</div>
-                    <input
-                      className={styles.customInput}
-                      value={customName}
-                      autoFocus
-                      onChange={e => setCustomName(e.target.value)}
-                      placeholder="Name…"
-                      onKeyDown={e => e.key === 'Enter' && wizardNext()}
-                    />
-                    <div className={styles.wizardCheckRow}>
-                      <label className={styles.quickWizardCheck}>
-                        <input
-                          type="checkbox"
-                          checked={useQuickWizard}
-                          onChange={e => setUseQuickWizard(e.target.checked)}
-                        />
-                        Use quick wizard?
-                      </label>
-                      <label className={styles.quickWizardCheck}>
-                        <input
-                          type="checkbox"
-                          checked={wizardIsEnemy}
-                          onChange={e => setWizardIsEnemy(e.target.checked)}
-                        />
-                        Enemy?
-                      </label>
-                    </div>
-                    <div className={styles.customLevelRow}>
-                      <span className={styles.partyLabel}>Level</span>
-                      <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}>−</button>
-                      <span className={styles.partyVal}>{customLevel}</span>
-                      <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.min(25, l + 1))}>+</button>
-                    </div>
-                    <div className={styles.customActions}>
-                      <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>
-                        {useQuickWizard ? 'Next →' : 'Add'}
-                      </button>
-                      <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className={styles.wizardTitle}>{customName} (Lvl {customLevel})</div>
-                    <div className={styles.wizardHint}>Click a tier to prefill · T=Terrible L=Low M=Moderate H=High E=Extreme</div>
-                    {renderWizardStats()}
-                    <div className={styles.customActions}>
-                      <button className={styles.cancelBtn} onClick={() => setWizardStep(0)}>← Back</button>
-                      <button className={styles.addCustomBtn} onClick={wizardNext}>Add</button>
-                      <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <button
-                className={styles.addPlaceholderBtn}
-                onClick={openWizard}
-              >
-                ＋ Add Placeholder Creature
-              </button>
-            )}
+            {showCustomForm
+              ? renderWizard('Add to Combat — Name & Level')
+              : (
+                <button
+                  className={styles.addPlaceholderBtn}
+                  onClick={openWizard}
+                >
+                  ＋ Add Placeholder Creature
+                </button>
+              )}
           </div>
         </div>
       )}

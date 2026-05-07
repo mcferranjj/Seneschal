@@ -1,26 +1,7 @@
 Encounters:
-    - have a way to use a creature as a base to make your own custom version of it 
-    - add elite and weak modifier options to creatures that have been added to the combat tracker
     - add custom level scaling options (use the creature builder rules: find what column a given stat is closest to (T/L/M/H/E) plus its offset from that stat, then scale it up to that same column at the desired level, then apply the same offset that was calculated)
 
-    - add hazards to the tracked database:
-        - also need to add custom hazard creation, adding to the custom creature wizard
-    - pictures?
-        - not implemented
-    - link to AoN?
-        - links don't seem to be consistent. Need to plan this one out more carefully to find solution
-    - is it legal to include these plus the flavor descriptions in a public product if I make someone prove they own the pdf first?
-        - unanswered
-    
-    - placeholder creatures:
-        - enemy checkbox should be checked by default
-        - align the T/L/M/H/E grid so that every row is centered on M (aligning the rows with each other)
-        - the text box for the numbers is too small for three digit values (e.g. health) - let's make that bigger
-
-    - in the custom creature wizard, align the T/L/M/H/E grids so that every row is centered on M (aligning the rows with each other)
-    - make creatures click and draggable into, out of, and around the combat tracker (dragging creatures in the tracker should automatically update their initiative)
-    - give search results a similar << minimize functionality as teh filters column
-    - add recall knowledge applicable skills and DCs based on creature to the right hand stat block, remove it from the quick reference, and make sure it's sourced with the recall knowledge DCs in the foundry github info
+    - add custom hazard creation, adding to the custom creature wizard
 
     - name generator
     - random monster quirk generator
@@ -28,15 +9,6 @@ Encounters:
     - monster ability index + hover info (e.g. Push, Improved Grab, Trample)
     - monster traits hover info (e.g. Humanoid, Unholy, Mindless)
 
-    - combat tracker:
-        - change pre-combat screen to be more similar to the actual combat running screen (shows basic stats, etc.)
-        - also add "duplicate" option in the pre-combat tracker, to make an extra copy of a creature already in there - especially relevant for placeholder creatures
-        - also fix the display, something borked it at some point
-
-    - add "fatal dX" and "deadly dX" to be tracked the same as "fatal-dX" and "deadly-dX" currently are for the dice roller
-    - consolidate all dice rollers to use the same window - currently there is a different dice roller version for different types of rolls
-    - make encounter delete confirmation buttons bigger
-    - everywhere that autocompletes/gives suggestions to user input textboxes, make tab accept the top current suggestion
     - for custom abilities, add suggested scaling dcs and damage for both single target and area damage abilities
     - in the custom creature wizard, add functionality for suggesting standard monster abilities (trample, swallow whole, etc.)
         - also add functionality to browse and add/scale abilities from all other monsters, filterable by creature type

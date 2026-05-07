@@ -20,6 +20,38 @@ export interface CustomAbility {
   name: string;
   description: string;
   actionType?: AbilityActionType;
+  frequency?: string;
+  trigger?: string;
+  requirements?: string;
+}
+
+export interface CustomSkill {
+  name: string;
+  mod: number;
+}
+
+export type SpellTradition = 'arcane' | 'divine' | 'occult' | 'primal';
+export type SpellcastingType = 'prepared' | 'spontaneous' | 'innate';
+export type SpellFrequency = 'at-will' | 'cantrip' | '1/day' | '2/day' | '3/day' | 'focus' | 'constant';
+
+export interface CustomSpell {
+  name: string;
+  actionCost?: AbilityActionType;
+  description: string;
+  rank?: number;
+  frequency?: SpellFrequency;
+  traits?: string[];
+}
+
+export interface CustomSpellcastingEntry {
+  id: string;
+  name: string;
+  tradition: SpellTradition;
+  type: SpellcastingType;
+  dc: number;
+  attackMod: number;
+  focusPoints?: number;
+  spells: CustomSpell[];
 }
 
 export type SpeedType = 'land' | 'climb' | 'swim' | 'burrow' | 'fly';
@@ -60,10 +92,12 @@ export interface EncounterCreature {
   attacks?: CustomAttack[];
   abilities?: CustomAbility[];
   traits?: string[]; // creature type traits for recall knowledge
+  rarity?: string;  // for recall knowledge DC adjustment
   init: number;
   conditions: Condition[];
   custom?: boolean;
   isEnemy?: boolean; // false = ally/neutral placeholder; doesn't count toward XP budget
+  eliteWeak?: 'elite' | 'weak'; // Elite/Weak adjustment (Monster Core pg. 6-7)
 }
 
 export interface Encounter {

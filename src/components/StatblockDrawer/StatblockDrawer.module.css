@@ -84,6 +84,7 @@
 .content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -188,6 +189,28 @@
   color: #fff;
 }
 
+.copyBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.copyBtn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255,255,255,0.6);
+  color: #fff;
+}
+
 /* Traits row */
 .traitsRow {
   display: flex;
@@ -230,6 +253,40 @@
   margin: 0 0 5px;
   font-size: 0.72rem;
   color: var(--text-mute);
+}
+
+/* Elite/Weak adjustment banner shown at top of statblock body */
+.eliteWeakBanner {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border-left: 3px solid;
+  line-height: 1.5;
+}
+
+/* Recall Knowledge line — same typographic weight/size as .sourceLine */
+.rkLine {
+  margin: 0 0 5px;
+  font-size: 0.72rem;
+  color: var(--text-mute);
+}
+
+/* "RK DC" prefix — matches the <strong> weight used in source/conditions lines */
+.rkLineLabel {
+  font-weight: 700;
+  color: var(--text-mute);
+}
+
+/* The numeric DC value */
+.rkLineDc {
+  font-weight: 700;
+  color: var(--text-mute);
+}
+
+/* Skills list — italic like the <em> source title */
+.rkLineSkills {
+  font-style: italic;
 }
 
 .infoLine {
@@ -289,6 +346,123 @@
   font-size: 0.8em;
   color: var(--text-mid);
   font-style: italic;
+}
+
+.eliteWeakAbilityNote {
+  margin: 4px 0 6px;
+  font-size: 0.72rem;
+  font-style: italic;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.04);
+  border-left: 3px solid currentColor;
+  line-height: 1.5;
+}
+
+.rollAllDmgBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0 2px 0.5rem;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--crimson);
+  background: transparent;
+  color: var(--crimson);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.12s, color 0.12s;
+}
+
+.rollAllDmgBtn:hover {
+  background: var(--crimson);
+  color: #f0e6cc;
+  border-color: var(--crimson);
+}
+
+.rollAllDmgMod {
+  font-size: 0.68rem;
+  opacity: 0.85;
+  margin-left: 1px;
+}
+
+.spellGroupLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-mute);
+  margin: 5px 0 1px 0.3rem;
+}
+
+/* Compact inline spellcasting line */
+.spellcastingLine {
+  margin: 5px 0;
+  line-height: 1.6;
+  font-size: 0.82rem;
+}
+
+/* Clickable spell name in inline list */
+.spellNameWrap {
+  display: inline;
+}
+
+.spellNameLink {
+  cursor: pointer;
+  color: var(--crimson);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  font-style: italic;
+}
+
+.spellNameLink:hover {
+  color: var(--crimson);
+  text-decoration-style: solid;
+}
+
+/* Spell detail popup — position:fixed applied inline, coordinates clamped to viewport */
+.spellPopup {
+  z-index: 200;
+  width: 320px;
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  padding: 8px 10px 10px;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.spellPopupHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+
+.spellPopupClose {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-mute);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.spellPopupClose:hover {
+  background: rgba(0,0,0,0.08);
+  color: var(--text);
 }
 
 .itemDesc {

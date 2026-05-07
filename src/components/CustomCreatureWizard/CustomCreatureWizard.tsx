@@ -1,9 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import type { CreatureRecord } from '../../db/schema';
-import type { CustomAttack, CustomAbility, AbilityActionType, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, SpeedType } from '../../types/encounter';
+import type { CustomAttack, CustomAbility, AbilityActionType, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, SpeedType, CustomSpellcastingEntry, CustomSpell, SpellTradition, SpellcastingType, SpellFrequency, CustomSkill } from '../../types/encounter';
 import { db } from '../../db/db';
 import { getAllTraits } from '../../search/search';
+import { stripFoundryMacros, linkKeywords, linkRolls } from '../StatblockDrawer/statblockHelpers';
 import styles from './CustomCreatureWizard.module.css';
+
+function processHtml(raw: string): string {
+  return linkRolls(linkKeywords(stripFoundryMacros(raw)));
+}
 
 const CREATURE_TYPES = [
   'Aberration', 'Animal', 'Astral', 'Beast', 'Celestial', 'Construct',
@@ -48,6 +53,19 @@ const MONSTER_ABILITY_SUGGESTIONS = [
 const COMMON_SENSES = [
   'low-light vision', 'darkvision', 'greater darkvision',
   'scent', 'tremorsense', 'echolocation', 'motion sense', 'lifesense',
+];
+
+const OFFICIAL_SKILLS = [
+  'Acrobatics', 'Arcana', 'Athletics', 'Crafting', 'Deception', 'Diplomacy',
+  'Intimidation', 'Medicine', 'Nature', 'Occultism', 'Performance', 'Religion',
+  'Society', 'Stealth', 'Survival', 'Thievery',
+];
+
+const LANGUAGE_SUGGESTIONS = [
+  'Common', 'Draconic', 'Dwarven', 'Elven', 'Fey', 'Gnomish', 'Goblin', 'Halfling',
+  'Jotun', 'Orcish', 'Sakvroth',
+  'Aklo', 'Chthonian', 'Diabolic', 'Empyrean', 'Kholo', 'Necril', 'Petran', 'Pyric',
+  'Shadowtongue', 'Sussuran', 'Thalassic', 'Muan', 'Talican',
 ];
 
 const DAMAGE_TYPES = [
@@ -570,6 +588,34 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
   // Weaknesses
   const [weaknesses, setWeaknesses] = useState<CustomResistance[]>(initFromEdit(editCreature?.customData?.weaknesses ?? [], []));
 
+  // Spellcasting
+  const [spellcasting, setSpellcasting] = useState<CustomSpellcastingEntry[]>(
+    initFromEdit(editCreature?.customData?.spellcasting ?? [], [])
+  );
+
+  // Skills
+  const [skills, setSkills] = useState<CustomSkill[]>(
+    initFromEdit(editCreature?.customData?.skills ?? [], [])
+  );
+  const [focusedSkillInput, setFocusedSkillInput] = useState(false);
+  const [focusedSkillIdx, setFocusedSkillIdx] = useState<number | null>(null);
+
+  // Languages
+  const [languages, setLanguages] = useState<string[]>(
+    initFromEdit(editCreature?.customData?.languages ?? [], [])
+  );
+  const [langInput, setLangInput] = useState('');
+  const [focusedLangInput, setFocusedLangInput] = useState(false);
+
+  // All Saves Note
+  const [allSavesNote, setAllSavesNote] = useState(
+    initFromEdit(editCreature?.customData?.allSavesNote ?? '', '')
+  );
+
+  // Ability editor tab state: map from ability index to 'edit' | 'preview'
+  const [abilityEditorTabs, setAbilityEditorTabs] = useState<Record<number, 'edit' | 'preview'>>({});
+  const abilityTextareaRefs = useRef<Record<number, HTMLTextAreaElement | null>>({});
+
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { getAllTraits().then(setAllTraits).catch(() => {}); }, []);
@@ -592,7 +638,8 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
     setSpeeds([{ type: 'land', value: 25 }]);
     setAttacks([defaultAttack(lv)]);
     setAbilities([]);
-    setSenses([]); setImmunities([]); setResistances([]); setWeaknesses([]);
+    setSenses([]); setImmunities([]); setResistances([]); setWeaknesses([]); setSpellcasting([]);
+    setSkills([]); setLanguages([]); setAllSavesNote('');
   }
 
   function goNext() {
@@ -624,7 +671,12 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
       }));
     const cleanAbilities: CustomAbility[] = abilities
       .filter(a => a.name.trim())
-      .map(({ name: n, description, actionType }) => ({ name: n.trim(), description, actionType }));
+      .map(({ name: n, description, actionType, frequency, trigger, requirements }) => ({
+        name: n.trim(), description, actionType,
+        frequency: frequency?.trim() || undefined,
+        trigger: trigger?.trim() || undefined,
+        requirements: requirements?.trim() || undefined,
+      }));
     // Preserve ID when editing; generate new one for new creatures
     const id = isEditing ? editCreature!.id : `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const trimmedName = name.trim();
@@ -659,7 +711,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
         type: 'npc',
         items: [],
         system: {
-          details: { level: { value: level }, publication: { title: 'Custom' } },
+          details: { level: { value: level }, publication: { title: 'Custom' }, languages: { value: languages } },
           attributes: {
             hp: { value: hp, max: hp },
             ac: { value: ac },
@@ -667,6 +719,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
             immunities: pf2eImmunities.length ? pf2eImmunities : undefined,
             resistances: pf2eResistances.length ? pf2eResistances : undefined,
             weaknesses: pf2eWeaknesses.length ? pf2eWeaknesses : undefined,
+            allSaves: allSavesNote.trim() ? { value: allSavesNote.trim() } : undefined,
           },
           saves: { fortitude: { value: fort }, reflex: { value: ref }, will: { value: will } },
           abilities: {
@@ -686,6 +739,10 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
         immunities: immunities.length ? immunities : undefined,
         resistances: resistances.length ? resistances : undefined,
         weaknesses: weaknesses.length ? weaknesses : undefined,
+        spellcasting: spellcasting.length ? spellcasting : undefined,
+        skills: skills.length ? skills : undefined,
+        languages: languages.length ? languages : undefined,
+        allSavesNote: allSavesNote.trim() || undefined,
       },
     };
     await db.creatures.put(record);
@@ -826,6 +883,15 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
             />
           </div>
         ))}
+        <div className={styles.statRow}>
+          <span className={styles.statLabel} style={{ width: 'auto', marginRight: 6 }}>All Saves Note</span>
+          <input
+            className={styles.attackNameInput}
+            value={allSavesNote}
+            onChange={e => setAllSavesNote(e.target.value)}
+            placeholder="e.g. +1 status bonus to all saves vs. magic"
+          />
+        </div>
 
         {/* Perception */}
         <div className={styles.sectionHead}>Perception</div>
@@ -841,6 +907,103 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
           </div>
           <input className={styles.statInput} type="number" min={-10} max={80}
             value={perception} onChange={e => setPerception(Number(e.target.value))} />
+        </div>
+
+        {/* Skills */}
+        <div className={styles.sectionHead}>
+          Skills
+          <button className={styles.addBtn} onClick={() => setSkills(prev => [...prev, { name: '', mod: lookupSave(level, 'moderate') }])}>+ Add Skill</button>
+        </div>
+        {skills.map((sk, i) => (
+          <div key={i} className={styles.statRow}>
+            <div className={styles.attackTraitInputWrap} style={{ flex: 1 }}>
+              <input
+                className={styles.attackNameInput}
+                value={sk.name}
+                placeholder="Skill name…"
+                onChange={e => setSkills(prev => prev.map((s, idx) => idx === i ? { ...s, name: e.target.value } : s))}
+                onFocus={() => { setFocusedSkillInput(true); setFocusedSkillIdx(i); }}
+                onBlur={() => { setFocusedSkillInput(false); setFocusedSkillIdx(null); }}
+              />
+              {focusedSkillInput && focusedSkillIdx === i && sk.name.length > 0 && (() => {
+                const q = sk.name.toLowerCase();
+                const sugg = OFFICIAL_SKILLS.filter(s => s.toLowerCase().includes(q) && s.toLowerCase() !== sk.name.toLowerCase()).slice(0, 8);
+                return sugg.length > 0 ? (
+                  <ul className={styles.suggestions}>
+                    {sugg.map(s => (
+                      <li key={s} className={styles.suggestion} onMouseDown={e => {
+                        e.preventDefault();
+                        setSkills(prev => prev.map((x, idx) => idx === i ? { ...x, name: s } : x));
+                      }}>{s}</li>
+                    ))}
+                  </ul>
+                ) : null;
+              })()}
+            </div>
+            <div className={styles.tierBtns}>
+              {SAVE_TIERS.map(t => (
+                <button key={t} title={t}
+                  className={styles.tierBtn}
+                  onClick={() => setSkills(prev => prev.map((s, idx) => idx === i ? { ...s, mod: lookupSave(level, t) } : s))}
+                >{TIER_ABBREV[t]}</button>
+              ))}
+            </div>
+            <input className={styles.statInput} type="number" min={-10} max={80}
+              value={sk.mod}
+              onChange={e => setSkills(prev => prev.map((s, idx) => idx === i ? { ...s, mod: Number(e.target.value) } : s))} />
+            <button className={styles.removeBtn} onClick={() => setSkills(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+          </div>
+        ))}
+
+        {/* Languages */}
+        <div className={styles.sectionHead}>Languages</div>
+        <div className={styles.traitRow}>
+          {languages.map((lang, i) => (
+            <span key={i} className={styles.traitChipExtra}>
+              {lang}
+              <button className={styles.traitRemove} onClick={() => setLanguages(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+            </span>
+          ))}
+        </div>
+        <div className={styles.traitInputRow}>
+          <div className={styles.traitInputWrap}>
+            <input
+              className={styles.traitInput}
+              value={langInput}
+              onChange={e => setLangInput(e.target.value)}
+              onFocus={() => setFocusedLangInput(true)}
+              onBlur={() => setFocusedLangInput(false)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const t = langInput.trim();
+                  if (t && !languages.includes(t)) setLanguages(prev => [...prev, t]);
+                  setLangInput('');
+                }
+              }}
+              placeholder="Add language… (Enter to add)"
+            />
+            {focusedLangInput && langInput.length > 0 && (() => {
+              const q = langInput.toLowerCase();
+              const sugg = LANGUAGE_SUGGESTIONS.filter(l => l.toLowerCase().includes(q) && !languages.includes(l)).slice(0, 8);
+              return sugg.length > 0 ? (
+                <ul className={styles.suggestions}>
+                  {sugg.map(l => (
+                    <li key={l} className={styles.suggestion} onMouseDown={e => {
+                      e.preventDefault();
+                      if (!languages.includes(l)) setLanguages(prev => [...prev, l]);
+                      setLangInput('');
+                    }}>{l}</li>
+                  ))}
+                </ul>
+              ) : null;
+            })()}
+          </div>
+          <button className={styles.addBtn} onClick={() => {
+            const t = langInput.trim();
+            if (t && !languages.includes(t)) setLanguages(prev => [...prev, t]);
+            setLangInput('');
+          }}>+ Add</button>
         </div>
 
         {/* Senses */}
@@ -1139,61 +1302,327 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
           Abilities
           <button className={styles.addBtn} onClick={() => setAbilities(prev => [...prev, { name: '', description: '' }])}>+ Add</button>
         </div>
-        {abilities.map((ab, i) => (
-          <div key={i} className={styles.abilityCard}>
-            <div className={styles.abilityRow1}>
-              <div className={styles.abilityNameWrap}>
+        {abilities.map((ab, i) => {
+          const editorTab = abilityEditorTabs[i] ?? (ab.description ? 'preview' : 'edit');
+          const setEditorTab = (tab: 'edit' | 'preview') => setAbilityEditorTabs(prev => ({ ...prev, [i]: tab }));
+
+          function insertAtCursor(text: string) {
+            const ta = abilityTextareaRefs.current[i];
+            if (!ta) return;
+            const start = ta.selectionStart ?? 0;
+            const end = ta.selectionEnd ?? 0;
+            const before = ab.description.slice(0, start);
+            const after = ab.description.slice(end);
+            const newVal = before + text + after;
+            setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, description: newVal } : a));
+            setTimeout(() => {
+              ta.focus();
+              ta.setSelectionRange(start + text.length, start + text.length);
+            }, 0);
+          }
+
+          function wrapSelection(open: string, close: string) {
+            const ta = abilityTextareaRefs.current[i];
+            if (!ta) return;
+            const start = ta.selectionStart ?? 0;
+            const end = ta.selectionEnd ?? 0;
+            const selected = ab.description.slice(start, end);
+            const newVal = ab.description.slice(0, start) + open + selected + close + ab.description.slice(end);
+            setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, description: newVal } : a));
+            setTimeout(() => {
+              ta.focus();
+              ta.setSelectionRange(start + open.length, start + open.length + selected.length);
+            }, 0);
+          }
+
+          return (
+            <div key={i} className={styles.abilityCard}>
+              <div className={styles.abilityRow1}>
+                <div className={styles.abilityNameWrap}>
+                  <input
+                    className={styles.attackNameInput}
+                    value={ab.name}
+                    onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, name: e.target.value } : a))}
+                    onFocus={() => setFocusedAbilityIdx(i)}
+                    onBlur={() => setFocusedAbilityIdx(null)}
+                    placeholder="Ability name…"
+                  />
+                  {focusedAbilityIdx === i && ab.name.length > 0 && (() => {
+                    const q = ab.name.toLowerCase();
+                    const suggestions = MONSTER_ABILITY_SUGGESTIONS.filter(s => s.toLowerCase().includes(q) && s.toLowerCase() !== ab.name.toLowerCase());
+                    return suggestions.length > 0 ? (
+                      <ul className={styles.suggestions}>
+                        {suggestions.map(s => (
+                          <li key={s} className={styles.suggestion} onMouseDown={e => {
+                            e.preventDefault();
+                            setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, name: s } : a));
+                          }}>{s}</li>
+                        ))}
+                      </ul>
+                    ) : null;
+                  })()}
+                </div>
+                <button className={styles.removeBtn} onClick={() => setAbilities(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+              </div>
+              <div className={styles.actionTypeRow}>
+                {([
+                  { value: 'single',   label: '◆',      title: 'Single Action'         },
+                  { value: 'two',      label: '◆◆',     title: 'Two-Action Activity'   },
+                  { value: 'three',    label: '◆◆◆',    title: 'Three-Action Activity' },
+                  { value: 'reaction', label: '↺',      title: 'Reaction'              },
+                  { value: 'free',     label: '⟳',      title: 'Free Action'           },
+                  { value: 'passive',  label: 'Passive', title: 'Passive'               },
+                ] as { value: AbilityActionType; label: string; title: string }[]).map(opt => (
+                  <button
+                    key={opt.value}
+                    title={opt.title}
+                    className={`${styles.actionTypeBtn} ${ab.actionType === opt.value ? styles.actionTypeBtnActive : ''}`}
+                    onClick={() => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, actionType: opt.value } : a))}
+                  >{opt.label}</button>
+                ))}
+              </div>
+              {/* Frequency — always visible */}
+              <input
+                className={styles.attackNameInput}
+                value={ab.frequency ?? ''}
+                onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, frequency: e.target.value } : a))}
+                placeholder="Frequency (e.g. Once per day)"
+              />
+              {/* Trigger — only for reaction/free */}
+              {(ab.actionType === 'reaction' || ab.actionType === 'free') && (
                 <input
                   className={styles.attackNameInput}
-                  value={ab.name}
-                  onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, name: e.target.value } : a))}
-                  onFocus={() => setFocusedAbilityIdx(i)}
-                  onBlur={() => setFocusedAbilityIdx(null)}
-                  placeholder="Ability name…"
+                  value={ab.trigger ?? ''}
+                  onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, trigger: e.target.value } : a))}
+                  placeholder="Trigger (e.g. A creature enters your reach)"
                 />
-                {focusedAbilityIdx === i && ab.name.length > 0 && (() => {
-                  const q = ab.name.toLowerCase();
-                  const suggestions = MONSTER_ABILITY_SUGGESTIONS.filter(s => s.toLowerCase().includes(q) && s.toLowerCase() !== ab.name.toLowerCase());
-                  return suggestions.length > 0 ? (
-                    <ul className={styles.suggestions}>
-                      {suggestions.map(s => (
-                        <li key={s} className={styles.suggestion} onMouseDown={e => {
-                          e.preventDefault();
-                          setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, name: s } : a));
-                        }}>{s}</li>
-                      ))}
-                    </ul>
-                  ) : null;
-                })()}
-              </div>
-              <button className={styles.removeBtn} onClick={() => setAbilities(prev => prev.filter((_, idx) => idx !== i))}>×</button>
-            </div>
-            <div className={styles.actionTypeRow}>
-              {([
-                { value: 'single',   label: '◆',      title: 'Single Action'         },
-                { value: 'two',      label: '◆◆',     title: 'Two-Action Activity'   },
-                { value: 'three',    label: '◆◆◆',    title: 'Three-Action Activity' },
-                { value: 'reaction', label: '↺',      title: 'Reaction'              },
-                { value: 'free',     label: '⟳',      title: 'Free Action'           },
-                { value: 'passive',  label: 'Passive', title: 'Passive'               },
-              ] as { value: AbilityActionType; label: string; title: string }[]).map(opt => (
+              )}
+              {/* Requirements — always visible */}
+              <input
+                className={styles.attackNameInput}
+                value={ab.requirements ?? ''}
+                onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, requirements: e.target.value } : a))}
+                placeholder="Requirements (e.g. You are holding a weapon)"
+              />
+              {/* Edit/Preview tab strip */}
+              <div className={styles.abilityEditorTabs}>
                 <button
-                  key={opt.value}
-                  title={opt.title}
-                  className={`${styles.actionTypeBtn} ${ab.actionType === opt.value ? styles.actionTypeBtnActive : ''}`}
-                  onClick={() => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, actionType: opt.value } : a))}
-                >{opt.label}</button>
-              ))}
+                  className={`${styles.abilityEditorTab} ${editorTab === 'edit' ? styles.abilityEditorTabActive : ''}`}
+                  onClick={() => setEditorTab('edit')}
+                >Edit</button>
+                <button
+                  className={`${styles.abilityEditorTab} ${editorTab === 'preview' ? styles.abilityEditorTabActive : ''}`}
+                  onClick={() => setEditorTab('preview')}
+                >Preview</button>
+              </div>
+              {editorTab === 'edit' && (
+                <>
+                  <div className={styles.abilityToolbar}>
+                    {[
+                      { label: '◆',       text: ' ◆ ' },
+                      { label: '◆◆',      text: ' ◆◆ ' },
+                      { label: '◆◆◆',     text: ' ◆◆◆ ' },
+                      { label: '↺',        text: ' ↺ ' },
+                    ].map(btn => (
+                      <button key={btn.label} className={styles.abilityToolbarBtn} title={btn.text.trim()} onMouseDown={e => { e.preventDefault(); insertAtCursor(btn.text); }}>{btn.label}</button>
+                    ))}
+                    <button className={styles.abilityToolbarBtn} title="Insert @Damage macro" onMouseDown={e => { e.preventDefault(); insertAtCursor('@Damage[XdY[type]]{XdY type damage}'); }}>@Dmg</button>
+                    <button className={styles.abilityToolbarBtn} title="Insert @Check macro" onMouseDown={e => { e.preventDefault(); insertAtCursor('@Check[will|dc:15|basic]{DC 15 Will save}'); }}>DC</button>
+                    <button className={styles.abilityToolbarBtn} title="Wrap in <p>" onMouseDown={e => { e.preventDefault(); wrapSelection('<p>', '</p>'); }}>&lt;p&gt;</button>
+                    <button className={styles.abilityToolbarBtn} title="Insert <hr />" onMouseDown={e => { e.preventDefault(); insertAtCursor('<hr />'); }}>&lt;hr&gt;</button>
+                    <button className={styles.abilityToolbarBtn} title="Wrap in <strong>" onMouseDown={e => { e.preventDefault(); wrapSelection('<strong>', '</strong>'); }}><b>B</b></button>
+                  </div>
+                  <textarea
+                    ref={el => { abilityTextareaRefs.current[i] = el; }}
+                    className={styles.descInput}
+                    value={ab.description}
+                    onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, description: e.target.value } : a))}
+                    placeholder="Description (raw HTML or plain text)…"
+                    rows={3}
+                  />
+                </>
+              )}
+              {editorTab === 'preview' && (
+                <div
+                  className={styles.abilityPreview}
+                  dangerouslySetInnerHTML={{ __html: ab.description ? processHtml(ab.description) : '<em style="color:var(--text-mute)">No description</em>' }}
+                />
+              )}
             </div>
-            <textarea
-              className={styles.descInput}
-              value={ab.description}
-              onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, description: e.target.value } : a))}
-              placeholder="Description (optional)…"
-              rows={2}
-            />
-          </div>
-        ))}
+          );
+        })}
+        {/* Spellcasting */}
+        <div className={styles.sectionHead}>
+          Spellcasting
+          <button className={styles.addBtn} onClick={() => setSpellcasting(prev => [...prev, {
+            id: `spell-${Date.now()}`,
+            name: '',
+            tradition: 'arcane',
+            type: 'innate',
+            dc: lookupSave(level, 'moderate'),
+            attackMod: lookupAttack(level, 'moderate'),
+            spells: [],
+          }])}>+ Add Spellcasting Block</button>
+        </div>
+        {spellcasting.map((entry, ei) => {
+          const hasFocusSpell = entry.spells.some(s => s.frequency === 'focus');
+          function updateEntry(patch: Partial<CustomSpellcastingEntry>) {
+            setSpellcasting(prev => prev.map((e, idx) => idx === ei ? { ...e, ...patch } : e));
+          }
+          function updateSpell(si: number, patch: Partial<CustomSpell>) {
+            setSpellcasting(prev => prev.map((e, idx) => idx === ei
+              ? { ...e, spells: e.spells.map((s, sidx) => sidx === si ? { ...s, ...patch } : s) }
+              : e
+            ));
+          }
+          function removeSpell(si: number) {
+            setSpellcasting(prev => prev.map((e, idx) => idx === ei
+              ? { ...e, spells: e.spells.filter((_, sidx) => sidx !== si) }
+              : e
+            ));
+          }
+          return (
+            <div key={entry.id} className={styles.spellcastingBlock}>
+              {/* Block Header */}
+              <div className={styles.attackRow1}>
+                <input
+                  className={styles.attackNameInput}
+                  value={entry.name}
+                  onChange={e => updateEntry({ name: e.target.value })}
+                  placeholder="e.g. Arcane Innate Spells"
+                />
+                <button className={styles.removeBtn} onClick={() => setSpellcasting(prev => prev.filter((_, idx) => idx !== ei))}>×</button>
+              </div>
+              {/* Tradition selector */}
+              <div className={styles.spellSelectorRow}>
+                <span className={styles.subLabel}>Tradition</span>
+                <div className={styles.actionTypeRow}>
+                  {(['arcane', 'divine', 'occult', 'primal'] as SpellTradition[]).map(t => (
+                    <button key={t}
+                      className={`${styles.actionTypeBtn} ${entry.tradition === t ? styles.actionTypeBtnActive : ''}`}
+                      onClick={() => updateEntry({ tradition: t })}
+                    >{t.charAt(0).toUpperCase() + t.slice(1)}</button>
+                  ))}
+                </div>
+              </div>
+              {/* Type selector */}
+              <div className={styles.spellSelectorRow}>
+                <span className={styles.subLabel}>Type</span>
+                <div className={styles.actionTypeRow}>
+                  {(['prepared', 'spontaneous', 'innate'] as SpellcastingType[]).map(t => (
+                    <button key={t}
+                      className={`${styles.actionTypeBtn} ${entry.type === t ? styles.actionTypeBtnActive : ''}`}
+                      onClick={() => updateEntry({ type: t })}
+                    >{t.charAt(0).toUpperCase() + t.slice(1)}</button>
+                  ))}
+                </div>
+              </div>
+              {/* DC field */}
+              <div className={styles.attackRow2}>
+                <span className={styles.subLabel}>DC</span>
+                <div className={styles.tierBtns}>
+                  {SAVE_TIERS.map(t => (
+                    <button key={t} title={t}
+                      className={`${styles.tierBtn}`}
+                      onClick={() => updateEntry({ dc: lookupSave(level, t) })}
+                    >{TIER_ABBREV[t]}</button>
+                  ))}
+                </div>
+                <input className={styles.statInput} type="number" min={1} max={60}
+                  value={entry.dc}
+                  onChange={e => updateEntry({ dc: Number(e.target.value) })} />
+                <span className={styles.subLabel}>Atk</span>
+                <div className={styles.tierBtns}>
+                  {AC_TIERS.map(t => (
+                    <button key={t} title={t}
+                      className={`${styles.tierBtn}`}
+                      onClick={() => updateEntry({ attackMod: lookupAttack(level, t) })}
+                    >{TIER_ABBREV[t]}</button>
+                  ))}
+                </div>
+                <input className={styles.statInput} type="number" min={-10} max={70}
+                  value={entry.attackMod}
+                  onChange={e => updateEntry({ attackMod: Number(e.target.value) })} />
+              </div>
+              {/* Focus points stepper */}
+              {hasFocusSpell && (
+                <div className={styles.attackRow2}>
+                  <span className={styles.subLabel}>Focus Pts</span>
+                  <button className={styles.stepBtn}
+                    onClick={() => updateEntry({ focusPoints: Math.max(1, (entry.focusPoints ?? 1) - 1) })}>−</button>
+                  <span className={styles.levelVal}>{entry.focusPoints ?? 1}</span>
+                  <button className={styles.stepBtn}
+                    onClick={() => updateEntry({ focusPoints: Math.min(3, (entry.focusPoints ?? 1) + 1) })}>+</button>
+                </div>
+              )}
+              {/* Spell list */}
+              {entry.spells.map((sp, si) => (
+                <div key={si} className={styles.spellRow}>
+                  <div className={styles.attackRow1}>
+                    <input className={styles.attackNameInput}
+                      value={sp.name}
+                      onChange={e => updateSpell(si, { name: e.target.value })}
+                      placeholder="Spell name…" />
+                    <button className={styles.removeBtn} onClick={() => removeSpell(si)}>×</button>
+                  </div>
+                  {/* Action cost */}
+                  <div className={styles.actionTypeRow}>
+                    {([
+                      { value: 'single',   label: '◆'      },
+                      { value: 'two',      label: '◆◆'     },
+                      { value: 'three',    label: '◆◆◆'    },
+                      { value: 'reaction', label: '↺'      },
+                      { value: 'free',     label: '⟳'      },
+                      { value: 'passive',  label: 'Passive' },
+                    ] as { value: AbilityActionType; label: string }[]).map(opt => (
+                      <button key={opt.value}
+                        className={`${styles.actionTypeBtn} ${sp.actionCost === opt.value ? styles.actionTypeBtnActive : ''}`}
+                        onClick={() => updateSpell(si, { actionCost: sp.actionCost === opt.value ? undefined : opt.value })}
+                      >{opt.label}</button>
+                    ))}
+                  </div>
+                  {/* Rank + frequency */}
+                  <div className={styles.attackRow2}>
+                    <span className={styles.subLabel}>{(sp.rank ?? 0) === 0 ? 'Cantrip' : `Rank`}</span>
+                    <input className={styles.statInput} type="number" min={0} max={10}
+                      value={sp.rank ?? 0}
+                      onChange={e => updateSpell(si, { rank: Number(e.target.value) })}
+                      style={{ width: 44 }} />
+                    {entry.type === 'innate' && (
+                      <>
+                        <span className={styles.subLabel}>Freq</span>
+                        <select className={styles.spellFreqSelect}
+                          value={sp.frequency ?? ''}
+                          onChange={e => updateSpell(si, { frequency: (e.target.value as SpellFrequency) || undefined })}>
+                          <option value="">—</option>
+                          <option value="at-will">At-Will</option>
+                          <option value="cantrip">Cantrip</option>
+                          <option value="1/day">1/day</option>
+                          <option value="2/day">2/day</option>
+                          <option value="3/day">3/day</option>
+                          <option value="focus">Focus</option>
+                          <option value="constant">Constant</option>
+                        </select>
+                      </>
+                    )}
+                  </div>
+                  {/* Description */}
+                  <textarea className={styles.descInput}
+                    value={sp.description}
+                    onChange={e => updateSpell(si, { description: e.target.value })}
+                    placeholder="Description (raw HTML or plain text)…"
+                    rows={2} />
+                </div>
+              ))}
+              <button className={styles.addBtn} style={{ alignSelf: 'flex-start', marginTop: 4 }}
+                onClick={() => setSpellcasting(prev => prev.map((e, idx) => idx === ei
+                  ? { ...e, spells: [...e.spells, { name: '', description: '', rank: 0, frequency: entry.type === 'innate' ? 'cantrip' : undefined }] }
+                  : e
+                ))}>+ Add Spell</button>
+            </div>
+          );
+        })}
+
         {/* Flavor Text */}
         <div className={styles.sectionHead}>Description</div>
         <textarea

@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'rea
 import type { CreatureRecord } from './db/schema';
 import { searchCreatures, DEFAULT_FILTERS } from './search/search';
 import type { SearchFilters } from './search/search';
-import { runSync, getLastSynced, getCreatureCount } from './sync/sync';
+import { runSync, getLastSynced, getCreatureCount, resetDatabase } from './sync/sync';
 import { initTraitDescriptions } from './components/StatblockDrawer/statblockHelpers';
 import type { SyncProgress } from './sync/sync';
 import type { PF2ECreature } from './types/pf2e';
 import type { Section, Encounter, EncounterCreature, Condition } from './types/encounter';
 import type { RollHistoryEntry } from './types/diceHistory';
 import { db, loadEncounterState, saveEncounterState } from './db/db';
+import { importCreatureAsCustom } from './utils/importCreature';
 import { TopBar } from './components/TopBar/TopBar';
 import { SearchPanel } from './components/SearchPanel/SearchPanel';
 import { ResultsList } from './components/ResultsList/ResultsList';
@@ -35,8 +36,9 @@ export default function App() {
   const [lastSynced, setLastSynced] = useState<number | null>(null);
   const [syncProgress, setSyncProgress] = useState<SyncProgress>({ phase: 'idle' });
 
-  // Filter sidebar
+  // Filter + results sidebars
   const [filtersOpen, setFiltersOpen] = useState(true);
+  const [resultsOpen, setResultsOpen] = useState(true);
 
   // Custom creature wizard
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -60,36 +62,65 @@ export default function App() {
   const [partyLevel, setPartyLevel] = useState(3);
   const encounterStateLoaded = useRef(false);
 
-  // Column widths (px); statblock takes remaining flex space
+  // Column widths (px) — React state is the source of truth at rest.
+  // During a drag we write directly to the CSS custom property on the layout
+  // element to avoid re-rendering the whole tree on every pointermove.
   const [filtersWidth, setFiltersWidth] = useState(220);
   const [resultsWidth, setResultsWidth] = useState(260);
   const [encounterWidth, setEncounterWidth] = useState(280);
-  const dragRef = useRef<{ col: 'filters' | 'results' | 'encounter'; startX: number; startW: number } | null>(null);
 
+  const gmLayoutRef = useRef<HTMLDivElement>(null);
+
+  // Keep a ref to current widths so pointer handlers never close over stale state
+  // and never need to be recreated when widths change.
+  const widthsRef = useRef({ filtersWidth, resultsWidth, encounterWidth });
+  widthsRef.current = { filtersWidth, resultsWidth, encounterWidth };
+
+  const dragRef = useRef<{
+    col: 'filters' | 'results' | 'encounter';
+    startX: number;
+    startW: number;
+  } | null>(null);
+
+  const COL_META = {
+    filters:   { prop: '--filters-width',   min: 160, max: 400 },
+    results:   { prop: '--results-width',   min: 160, max: Infinity },
+    encounter: { prop: '--encounter-width', min: 160, max: Infinity },
+  } as const;
+
+  // Stable forever — reads widths from ref, no state dependencies
   const onHandlePointerDown = useCallback(
     (col: 'filters' | 'results' | 'encounter') => (e: PointerEvent<HTMLDivElement>) => {
       e.preventDefault();
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      dragRef.current = {
-        col,
-        startX: e.clientX,
-        startW: col === 'filters' ? filtersWidth : col === 'results' ? resultsWidth : encounterWidth,
-      };
+      const startW = widthsRef.current[`${col}Width` as keyof typeof widthsRef.current];
+      dragRef.current = { col, startX: e.clientX, startW };
     },
-    [filtersWidth, resultsWidth, encounterWidth]
+    [], // no dependencies — always stable
   );
 
+  // Stable forever — all mutable data accessed through refs
   const onHandlePointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current) return;
-    const delta = e.clientX - dragRef.current.startX;
-    const newW = Math.max(160, dragRef.current.startW + delta);
-    if (dragRef.current.col === 'filters') setFiltersWidth(Math.min(400, newW));
-    else if (dragRef.current.col === 'results') setResultsWidth(newW);
-    else setEncounterWidth(newW);
+    const drag = dragRef.current;
+    if (!drag || !gmLayoutRef.current) return;
+    const { prop, min, max } = COL_META[drag.col];
+    const raw = drag.startW + (e.clientX - drag.startX);
+    const newW = Math.min(max, Math.max(min, raw));
+    // Write straight to DOM — zero React renders during the drag
+    gmLayoutRef.current.style.setProperty(prop, `${newW}px`);
   }, []);
 
+  // Stable forever — commits the final DOM value to React state exactly once
   const onHandlePointerUp = useCallback(() => {
+    const drag = dragRef.current;
     dragRef.current = null;
+    if (!drag || !gmLayoutRef.current) return;
+    const { prop, min, max } = COL_META[drag.col];
+    const raw = parseInt(gmLayoutRef.current.style.getPropertyValue(prop), 10);
+    const px = isNaN(raw) ? drag.startW : Math.min(max, Math.max(min, raw));
+    if (drag.col === 'filters') setFiltersWidth(px);
+    else if (drag.col === 'results') setResultsWidth(px);
+    else setEncounterWidth(px);
   }, []);
 
   const syncingRef = useRef(false);
@@ -195,6 +226,7 @@ export default function App() {
         strMod,
         dexMod,
         traits: c.traits,
+        rarity: c.rarity,
         init: 0,
         conditions: [],
       };
@@ -319,6 +351,39 @@ export default function App() {
     [activeEnc]
   );
 
+  const setEliteWeak = useCallback(
+    (uid: string, adjustment: 'elite' | 'weak' | undefined) => {
+      setEncounters(prev =>
+        prev.map((enc, i) =>
+          i === activeEnc
+            ? { ...enc, creatures: enc.creatures.map(c => c.uid === uid ? { ...c, eliteWeak: adjustment } : c) }
+            : enc
+        )
+      );
+    },
+    [activeEnc]
+  );
+
+  const duplicateCreature = useCallback(
+    (uid: string) => {
+      setEncounters(prev =>
+        prev.map((enc, i) => {
+          if (i !== activeEnc) return enc;
+          const original = enc.creatures.find(c => c.uid === uid);
+          if (!original) return enc;
+          const duplicate: EncounterCreature = {
+            ...original,
+            uid: `${original.custom ? 'custom' : original.creatureId ?? 'creature'}-${Date.now()}-${Math.random()}`,
+            hp: original.maxHp,
+            conditions: [],
+          };
+          return { ...enc, creatures: [...enc.creatures, duplicate] };
+        })
+      );
+    },
+    [activeEnc]
+  );
+
   // uid of the specific encounter creature instance whose statblock is shown
   const [selectedEncounterUid, setSelectedEncounterUid] = useState<string | null>(null);
 
@@ -328,6 +393,19 @@ export default function App() {
       setSelected(creature);
       setSelectedEncounterUid(encounterUid ?? null);
     }
+  }, []);
+
+  // Select a custom/placeholder creature by its encounter uid (no DB record)
+  const selectEncounterCreature = useCallback((_uid: string) => {
+    // Custom creatures don't have a statblock in the DB — nothing to show in the drawer.
+    // This hook exists so future expansion can open a custom creature view.
+  }, []);
+
+  const handleCopyCreature = useCallback((creature: import('./db/schema').CreatureRecord) => {
+    const draft = importCreatureAsCustom(creature);
+    setWizardEditCreature(draft);
+    setSelected(null);
+    setWizardOpen(true);
   }, []);
 
   const openWizard = useCallback(() => {
@@ -351,6 +429,16 @@ export default function App() {
     setTotalCount(tc);
     await refreshCount();
   }, [refreshCount]);
+
+  const handleResetDatabase = useCallback(async () => {
+    await resetDatabase();
+    setCreatureCount(0);
+    setResults([]);
+    setTotalCount(0);
+    setLastSynced(null);
+    // Kick off a fresh sync immediately
+    triggerSync().then(() => initTraitDescriptions()).catch(() => {});
+  }, [triggerSync]);
 
   const handleDeleteCreature = useCallback(async (id: string) => {
     await db.creatures.delete(id);
@@ -391,6 +479,16 @@ export default function App() {
     [activeEnc]
   );
 
+  // Keep CSS custom properties in sync with React state (initial mount + any
+  // programmatic changes). During a drag this effect does NOT run — we write
+  // directly to the DOM — so there are zero extra renders on pointermove.
+  useEffect(() => {
+    if (!gmLayoutRef.current) return;
+    gmLayoutRef.current.style.setProperty('--filters-width', `${filtersWidth}px`);
+    gmLayoutRef.current.style.setProperty('--results-width', `${resultsWidth}px`);
+    gmLayoutRef.current.style.setProperty('--encounter-width', `${encounterWidth}px`);
+  }, [filtersWidth, resultsWidth, encounterWidth]);
+
   // Suppress unused warning — lastSynced retained for future use
   void lastSynced;
 
@@ -402,6 +500,7 @@ export default function App() {
         historyCount={rollHistory.length}
         historyOpen={historyOpen}
         onToggleHistory={() => setHistoryOpen(o => !o)}
+        onResetDatabase={handleResetDatabase}
       />
       {historyOpen && (
         <RollHistory
@@ -412,8 +511,8 @@ export default function App() {
       )}
       <div className={styles.content}>
         {activeSection === 'gm' && (
-          <div className={`${styles.gmLayout} ${!filtersOpen ? styles.gmLayoutCollapsed : ''}`}>
-            <div className={`${styles.filterCol} ${filtersOpen ? styles.filterColOpen : ''}`} style={filtersOpen ? { width: filtersWidth } : {}}>
+          <div ref={gmLayoutRef} className={styles.gmLayout}>
+            <div className={`${styles.filterCol} ${filtersOpen ? styles.filterColOpen : ''}`}>
               <SearchPanel
                 filters={filters}
                 onChange={setFilters}
@@ -421,7 +520,13 @@ export default function App() {
                 partyLevel={partyLevel}
               />
             </div>
-            <div className={styles.resultsCol} style={{ flexBasis: resultsWidth, flexGrow: 0, flexShrink: 0 }}>
+            <div
+              className={`${styles.resizeHandle} ${!(filtersOpen && resultsOpen) ? styles.resizeHandleHidden : ''}`}
+              onPointerDown={onHandlePointerDown('filters')}
+              onPointerMove={onHandlePointerMove}
+              onPointerUp={onHandlePointerUp}
+            />
+            <div className={`${styles.resultsCol} ${resultsOpen ? styles.resultsColOpen : ''}`}>
               {isSyncing && <SyncProgressBar progress={syncProgress} />}
               <ResultsList
                 results={results}
@@ -441,21 +546,13 @@ export default function App() {
                 onOpenWizard={openWizard}
               />
             </div>
-            {filtersOpen && (
-              <div
-                className={styles.resizeHandle}
-                onPointerDown={onHandlePointerDown('filters')}
-                onPointerMove={onHandlePointerMove}
-                onPointerUp={onHandlePointerUp}
-              />
-            )}
             <div
-              className={styles.resizeHandle}
+              className={`${styles.resizeHandle} ${!resultsOpen ? styles.resizeHandleHidden : ''}`}
               onPointerDown={onHandlePointerDown('results')}
               onPointerMove={onHandlePointerMove}
               onPointerUp={onHandlePointerUp}
             />
-            <div className={styles.encounterCol} style={{ flexBasis: encounterWidth, flexGrow: 0, flexShrink: 0 }}>
+            <div className={styles.encounterCol}>
               <EncounterManager
                 encounters={encounters}
                 activeEnc={activeEnc}
@@ -469,12 +566,24 @@ export default function App() {
                 onDeleteEncounter={deleteEncounter}
                 onReorderEncounters={reorderEncounters}
                 onRemoveCreature={removeCreature}
+                onDuplicateCreature={duplicateCreature}
                 onUpdateHP={updateHP}
                 onSetHP={setHPDirect}
                 onAddCustomCreature={addCustomCreature}
                 onSelectCreature={(id, uid) => selectCreatureById(id, uid)}
+                onSelectEncounterCreature={selectEncounterCreature}
                 onUpdateConditions={updateConditions}
+                onSetEliteWeak={setEliteWeak}
                 onRoll={addRollEntry}
+                resultsOpen={resultsOpen}
+                onToggleResults={() => {
+                  if (resultsOpen) {
+                    setResultsOpen(false);
+                    setFiltersOpen(false);
+                  } else {
+                    setResultsOpen(true);
+                  }
+                }}
               />
             </div>
             <div
@@ -496,10 +605,16 @@ export default function App() {
                 onDeleteCreature={handleDeleteCreature}
                 onEditCreature={openEditWizard}
                 onRoll={addRollEntry}
+                onCopyAsCustom={handleCopyCreature}
                 activeConditions={
                   selected && selectedEncounterUid
                     ? (encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.conditions ?? [])
                     : []
+                }
+                activeEliteWeak={
+                  selected && selectedEncounterUid
+                    ? encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.eliteWeak
+                    : undefined
                 }
               />
             </div>
