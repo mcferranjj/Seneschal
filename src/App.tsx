@@ -350,6 +350,19 @@ export default function App() {
     [activeEnc]
   );
 
+  const setEliteWeak = useCallback(
+    (uid: string, adjustment: 'elite' | 'weak' | undefined) => {
+      setEncounters(prev =>
+        prev.map((enc, i) =>
+          i === activeEnc
+            ? { ...enc, creatures: enc.creatures.map(c => c.uid === uid ? { ...c, eliteWeak: adjustment } : c) }
+            : enc
+        )
+      );
+    },
+    [activeEnc]
+  );
+
   const duplicateCreature = useCallback(
     (uid: string) => {
       setEncounters(prev =>
@@ -539,6 +552,7 @@ export default function App() {
                 onSelectCreature={(id, uid) => selectCreatureById(id, uid)}
                 onSelectEncounterCreature={selectEncounterCreature}
                 onUpdateConditions={updateConditions}
+                onSetEliteWeak={setEliteWeak}
                 onRoll={addRollEntry}
                 resultsOpen={resultsOpen}
                 onToggleResults={() => {
@@ -574,6 +588,11 @@ export default function App() {
                   selected && selectedEncounterUid
                     ? (encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.conditions ?? [])
                     : []
+                }
+                activeEliteWeak={
+                  selected && selectedEncounterUid
+                    ? encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.eliteWeak
+                    : undefined
                 }
               />
             </div>

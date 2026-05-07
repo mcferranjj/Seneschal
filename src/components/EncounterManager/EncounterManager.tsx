@@ -309,6 +309,7 @@ interface EncounterManagerProps {
   onSelectCreature: (id: string, encounterUid: string) => void;
   onSelectEncounterCreature: (uid: string) => void;
   onUpdateConditions: (uid: string, conditions: Condition[]) => void;
+  onSetEliteWeak: (uid: string, adjustment: 'elite' | 'weak' | undefined) => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
   resultsOpen?: boolean;
   onToggleResults?: () => void;
@@ -364,6 +365,29 @@ function getDifficulty(totalXP: number, partySize: number) {
   return                          { label: 'Trivial',  color: '#5a7a3a', pct: (totalXP / extreme) * 100 };
 }
 
+/** Returns the HP delta for an elite/weak adjustment based on the creature's starting level. */
+export function eliteWeakHpDelta(startingLevel: number, adjustment: 'elite' | 'weak'): number {
+  if (adjustment === 'elite') {
+    if (startingLevel <= 1) return 10;
+    if (startingLevel <= 4) return 15;
+    if (startingLevel <= 19) return 20;
+    return 30;
+  } else {
+    if (startingLevel <= 2) return -10;
+    if (startingLevel <= 5) return -15;
+    if (startingLevel <= 20) return -20;
+    return -30;
+  }
+}
+
+/** Returns the effective level after elite/weak adjustment. */
+export function eliteWeakLevel(baseLevel: number, adjustment: 'elite' | 'weak' | undefined): number {
+  if (!adjustment) return baseLevel;
+  if (adjustment === 'elite') return baseLevel <= 0 ? baseLevel + 2 : baseLevel + 1;
+  // weak
+  return baseLevel <= 1 ? baseLevel - 2 : baseLevel - 1;
+}
+
 export function EncounterManager({
   encounters,
   activeEnc,
@@ -384,6 +408,7 @@ export function EncounterManager({
   onSelectCreature,
   onSelectEncounterCreature,
   onUpdateConditions,
+  onSetEliteWeak,
   onRoll,
   resultsOpen = true,
   onToggleResults,
@@ -512,7 +537,7 @@ export function EncounterManager({
   // Custom creatures with isEnemy=false don't count toward XP budget
   const totalXP = enc.creatures.reduce((s, c) => {
     if (c.custom && c.isEnemy === false) return s;
-    return s + xpFor(c.level, partyLevel);
+    return s + xpFor(eliteWeakLevel(c.level, c.eliteWeak), partyLevel);
   }, 0);
   const diff = getDifficulty(totalXP, partySize);
 
@@ -1058,7 +1083,20 @@ export function EncounterManager({
               </div>
             )}
             {enc.creatures.map(c => {
-              const xp = (c.custom && c.isEnemy === false) ? 0 : xpFor(c.level, partyLevel);
+              const effLevel = eliteWeakLevel(c.level, c.eliteWeak);
+              const xp = (c.custom && c.isEnemy === false) ? 0 : xpFor(effLevel, partyLevel);
+              const ewMod = c.eliteWeak === 'elite' ? 2 : c.eliteWeak === 'weak' ? -2 : 0;
+              const ewValStyle = c.eliteWeak === 'elite'
+                ? { color: '#8a6a18', fontWeight: 700 } as const
+                : c.eliteWeak === 'weak'
+                  ? { color: '#2a5a8a', fontWeight: 700 } as const
+                  : undefined;
+              const effAc   = c.ac > 0   ? c.ac + ewMod       : null;
+              const effFort = c.fort != null ? c.fort + ewMod  : null;
+              const effRef  = c.ref  != null ? c.ref  + ewMod  : null;
+              const effWill = c.will != null ? c.will + ewMod  : null;
+              const hpDelta = c.eliteWeak && c.maxHp > 0 ? eliteWeakHpDelta(c.level, c.eliteWeak) : 0;
+              const effMaxHp = c.maxHp > 0 ? Math.max(1, c.maxHp + hpDelta) : null;
               return (
                 <div
                   key={c.uid}
@@ -1073,11 +1111,13 @@ export function EncounterManager({
                   {/* Top row: name + HP + buttons */}
                   <div className={styles.plannerCardTop}>
                     <span className={`${styles.plannerName} ${c.creatureId ? styles.creatureNameClickable : ''}`}>
-                      {c.name}
+                      {c.name}{c.eliteWeak === 'elite' ? ' (Elite)' : c.eliteWeak === 'weak' ? ' (Weak)' : ''}
                     </span>
                     <span className={styles.plannerHp} title="Hit Points">
                       <span className={styles.combatDefLabel}>HP</span>
-                      <span className={styles.combatDefVal}>{c.maxHp > 0 ? c.maxHp : '—'}</span>
+                      <span className={styles.combatDefVal} style={hpDelta !== 0 ? ewValStyle : undefined}>
+                        {effMaxHp != null ? effMaxHp : '—'}
+                      </span>
                     </span>
                     <div className={styles.plannerBtns}>
                       <button
@@ -1101,31 +1141,57 @@ export function EncounterManager({
                   <div className={styles.plannerDefenseRow}>
                     <span className={styles.combatDefStat} title="Armor Class">
                       <span className={styles.combatDefLabel}>AC</span>
-                      <span className={styles.combatDefVal}>{c.ac > 0 ? c.ac : '—'}</span>
+                      <span className={styles.combatDefVal} style={ewMod !== 0 && effAc != null ? ewValStyle : undefined}>
+                        {effAc != null ? effAc : '—'}
+                      </span>
                     </span>
                     <span className={styles.combatDefStat} title="Fortitude">
                       <span className={styles.combatDefLabel}>F</span>
-                      <span className={styles.combatDefVal}>
-                        {c.fort != null ? (c.fort >= 0 ? `+${c.fort}` : c.fort) : '—'}
+                      <span className={styles.combatDefVal} style={ewMod !== 0 && effFort != null ? ewValStyle : undefined}>
+                        {effFort != null ? (effFort >= 0 ? `+${effFort}` : effFort) : '—'}
                       </span>
                     </span>
                     <span className={styles.combatDefStat} title="Reflex">
                       <span className={styles.combatDefLabel}>R</span>
-                      <span className={styles.combatDefVal}>
-                        {c.ref != null ? (c.ref >= 0 ? `+${c.ref}` : c.ref) : '—'}
+                      <span className={styles.combatDefVal} style={ewMod !== 0 && effRef != null ? ewValStyle : undefined}>
+                        {effRef != null ? (effRef >= 0 ? `+${effRef}` : effRef) : '—'}
                       </span>
                     </span>
                     <span className={styles.combatDefStat} title="Will">
                       <span className={styles.combatDefLabel}>W</span>
-                      <span className={styles.combatDefVal}>
-                        {c.will != null ? (c.will >= 0 ? `+${c.will}` : c.will) : '—'}
+                      <span className={styles.combatDefVal} style={ewMod !== 0 && effWill != null ? ewValStyle : undefined}>
+                        {effWill != null ? (effWill >= 0 ? `+${effWill}` : effWill) : '—'}
                       </span>
                     </span>
                   </div>
 
-                  {/* Bottom row: level, XP */}
-                  <div className={styles.plannerMeta}>
-                    <span>Lvl {c.level}{xp > 0 ? ` · ${xp} XP` : ''}</span>
+                  {/* Bottom row: level/XP + Elite/Weak toggle buttons */}
+                  <div className={styles.plannerMetaRow}>
+                    <span className={styles.plannerMeta}>
+                      Lvl {effLevel}{c.eliteWeak ? ` (base ${c.level})` : ''}{xp > 0 ? ` · ${xp} XP` : ''}
+                    </span>
+                    <div className={styles.eliteWeakBtns} onClick={e => e.stopPropagation()}>
+                      <button
+                        className={`${styles.eliteBtn} ${c.eliteWeak === 'elite' ? styles.eliteBtnActive : ''}`}
+                        title="Elite adjustment (+1 level, +2 AC/saves/skills, +HP)"
+                        onClick={e => {
+                          e.stopPropagation();
+                          onSetEliteWeak(c.uid, c.eliteWeak === 'elite' ? undefined : 'elite');
+                        }}
+                      >
+                        Elite
+                      </button>
+                      <button
+                        className={`${styles.weakBtn} ${c.eliteWeak === 'weak' ? styles.weakBtnActive : ''}`}
+                        title="Weak adjustment (−1 level, −2 AC/saves/skills, −HP)"
+                        onClick={e => {
+                          e.stopPropagation();
+                          onSetEliteWeak(c.uid, c.eliteWeak === 'weak' ? undefined : 'weak');
+                        }}
+                      >
+                        Weak
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -1166,6 +1232,7 @@ export function EncounterManager({
           <div className={styles.combatList}>
             {liveCombatCreatures.map((c, i) => {
               const isActive = i === activeTurn;
+              const combatEwMod = c.eliteWeak === 'elite' ? 2 : c.eliteWeak === 'weak' ? -2 : 0;
               const hpPct = c.maxHp > 0 ? c.hp / c.maxHp : 0;
               const hpColor =
                 hpPct > 0.5 ? '#3a7a3a' : hpPct > 0.25 ? '#8a6a18' : '#8a2a18';
@@ -1208,7 +1275,7 @@ export function EncounterManager({
                     )}
 
                     <span className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''}`}>
-                      {c.name}
+                      {c.name}{c.eliteWeak === 'elite' ? ' (Elite)' : c.eliteWeak === 'weak' ? ' (Weak)' : ''}
                     </span>
 
                     {/* HP — on the same row as the name */}
@@ -1243,11 +1310,14 @@ export function EncounterManager({
                   {/* Row 2: defense stats — always a single unwrapped line */}
                   {(() => {
                     const pen = computePenalties(c.conditions);
-                    const effAc   = c.ac > 0 ? c.ac + pen.ac : null;
-                    const effFort = c.fort != null ? c.fort + pen.fort : null;
-                    const effRef  = c.ref  != null ? c.ref  + pen.ref  : null;
-                    const effWill = c.will != null ? c.will + pen.will : null;
+                    const effAc   = c.ac > 0 ? c.ac + pen.ac + combatEwMod : null;
+                    const effFort = c.fort != null ? c.fort + pen.fort + combatEwMod : null;
+                    const effRef  = c.ref  != null ? c.ref  + pen.ref  + combatEwMod : null;
+                    const effWill = c.will != null ? c.will + pen.will + combatEwMod : null;
                     const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
+                    const combatEwStyle = combatEwMod > 0
+                      ? { color: '#8a6a18', fontWeight: 700 } as const
+                      : { color: '#2a5a8a', fontWeight: 700 } as const;
                     return (
                       <div className={styles.combatDefenseRow}>
                         <span
@@ -1256,7 +1326,7 @@ export function EncounterManager({
                           onClick={effAc != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20`, label: 'Armor Class', x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
                         >
                           <span className={styles.combatDefLabel}>AC</span>
-                          <span className={styles.combatDefVal} style={pen.ac !== 0 ? debuffStyle : undefined}>
+                          <span className={styles.combatDefVal} style={pen.ac !== 0 ? debuffStyle : combatEwMod !== 0 && effAc != null ? combatEwStyle : undefined}>
                             {effAc != null ? effAc : '—'}
                           </span>
                         </span>
@@ -1266,7 +1336,7 @@ export function EncounterManager({
                           onClick={effFort != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effFort >= 0 ? `+${effFort}` : effFort}`, label: `${c.name} · Fortitude`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
                         >
                           <span className={styles.combatDefLabel}>F</span>
-                          <span className={styles.combatDefVal} style={pen.fort !== 0 ? debuffStyle : undefined}>
+                          <span className={styles.combatDefVal} style={pen.fort !== 0 ? debuffStyle : combatEwMod !== 0 && effFort != null ? combatEwStyle : undefined}>
                             {effFort != null ? (effFort >= 0 ? `+${effFort}` : effFort) : '—'}
                           </span>
                         </span>
@@ -1276,7 +1346,7 @@ export function EncounterManager({
                           onClick={effRef != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effRef >= 0 ? `+${effRef}` : effRef}`, label: `${c.name} · Reflex`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
                         >
                           <span className={styles.combatDefLabel}>R</span>
-                          <span className={styles.combatDefVal} style={pen.ref !== 0 ? debuffStyle : undefined}>
+                          <span className={styles.combatDefVal} style={pen.ref !== 0 ? debuffStyle : combatEwMod !== 0 && effRef != null ? combatEwStyle : undefined}>
                             {effRef != null ? (effRef >= 0 ? `+${effRef}` : effRef) : '—'}
                           </span>
                         </span>
@@ -1286,7 +1356,7 @@ export function EncounterManager({
                           onClick={effWill != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effWill >= 0 ? `+${effWill}` : effWill}`, label: `${c.name} · Will`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
                         >
                           <span className={styles.combatDefLabel}>W</span>
-                          <span className={styles.combatDefVal} style={pen.will !== 0 ? debuffStyle : undefined}>
+                          <span className={styles.combatDefVal} style={pen.will !== 0 ? debuffStyle : combatEwMod !== 0 && effWill != null ? combatEwStyle : undefined}>
                             {effWill != null ? (effWill >= 0 ? `+${effWill}` : effWill) : '—'}
                           </span>
                         </span>

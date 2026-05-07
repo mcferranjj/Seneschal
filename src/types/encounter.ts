@@ -65,6 +65,7 @@ export interface EncounterCreature {
   conditions: Condition[];
   custom?: boolean;
   isEnemy?: boolean; // false = ally/neutral placeholder; doesn't count toward XP budget
+  eliteWeak?: 'elite' | 'weak'; // Elite/Weak adjustment (Monster Core pg. 6-7)
 }
 
 export interface Encounter {

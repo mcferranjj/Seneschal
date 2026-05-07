@@ -321,9 +321,77 @@
   overflow: hidden;
 }
 
+.plannerMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
 .plannerMeta {
   font-size: 0.67rem;
   color: var(--text-mute);
+}
+
+.eliteWeakBtns {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.eliteBtn,
+.weakBtn {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: none;
+  cursor: pointer;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.eliteBtn {
+  color: #8a6a18;
+}
+
+.eliteBtn:hover {
+  border-color: #8a6a18;
+  background: rgba(138, 106, 24, 0.1);
+}
+
+.eliteBtnActive {
+  background: #8a6a18;
+  border-color: #8a6a18;
+  color: #f0e6cc;
+}
+
+.eliteBtnActive:hover {
+  background: #6e5412;
+  border-color: #6e5412;
+}
+
+.weakBtn {
+  color: #2a5a8a;
+}
+
+.weakBtn:hover {
+  border-color: #2a5a8a;
+  background: rgba(42, 90, 138, 0.1);
+}
+
+.weakBtnActive {
+  background: #2a5a8a;
+  border-color: #2a5a8a;
+  color: #f0e6cc;
+}
+
+.weakBtnActive:hover {
+  background: #1e4570;
+  border-color: #1e4570;
 }
 
 /* Legacy card styles kept for any remaining usage */

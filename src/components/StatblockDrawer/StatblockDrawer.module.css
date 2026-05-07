@@ -232,6 +232,16 @@
   color: var(--text-mute);
 }
 
+/* Elite/Weak adjustment banner shown at top of statblock body */
+.eliteWeakBanner {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border-left: 3px solid;
+  line-height: 1.5;
+}
+
 /* Recall Knowledge line — same typographic weight/size as .sourceLine */
 .rkLine {
   margin: 0 0 5px;

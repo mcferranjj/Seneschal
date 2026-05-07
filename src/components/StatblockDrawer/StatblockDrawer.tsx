@@ -23,7 +23,7 @@ import {
   linkKeywords,
   linkRolls,
 } from './statblockHelpers';
-import { getRecallKnowledge } from '../EncounterManager/EncounterManager';
+import { getRecallKnowledge, eliteWeakHpDelta, eliteWeakLevel } from '../EncounterManager/EncounterManager';
 
 function processHtml(raw: string): string {
   return linkRolls(linkKeywords(stripFoundryMacros(raw)));
@@ -89,6 +89,8 @@ interface DrawerProps {
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
   /** Active conditions on the currently-selected creature in the encounter */
   activeConditions?: Condition[];
+  /** Elite/Weak adjustment applied to this creature instance in the encounter */
+  activeEliteWeak?: 'elite' | 'weak';
 }
 
 export function StatblockDrawer({
@@ -104,6 +106,7 @@ export function StatblockDrawer({
   onEditCreature,
   onRoll,
   activeConditions,
+  activeEliteWeak,
 }: DrawerProps) {
   return (
     <aside className={styles.drawer} aria-label="Creature statblock">
@@ -122,11 +125,12 @@ export function StatblockDrawer({
             onAddToEncounter={onAddToEncounter}
             onRoll={onRoll}
             activeConditions={activeConditions}
+            activeEliteWeak={activeEliteWeak}
             onDelete={onDeleteCreature}
             onEdit={onEditCreature}
           />
         ) : (
-          <StatblockContent creature={creature} onClose={onClose} onAddToEncounter={onAddToEncounter} onRoll={onRoll} activeConditions={activeConditions} />
+          <StatblockContent creature={creature} onClose={onClose} onAddToEncounter={onAddToEncounter} onRoll={onRoll} activeConditions={activeConditions} activeEliteWeak={activeEliteWeak} />
         )
       ) : (
         <div className={styles.emptyState}>
@@ -145,6 +149,7 @@ function StatblockContent({
   onAddToEncounter,
   onRoll,
   activeConditions,
+  activeEliteWeak,
   onDelete,
   onEdit,
 }: {
@@ -153,6 +158,7 @@ function StatblockContent({
   onAddToEncounter: (creature: CreatureRecord) => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
   activeConditions?: Condition[];
+  activeEliteWeak?: 'elite' | 'weak';
   onDelete?: (id: string) => void;
   onEdit?: (creature: CreatureRecord) => void;
 }) {
@@ -204,6 +210,14 @@ function StatblockContent({
   const activeConditionList = activeConditions ?? [];
   const pen = computePenalties(activeConditionList);
   const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
+
+  // Elite/Weak adjustment modifiers
+  const ewMod = activeEliteWeak === 'elite' ? 2 : activeEliteWeak === 'weak' ? -2 : 0;
+  const ewStyle = ewMod > 0
+    ? { color: '#8a6a18', fontWeight: 700 } as const
+    : ewMod < 0
+      ? { color: '#2a5a8a', fontWeight: 700 } as const
+      : undefined;
 
   const c = creature.data as PF2ECreature;
   const level = getLevel(c);
@@ -263,9 +277,14 @@ function StatblockContent({
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerMain}>
-          <span className={styles.creatureName}>{c.name}</span>
+          <span className={styles.creatureName}>
+            {c.name}{activeEliteWeak === 'elite' ? ' (Elite)' : activeEliteWeak === 'weak' ? ' (Weak)' : ''}
+          </span>
           <span className={styles.creatureLevel}>
-            {creature.entityType === 'hazard' ? 'Hazard' : 'Creature'} {level}{creature.entityType !== 'hazard' && ` · ${size}`}
+            {creature.entityType === 'hazard' ? 'Hazard' : 'Creature'}{' '}
+            {activeEliteWeak ? eliteWeakLevel(level, activeEliteWeak) : level}
+            {activeEliteWeak && ` (base ${level})`}
+            {creature.entityType !== 'hazard' && ` · ${size}`}
           </span>
         </div>
         <div className={styles.headerActions}>
@@ -335,6 +354,21 @@ function StatblockContent({
           );
         })()}
 
+        {/* Elite/Weak adjustment banner */}
+        {activeEliteWeak && (
+          <p className={styles.eliteWeakBanner} style={activeEliteWeak === 'elite' ? { borderColor: '#8a6a18', background: 'rgba(138,106,24,0.08)' } : { borderColor: '#2a5a8a', background: 'rgba(42,90,138,0.08)' }}>
+            <strong style={{ color: activeEliteWeak === 'elite' ? '#8a6a18' : '#2a5a8a' }}>
+              {activeEliteWeak === 'elite' ? '★ Elite' : '▽ Weak'}
+            </strong>
+            {' '}
+            <span style={{ color: 'var(--text-mute)' }}>
+              {activeEliteWeak === 'elite'
+                ? '+2 AC, saves, perception & skills · +2/+4 damage · +HP'
+                : '−2 AC, saves, perception & skills · −2/−4 damage · −HP'}
+            </span>
+          </p>
+        )}
+
         {/* Active conditions banner */}
         {activeConditions && activeConditions.length > 0 && (
           <p className={styles.sourceLine} style={{ color: '#c0392b', fontStyle: 'normal' }}>
@@ -347,15 +381,16 @@ function StatblockContent({
         <p className={styles.infoLine}>
           {(() => {
             const percMod = c.system?.perception?.mod ?? c.system?.perception?.value;
-            const effPercMod = percMod != null ? percMod + pen.perception : percMod;
+            const effPercMod = percMod != null ? percMod + pen.perception + ewMod : percMod;
             const rest = senses.replace(/^Perception [+-]?\d+;?\s*/, '').replace(/^Perception [+-]?\d+$/, '');
+            const percStyle = pen.perception !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
             return (
               <>
                 <span
                   className={styles.rollMod}
                   title="Roll Perception"
                   onClick={e => roll(effPercMod, 'Perception', e)}
-                  style={pen.perception !== 0 ? debuffStyle : undefined}
+                  style={percStyle}
                 >
                   <strong>Perception</strong> {formatMod(effPercMod)}
                 </span>
@@ -376,18 +411,22 @@ function StatblockContent({
         {skills.length > 0 && (
           <p className={styles.infoLine}>
             <strong>Skills</strong>{' '}
-            {skills.map((s, i) => (
-              <span key={s.name}>
-                {i > 0 && ', '}
-                <span
-                  className={styles.rollMod}
-                  title={`Roll ${skillDisplayName(s.name)}`}
-                  onClick={e => roll(s.mod, skillDisplayName(s.name), e)}
-                >
-                  {skillDisplayName(s.name)} {formatMod(s.mod)}
+            {skills.map((s, i) => {
+              const effSkillMod = s.mod + ewMod;
+              return (
+                <span key={s.name}>
+                  {i > 0 && ', '}
+                  <span
+                    className={styles.rollMod}
+                    title={`Roll ${skillDisplayName(s.name)}`}
+                    onClick={e => roll(effSkillMod, skillDisplayName(s.name), e)}
+                    style={ewMod !== 0 ? ewStyle : undefined}
+                  >
+                    {skillDisplayName(s.name)} {formatMod(effSkillMod)}
+                  </span>
                 </span>
-              </span>
-            ))}
+              );
+            })}
           </p>
         )}
 
@@ -418,20 +457,24 @@ function StatblockContent({
 
         {/* AC + Saves */}
         {(() => {
-          const effAc   = typeof ac === 'number'   ? ac   + pen.ac   : ac;
-          const effFort = fort != null ? fort + pen.fort : fort;
-          const effRef  = ref  != null ? ref  + pen.ref  : ref;
-          const effWill = will != null ? will + pen.will : will;
+          const effAc   = typeof ac === 'number'   ? ac   + pen.ac   + ewMod : ac;
+          const effFort = fort != null ? fort + pen.fort + ewMod : fort;
+          const effRef  = ref  != null ? ref  + pen.ref  + ewMod : ref;
+          const effWill = will != null ? will + pen.will + ewMod : will;
+          const acStyle   = pen.ac   !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
+          const fortStyle = pen.fort !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
+          const refStyle  = pen.ref  !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
+          const willStyle = pen.will !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
           return (
             <p className={styles.defenseLine}>
               <strong>AC</strong>{' '}
-              <span style={pen.ac !== 0 ? debuffStyle : undefined}>{effAc}</span>
+              <span style={acStyle}>{effAc}</span>
               {acDetail && ` (${acDetail})`};{' '}
               <span
                 className={styles.rollMod}
                 title="Roll Fortitude"
                 onClick={e => roll(effFort, 'Fortitude', e)}
-                style={pen.fort !== 0 ? debuffStyle : undefined}
+                style={fortStyle}
               >
                 <strong>Fort</strong> {formatMod(effFort)}
               </span>
@@ -440,7 +483,7 @@ function StatblockContent({
                 className={styles.rollMod}
                 title="Roll Reflex"
                 onClick={e => roll(effRef, 'Reflex', e)}
-                style={pen.ref !== 0 ? debuffStyle : undefined}
+                style={refStyle}
               >
                 <strong>Ref</strong> {formatMod(effRef)}
               </span>
@@ -449,7 +492,7 @@ function StatblockContent({
                 className={styles.rollMod}
                 title="Roll Will"
                 onClick={e => roll(effWill, 'Will', e)}
-                style={pen.will !== 0 ? debuffStyle : undefined}
+                style={willStyle}
               >
                 <strong>Will</strong> {formatMod(effWill)}
               </span>
@@ -465,25 +508,35 @@ function StatblockContent({
 
 
         {/* HP */}
-        <p className={styles.defenseLine}>
-          <strong>HP</strong> <span>{hp}</span>
-          {hpDetail && ` (${hpDetail})`}
-          {immunities && (
-            <>
-              ; <strong>Immunities</strong> {immunities}
-            </>
-          )}
-          {resistances && (
-            <>
-              ; <strong>Resistances</strong> {resistances}
-            </>
-          )}
-          {weaknesses && (
-            <>
-              ; <strong>Weaknesses</strong> {weaknesses}
-            </>
-          )}
-        </p>
+        {(() => {
+          const hpDelta = activeEliteWeak && typeof hp === 'number' ? eliteWeakHpDelta(level, activeEliteWeak) : 0;
+          const effHp = typeof hp === 'number' ? Math.max(1, hp + hpDelta) : hp;
+          return (
+            <p className={styles.defenseLine}>
+              <strong>HP</strong>{' '}
+              <span style={hpDelta !== 0 ? ewStyle : undefined}>{effHp}</span>
+              {hpDelta !== 0 && typeof hp === 'number' && (
+                <span style={{ color: 'var(--text-mute)', fontSize: '0.78em' }}> (base {hp})</span>
+              )}
+              {hpDetail && ` (${hpDetail})`}
+              {immunities && (
+                <>
+                  ; <strong>Immunities</strong> {immunities}
+                </>
+              )}
+              {resistances && (
+                <>
+                  ; <strong>Resistances</strong> {resistances}
+                </>
+              )}
+              {weaknesses && (
+                <>
+                  ; <strong>Weaknesses</strong> {weaknesses}
+                </>
+              )}
+            </p>
+          );
+        })()}
 
         {passives.map(item => (
           <ItemBlock key={item._id} item={item} />
@@ -507,12 +560,14 @@ function StatblockContent({
             conditions={activeConditionList}
             strMod={str}
             dexMod={dex}
+            ewMod={ewMod}
+            ewStyle={ewStyle}
           />
         ))}
 
         {/* Custom creature attacks (stored in customData, not items) */}
         {creature.packSource === 'custom' && (creature.customData?.attacks ?? []).map((atk, i) => {
-          const bonus = atk.bonus;
+          const bonus = atk.bonus + ewMod;
           const isAgile = atk.traits?.includes('agile') ?? false;
           const map2 = bonus - (isAgile ? 4 : 5);
           const map3 = bonus - (isAgile ? 8 : 10);
@@ -520,9 +575,14 @@ function StatblockContent({
           const fullTraitStr = [rangeStr, ...(atk.traits ?? [])].filter(Boolean).join(', ');
           const displayTraitStr = fullTraitStr ? `(${fullTraitStr})` : '';
           const damageExprMatch = atk.damage?.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
-          const damageExpr = damageExprMatch
+          const baseDamageExpr = damageExprMatch
             ? (damageExprMatch[2] ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}` : damageExprMatch[1])
             : '';
+          const ewDmgMod = ewMod; // ±2 damage for standard at-will strikes
+          const damageExpr = baseDamageExpr && ewDmgMod !== 0
+            ? `${baseDamageExpr}${ewDmgMod >= 0 ? `+${ewDmgMod}` : ewDmgMod}`
+            : baseDamageExpr;
+          const displayDamage = ewDmgMod !== 0 && damageExpr ? damageExpr : atk.damage;
           const damageLabel = `${atk.name} damage`;
           const typeLabel = atk.type === 'ranged' ? 'Ranged' : 'Melee';
           return (
@@ -530,17 +590,18 @@ function StatblockContent({
               <span className={styles.attackTypeLabel}>{typeLabel}</span>
               {' ◆ '}
               <span className={styles.rollMod} title="Roll attack (1st action)"
-                onClick={e => rollAttack(bonus, atk.name, damageExpr, damageLabel, atk.traits ?? [], e)}>
+                style={ewMod !== 0 ? ewStyle : undefined}
+                onClick={e => rollAttack(bonus, atk.name, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
                 <strong>{atk.name}</strong> {formatMod(bonus)}
               </span>
               {' ['}
               <span className={styles.mapRoll} title="Roll attack (2nd action, MAP)"
-                onClick={e => rollAttack(map2, `${atk.name} (MAP 2)`, damageExpr, damageLabel, atk.traits ?? [], e)}>
+                onClick={e => rollAttack(map2, `${atk.name} (MAP 2)`, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
                 {formatMod(map2)}
               </span>
               {'/'}
               <span className={styles.mapRoll} title="Roll attack (3rd action, MAP)"
-                onClick={e => rollAttack(map3, `${atk.name} (MAP 3)`, damageExpr, damageLabel, atk.traits ?? [], e)}>
+                onClick={e => rollAttack(map3, `${atk.name} (MAP 3)`, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
                 {formatMod(map3)}
               </span>
               {']'}
@@ -550,11 +611,12 @@ function StatblockContent({
                   {', '}
                   {damageExpr ? (
                     <span className={styles.rollMod} title="Roll damage"
+                      style={ewMod !== 0 ? ewStyle : undefined}
                       onClick={e => rollDamage(damageExpr, damageLabel, atk.traits ?? [], e)}>
-                      <strong>Damage</strong> {atk.damage}
+                      <strong>Damage</strong> {displayDamage}
                     </span>
                   ) : (
-                    <><strong>Damage</strong> {atk.damage}</>
+                    <><strong>Damage</strong> {displayDamage}</>
                   )}
                 </>
               )}
@@ -661,13 +723,15 @@ function StatblockContent({
   );
 }
 
-function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod, dexMod }: {
+function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod, dexMod, ewMod = 0, ewStyle }: {
   item: PF2EItem;
   onRollAttack: (mod: number, label: string, damageExpr: string, damageLabel: string, damageTraits: string[], e: React.MouseEvent) => void;
   onRollDamage: (expr: string, label: string, traits: string[], e: React.MouseEvent) => void;
   conditions?: Condition[];
   strMod?: number;
   dexMod?: number;
+  ewMod?: number;
+  ewStyle?: React.CSSProperties;
 }) {
   const bonus = item.system?.bonus?.value;
   const damage = getDamageString(item.system?.damageRolls);
@@ -690,7 +754,10 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
   const isDebuffedDmg = dmgPen !== 0;
   const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
 
-  const effBonus = bonus != null ? bonus + atkRollPen : null;
+  // Elite/Weak: +2 attack; +2 damage for standard at-will strikes
+  const ewDmgMod = ewMod;
+
+  const effBonus = bonus != null ? bonus + atkRollPen + ewMod : null;
   const map2 = effBonus != null ? effBonus - (isAgile ? 4 : 5) : null;
   const map3 = effBonus != null ? effBonus - (isAgile ? 8 : 10) : null;
 
@@ -715,9 +782,10 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
         ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}`
         : damageExprMatch[1])
     : '';
-  // Apply flat enfeebled damage penalty to the roll expression
-  const damageExpr = baseDamageExpr && dmgPen !== 0
-    ? `${baseDamageExpr}${dmgPen >= 0 ? `+${dmgPen}` : dmgPen}`
+  // Combine condition damage penalty and elite/weak damage modifier
+  const totalDmgMod = dmgPen + ewDmgMod;
+  const damageExpr = baseDamageExpr && totalDmgMod !== 0
+    ? `${baseDamageExpr}${totalDmgMod >= 0 ? `+${totalDmgMod}` : totalDmgMod}`
     : baseDamageExpr;
   const damageLabel = `${item.name} damage`;
 
@@ -725,8 +793,8 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
     onRollAttack(mod, `${item.name}${mapLabel}`, damageExpr, damageLabel, traits, e);
   }
 
-  // Display damage string: show adjusted expression if debuffed, otherwise raw text
-  const displayDamage = isDebuffedDmg && damageExpr ? damageExpr : fullDamage;
+  // Display damage string: show adjusted expression if debuffed or elite/weak adjusted, otherwise raw text
+  const displayDamage = (isDebuffedDmg || ewDmgMod !== 0) && damageExpr ? damageExpr : fullDamage;
 
   return (
     <p className={styles.attackLine}>
@@ -738,14 +806,14 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
           <span
             className={styles.rollMod}
             title="Roll attack (1st action)"
-            style={isDebuffedAtk ? debuffStyle : undefined}
+            style={isDebuffedAtk ? debuffStyle : ewMod !== 0 ? ewStyle : undefined}
             onClick={e => fireAttack(effBonus, '', e)}
           >
             <strong>{item.name}</strong> {formatMod(effBonus)}
           </span>
           {/* MAP brackets — each individually clickable */}
           {map2 != null && map3 != null && (
-            <span className={styles.mapBracket} style={isDebuffedAtk ? { color: '#c0392b' } : undefined}>
+            <span className={styles.mapBracket} style={isDebuffedAtk ? { color: '#c0392b' } : ewMod !== 0 ? { color: ewStyle?.color } : undefined}>
               {' ['}
               <span
                 className={styles.mapRoll}
@@ -785,7 +853,7 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
             <span
               className={styles.rollMod}
               title="Roll damage"
-              style={isDebuffedDmg ? debuffStyle : undefined}
+              style={isDebuffedDmg ? debuffStyle : ewDmgMod !== 0 ? ewStyle : undefined}
               onClick={e => onRollDamage(damageExpr, damageLabel, traits, e)}
             >
               <strong>Damage</strong> {displayDamage}
