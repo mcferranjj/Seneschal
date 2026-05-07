@@ -10,3 +10,7 @@
         - links don't seem to be consistent. Need to plan this one out more carefully to find solution
     - is it legal to include these plus the flavor descriptions in a public product if I make someone prove they own the pdf first?
         - unanswered
+
+    - fix the build error (seems to be referencing removed tests)
+
+    - move the git references to point at my own fork of the foundry repo (don't want the risk of the foundry repo getting killed and nuking my app)

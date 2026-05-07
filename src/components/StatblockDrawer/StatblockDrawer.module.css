@@ -325,6 +325,46 @@
   font-style: italic;
 }
 
+.eliteWeakAbilityNote {
+  margin: 4px 0 6px;
+  font-size: 0.72rem;
+  font-style: italic;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.04);
+  border-left: 3px solid currentColor;
+  line-height: 1.5;
+}
+
+.rollAllDmgBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0 2px 0.5rem;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--crimson);
+  background: transparent;
+  color: var(--crimson);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.12s, color 0.12s;
+}
+
+.rollAllDmgBtn:hover {
+  background: var(--crimson);
+  color: #f0e6cc;
+  border-color: var(--crimson);
+}
+
+.rollAllDmgMod {
+  font-size: 0.68rem;
+  opacity: 0.85;
+  margin-left: 1px;
+}
+
 .itemDesc {
   margin: 1px 0 1px 0.5rem;
   font-size: 0.8rem;

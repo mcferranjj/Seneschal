@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'rea
 import type { CreatureRecord } from './db/schema';
 import { searchCreatures, DEFAULT_FILTERS } from './search/search';
 import type { SearchFilters } from './search/search';
-import { runSync, getLastSynced, getCreatureCount } from './sync/sync';
+import { runSync, getLastSynced, getCreatureCount, resetDatabase } from './sync/sync';
 import { initTraitDescriptions } from './components/StatblockDrawer/statblockHelpers';
 import type { SyncProgress } from './sync/sync';
 import type { PF2ECreature } from './types/pf2e';
@@ -422,6 +422,16 @@ export default function App() {
     await refreshCount();
   }, [refreshCount]);
 
+  const handleResetDatabase = useCallback(async () => {
+    await resetDatabase();
+    setCreatureCount(0);
+    setResults([]);
+    setTotalCount(0);
+    setLastSynced(null);
+    // Kick off a fresh sync immediately
+    triggerSync().then(() => initTraitDescriptions()).catch(() => {});
+  }, [triggerSync]);
+
   const handleDeleteCreature = useCallback(async (id: string) => {
     await db.creatures.delete(id);
     setSelected(null);
@@ -482,6 +492,7 @@ export default function App() {
         historyCount={rollHistory.length}
         historyOpen={historyOpen}
         onToggleHistory={() => setHistoryOpen(o => !o)}
+        onResetDatabase={handleResetDatabase}
       />
       {historyOpen && (
         <RollHistory

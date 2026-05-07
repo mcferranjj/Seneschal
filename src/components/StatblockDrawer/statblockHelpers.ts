@@ -134,14 +134,34 @@ export function getActionCostLabel(item: PF2EItem): string {
   return '';
 }
 
+// Regex that matches a dice expression including any modifier: "9d6", "3d12+4", "2d6-1"
+const DICE_EXPR_RE = /^(\d+d\d+(?:[+-]\d+)?)/;
+
+// Parse the type label from a damage group bracket: "9d6+4[fire]" → "fire"
+function parseDamageType(group: string): string | null {
+  const m = group.match(/\d+d\d+(?:[+-]\d+)?\[([^\]|]+)/);
+  return m ? m[1] : null;
+}
+
 // Strip Foundry inline macros to plain readable text.
 // @Damage inner is e.g. "2d6[bludgeoning|options:area-damage]" — one nesting level deep.
 export function stripFoundryMacros(html: string): string {
   return html
-    // @Damage[formula[type|options]] — match up to two levels of brackets
-    .replace(/@Damage\[([^\[\]]*(?:\[[^\]]*\][^\[\]]*)*)\]/g, (_, inner) => {
-      // Formula is everything before the first nested '['
-      return inner.split('[')[0].trim();
+    // @Damage[9d6[fire],4d12[bludgeoning]|options:area-damage]{9d6 fire damage and 4d12 bludgeoning damage}
+    // Prefer the {label} when present — it's already human-readable.
+    // Fall back to parsing the inner groups if there's no label.
+    .replace(/@Damage\[([^\[\]]*(?:\[[^\]]*\][^\[\]]*)*)\](?:\{([^}]*)\})?/g, (_, inner, label) => {
+      if (label) return label;
+      // No label: parse comma-separated groups like "9d6+4[fire],4d12[bludgeoning]"
+      const withoutOptions = inner.replace(/\|[^[,].*$/, '');
+      const groups = withoutOptions.split(',');
+      return groups.map((group: string) => {
+        const exprMatch = group.trim().match(DICE_EXPR_RE);
+        const type = parseDamageType(group.trim());
+        if (exprMatch && type) return `${exprMatch[1]} ${type} damage`;
+        if (exprMatch) return `${exprMatch[1]} damage`;
+        return group.split('[')[0].trim();
+      }).filter(Boolean).join(' + ');
     })
     .replace(/@Check\[([^\[\]]*(?:\[[^\]]*\][^\[\]]*)*)\]/g, (_, inner) => {
       const dcMatch = inner.match(/dc:(\d+)/i);
@@ -151,11 +171,21 @@ export function stripFoundryMacros(html: string): string {
       if (typeMatch) return `${typeMatch[1]} check`;
       return 'check';
     })
+    // [[/gmr 1d4 #label]]{display text} → display text; [[/cmd]]{label} → label; [[/cmd]] → ''
+    .replace(/\[\[\/[^\]]+\]\]\{([^}]+)\}/g, '$1')
+    .replace(/\[\[\/[^\]]+\]\]/g, '')
     .replace(/@UUID\[Compendium\.[^\]]+\]\{([^}]+)\}/g, '$1')
     .replace(/@UUID\[Actor\.[^\]]+\]\{([^}]+)\}/g, '$1')
     .replace(/@UUID\[[^\]]+\.([^\].]+)\]/g, '$1')
     .replace(/@Localize\[[^\]]+\]/g, '')
-    .replace(/@Template\[[^\]]+\]/g, 'an area')
+    .replace(/@Template\[([^\]]+)\]/g, (_, inner) => {
+      const parts = inner.split('|');
+      const type = parts[0]?.trim() ?? 'area';
+      const distMatch = inner.match(/distance:(\d+)/i);
+      const dist = distMatch ? `${distMatch[1]}-foot` : null;
+      // "a 30-foot cone", "a 60-foot line", "a 20-foot burst", "a 15-foot emanation"
+      return dist ? `a ${dist} ${type}` : `a ${type}`;
+    })
     .replace(/@[A-Z][a-zA-Z]+\[[^\]]+\]/g, '');
 }
 
@@ -174,6 +204,160 @@ export function linkRolls(html: string): string {
     );
     return `>${linked}<`;
   });
+}
+
+/**
+ * Determine whether an action item is "limited use" (recharge, per-day, per-hour, etc.)
+ * vs at-will. At-will abilities get ±2 elite/weak damage; limited use get ±4.
+ *
+ * Rules:
+ *  - structured frequency field: limited if per > once-per-round
+ *    Foundry uses ISO 8601: PT1R = 1 round (at-will tier), anything longer = limited
+ *  - description text: look for recharge macros ([[/gmr ...]]) or
+ *    "can't use ... again", or explicit frequency language that is worse than once/round
+ */
+export function isLimitedUse(item: PF2EItem): boolean {
+  // 1. Check structured frequency field
+  const freq = item.system?.frequency;
+  if (freq) {
+    const per = freq.per ?? '';
+    // PT1R = per round → at-will tier (not limited)
+    // Anything else (PT1M, PT1H, P1D, PT1S, etc.) = limited use
+    const isPerRound = /^PT1R$/i.test(per);
+    if (!isPerRound) return true;
+  }
+
+  // 2. Check description text
+  const desc = item.system?.description?.value ?? '';
+
+  // Recharge mechanic: [[/gmr ...]] means the ability has a recharge time
+  if (/\[\[\/gmr\b/i.test(desc)) return true;
+
+  // "can't use X again for N rounds/minutes/hours/days"
+  if (/can['']t use .+ again/i.test(desc) || /cannot use .+ again/i.test(desc)) return true;
+
+  // Explicit frequency text — match "N times per X" or "once/twice per X"
+  // but exclude "once per round" (at-will tier)
+  const freqMatch = desc.match(
+    /\b(?:once|twice|\d+ times?)\s+per\s+(round|minute|hour|day|week|encounter|combat)/i
+  );
+  if (freqMatch) {
+    const period = freqMatch[1].toLowerCase();
+    if (period !== 'round') return true;
+  }
+
+  return false;
+}
+
+/**
+ * Apply elite/weak adjustments to a raw Foundry HTML description:
+ *  - Bumps the first @Damage macro's first group by `dmgMod` (±2 or ±4)
+ *  - Bumps all @Check dc: values by `dcMod` (always ±2)
+ *
+ * Returns modified raw HTML; call stripFoundryMacros on the result for display.
+ */
+export function applyEliteWeakToHtml(rawHtml: string, dmgMod: number, dcMod: number): string {
+  if (dmgMod === 0 && dcMod === 0) return rawHtml;
+
+  // ── 1. Adjust the first @Damage macro ────────────────────────────────────
+  let appliedDamageOnce = false;
+  let result = dmgMod === 0 ? rawHtml : rawHtml.replace(
+    /@Damage\[([^\[\]]*(?:\[[^\]]*\][^\[\]]*)*)\](?:\{([^}]*)\})?/g,
+    (fullMatch, inner, label) => {
+      if (appliedDamageOnce) return fullMatch;
+      appliedDamageOnce = true;
+
+      const optionsSuffix = inner.match(/\|[^[,].*$/)?.[0] ?? '';
+      const withoutOptions = inner.replace(/\|[^[,].*$/, '');
+      const groups = withoutOptions.split(',');
+
+      const firstGroup = groups[0].trim();
+      const exprMatch = firstGroup.match(DICE_EXPR_RE);
+      if (!exprMatch) return fullMatch;
+
+      // Compute new dice expression, merging with any existing modifier
+      const diceMatch = exprMatch[1].match(/^(\d+d\d+)([+-]\d+)?$/);
+      let newExpr: string;
+      if (diceMatch) {
+        const dice = diceMatch[1];
+        const existingMod = diceMatch[2] ? parseInt(diceMatch[2]) : 0;
+        const totalMod = existingMod + dmgMod;
+        newExpr = totalMod === 0 ? dice : `${dice}${totalMod > 0 ? `+${totalMod}` : totalMod}`;
+      } else {
+        newExpr = `${exprMatch[1]}${dmgMod > 0 ? `+${dmgMod}` : dmgMod}`;
+      }
+
+      // Rebuild group: preserve everything after the dice expr (the "[fire]" bracket)
+      const typeAndRest = firstGroup.slice(exprMatch[0].length);
+      const newInner = [newExpr + typeAndRest, ...groups.slice(1)].join(',') + optionsSuffix;
+
+      // Update the display label if present — replace dice expr in the first damage phrase
+      let newLabel = label as string | undefined;
+      if (label) {
+        // Split preserving separators so we only touch the first phrase
+        const labelParts = label.split(/(\s+and\s+|\s+plus\s+)/i);
+        labelParts[0] = (labelParts[0] as string).replace(DICE_EXPR_RE, newExpr);
+        newLabel = labelParts.join('');
+      }
+
+      return `@Damage[${newInner}]${newLabel != null ? `{${newLabel}}` : ''}`;
+    }
+  );
+
+  // ── 2. Adjust all @Check dc: values by dcMod (±2) ───────────────────────
+  if (dcMod !== 0) result = result.replace(
+    /(@Check\[[^\]]*\bdc:)(\d+)(\b[^\]]*\])/g,
+    (_, pre, dc, post) => `${pre}${parseInt(dc) + dcMod}${post}`
+  );
+
+  return result;
+}
+
+export interface DamageGroup {
+  expr: string;   // e.g. "9d6"
+  label: string;  // e.g. "9d6 fire damage"
+}
+
+/**
+ * Extract all @Damage macros from a raw Foundry HTML description and return
+ * them as { expr, label } pairs suitable for the multi-damage roller.
+ * Uses the {display label} when present; falls back to parsing inner groups.
+ */
+export function extractDamageGroups(rawHtml: string): DamageGroup[] {
+  const groups: DamageGroup[] = [];
+  const re = /@Damage\[([^\[\]]*(?:\[[^\]]*\][^\[\]]*)*)\](?:\{([^}]*)\})?/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(rawHtml)) !== null) {
+    const inner = m[1];
+    const labelText = m[2]; // may be undefined
+
+    // Strip top-level |options:... suffix
+    const withoutOptions = inner.replace(/\|[^[,].*$/, '');
+    // Comma-separated damage groups e.g. "9d6+4[fire],4d12[bludgeoning]"
+    const parts = withoutOptions.split(',');
+
+    parts.forEach((part, i) => {
+      const trimmed = part.trim();
+      const exprMatch = trimmed.match(DICE_EXPR_RE);
+      if (!exprMatch) return;
+      const expr = exprMatch[1];
+
+      // Determine label for this individual group
+      let label: string;
+      if (labelText && parts.length === 1) {
+        label = labelText;
+      } else if (labelText && parts.length > 1) {
+        const labelParts = labelText.split(/\s+and\s+|\s+plus\s+/i);
+        label = labelParts[i]?.trim() ?? labelText;
+      } else {
+        const type = parseDamageType(trimmed);
+        label = type ? `${expr} ${type} damage` : `${expr} damage`;
+      }
+
+      groups.push({ expr, label });
+    });
+  }
+  return groups;
 }
 
 // Runtime keyword map — populated from the DB after sync.

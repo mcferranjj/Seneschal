@@ -4,7 +4,8 @@ import type { PF2ECreature, PF2EItem } from '../../types/pf2e';
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import type { Condition } from '../../types/encounter';
 import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
-import { DiceRoller, DamageRoller } from '../DiceRoller/DiceRoller';
+import { DiceRoller, DamageRoller, MultiDamageRoller } from '../DiceRoller/DiceRoller';
+import type { DamageGroupInput } from '../DiceRoller/DiceRoller';
 import { CustomCreatureWizard } from '../CustomCreatureWizard/CustomCreatureWizard';
 import {
   getLevel,
@@ -22,7 +23,11 @@ import {
   stripFoundryMacros,
   linkKeywords,
   linkRolls,
+  extractDamageGroups,
+  isLimitedUse,
+  applyEliteWeakToHtml,
 } from './statblockHelpers';
+import type { DamageGroup } from './statblockHelpers';
 import { getRecallKnowledge, eliteWeakHpDelta, eliteWeakLevel } from '../EncounterManager/EncounterManager';
 
 function processHtml(raw: string): string {
@@ -172,6 +177,10 @@ function StatblockContent({
     expr: string; label?: string; traits?: string[];
     x: number; y: number;
   } | null>(null);
+  const [multiDamageRoll, setMultiDamageRoll] = useState<{
+    groups: DamageGroupInput[]; abilityName: string;
+    x: number; y: number;
+  } | null>(null);
 
   const roll = useCallback((mod: number | undefined, label: string, e: React.MouseEvent) => {
     if (mod == null) return;
@@ -179,6 +188,7 @@ function StatblockContent({
     const expr = `1d20${mod >= 0 ? `+${mod}` : mod}`;
     setDiceRoll({ expr, label, x: e.clientX, y: e.clientY - 160 });
     setDamageRoll(null);
+    setMultiDamageRoll(null);
   }, []);
 
   const rollAttack = useCallback((
@@ -190,12 +200,21 @@ function StatblockContent({
     const expr = `1d20${mod >= 0 ? `+${mod}` : mod}`;
     setDiceRoll({ expr, label, damageExpr, damageLabel, damageTraits, x: e.clientX, y: e.clientY - 160 });
     setDamageRoll(null);
+    setMultiDamageRoll(null);
   }, []);
 
   const rollDamage = useCallback((expr: string, label: string, traits: string[], e: React.MouseEvent) => {
     e.stopPropagation();
     setDamageRoll({ expr, label, traits, x: e.clientX, y: e.clientY - 160 });
     setDiceRoll(null);
+    setMultiDamageRoll(null);
+  }, []);
+
+  const rollAllDamage = useCallback((groups: DamageGroup[], abilityName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMultiDamageRoll({ groups, abilityName, x: e.clientX, y: e.clientY - 160 });
+    setDiceRoll(null);
+    setDamageRoll(null);
   }, []);
 
   const handleBodyClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -539,10 +558,10 @@ function StatblockContent({
         })()}
 
         {passives.map(item => (
-          <ItemBlock key={item._id} item={item} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} />
         ))}
         {reactions.map(item => (
-          <ItemBlock key={item._id} item={item} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} />
         ))}
 
         <hr className={styles.divider} />
@@ -625,10 +644,18 @@ function StatblockContent({
         })}
 
         {offenseActions.map(item => (
-          <ItemBlock key={item._id} item={item} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} />
         ))}
 
         {/* Custom creature abilities */}
+        {creature.packSource === 'custom' && activeEliteWeak && (
+          <p className={styles.eliteWeakAbilityNote} style={ewMod > 0 ? { color: '#8a6a18' } : { color: '#2a5a8a' }}>
+            {activeEliteWeak === 'elite' ? '★ Elite' : '▽ Weak'}{': '}
+            ability DCs {ewMod > 0 ? 'increase' : 'decrease'} by 2.
+            At-will abilities deal {ewMod > 0 ? '+2' : '−2'} damage;
+            limited-use abilities (recharge, per-day, etc.) deal {ewMod > 0 ? '+4' : '−4'} damage.
+          </p>
+        )}
         {creature.packSource === 'custom' && (creature.customData?.abilities ?? []).map((ab, i) => {
           const actionSymbols: Record<string, string> = {
             single: ' ◆', two: ' ◆◆', three: ' ◆◆◆', reaction: ' ↺', free: ' ◇', passive: '',
@@ -716,6 +743,16 @@ function StatblockContent({
           anchorX={damageRoll.x}
           anchorY={damageRoll.y}
           onClose={() => setDamageRoll(null)}
+          onRoll={onRoll}
+        />
+      )}
+      {multiDamageRoll && (
+        <MultiDamageRoller
+          groups={multiDamageRoll.groups}
+          abilityName={multiDamageRoll.abilityName}
+          anchorX={multiDamageRoll.x}
+          anchorY={multiDamageRoll.y}
+          onClose={() => setMultiDamageRoll(null)}
           onRoll={onRoll}
         />
       )}
@@ -867,12 +904,33 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
   );
 }
 
-function ItemBlock({ item }: { item: PF2EItem }) {
+function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle }: {
+  item: PF2EItem;
+  onRollAll?: (groups: DamageGroup[], abilityName: string, e: React.MouseEvent) => void;
+  ewMod?: number;
+  ewStyle?: React.CSSProperties;
+}) {
   const symbol = actionSymbol(item);
-  const desc = item.system?.description?.value ?? '';
+  const rawDesc = item.system?.description?.value ?? '';
   const traits = item.system?.traits?.value ?? [];
   const trigger = item.system?.trigger?.value;
   const traitStr = traits.length > 0 ? `(${traits.join(', ')})` : '';
+
+  // Determine elite/weak damage modifier for this ability
+  const limited = isLimitedUse(item);
+  const dmgMod = ewMod !== 0
+    ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2))
+    : 0;
+
+  // DC adjustment is always ±2; damage mod is ±2 (at-will) or ±4 (limited)
+  const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
+  const adjustedDesc = (dmgMod !== 0 || dcMod !== 0)
+    ? applyEliteWeakToHtml(rawDesc, dmgMod, dcMod)
+    : rawDesc;
+
+  // Extract damage groups from the (adjusted) raw description
+  const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];
+  const hasDamage = damageGroups.length > 0 && onRollAll != null;
 
   return (
     <div className={styles.itemBlock}>
@@ -887,11 +945,20 @@ function ItemBlock({ item }: { item: PF2EItem }) {
           </>
         )}
       </p>
-      {desc && (
+      {adjustedDesc && (
         <div
           className={styles.itemDesc}
-          dangerouslySetInnerHTML={{ __html: processHtml(desc) }}
+          dangerouslySetInnerHTML={{ __html: processHtml(adjustedDesc) }}
         />
+      )}
+      {hasDamage && (
+        <button
+          className={styles.rollAllDmgBtn}
+          style={dmgMod !== 0 ? { borderColor: ewStyle?.color, color: ewStyle?.color } : undefined}
+          onClick={e => onRollAll!(damageGroups, item.name, e)}
+        >
+          🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
+        </button>
       )}
     </div>
   );

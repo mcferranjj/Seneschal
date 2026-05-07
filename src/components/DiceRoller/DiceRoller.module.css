@@ -248,6 +248,48 @@
   opacity: 0.9;
 }
 
+/* ── Multi-damage roller groups ── */
+.multiGroup {
+  width: 100%;
+  padding: 6px 0 4px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.multiGroup:first-of-type {
+  border-top: none;
+  padding-top: 2px;
+}
+
+.multiGroupLabel {
+  width: 100%;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.multiGroupExpr {
+  width: 100%;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-mute);
+  font-weight: 600;
+  margin-bottom: 1px;
+}
+
+.multiGroupTotal {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 0 1px;
+}
+
 /* ── Crit banner shown in damage header when crit is active ── */
 .critBanner {
   display: flex;

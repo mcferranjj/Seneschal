@@ -412,6 +412,189 @@ export function DiceRoller({
   );
 }
 
+// ─── Multi-damage roller (ability "Roll all damage" button) ──────────────────
+
+export interface DamageGroupInput {
+  expr: string;
+  label: string;
+}
+
+interface MultiDamageRollerProps {
+  groups: DamageGroupInput[];
+  abilityName: string;
+  anchorX: number;
+  anchorY: number;
+  onClose: () => void;
+  onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
+}
+
+interface GroupResult {
+  parsed: ParsedDice;
+  normal: RollResult | null;
+  crit: CritResult | null;
+  animKey: number;
+}
+
+export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClose, onRoll }: MultiDamageRollerProps) {
+  const parsedGroups = groups.map(g => ({ ...g, parsed: parseDice(g.expr) })).filter(g => g.parsed != null) as (DamageGroupInput & { parsed: ParsedDice })[];
+
+  const [results, setResults] = useState<GroupResult[]>(() =>
+    parsedGroups.map(g => ({ parsed: g.parsed, normal: null, crit: null, animKey: 0 }))
+  );
+  const [isCrit, setIsCrit] = useState(false);
+  const [clampedY, setClampedY] = useState(anchorY);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startMouseX: number; startMouseY: number; startPanelX: number; startPanelY: number } | null>(null);
+  const onRollRef = useRef(onRoll);
+  onRollRef.current = onRoll;
+
+  const rollAll = useCallback((asCrit: boolean) => {
+    setIsCrit(asCrit);
+    setResults(prev => prev.map((gr, i) => {
+      const g = parsedGroups[i];
+      if (asCrit) {
+        const cr = rollCrit(gr.parsed, []);
+        onRollRef.current?.({
+          expression: `CRIT ${gr.parsed.raw}`,
+          label: `${g.label} (Crit)`,
+          rolls: [...cr.baseDice, ...cr.extraDice],
+          modifier: cr.baseModifier,
+          total: cr.grandTotal,
+          timestamp: Date.now(),
+        });
+        return { ...gr, crit: cr, normal: null, animKey: gr.animKey + 1 };
+      } else {
+        const r = rollDice(gr.parsed);
+        onRollRef.current?.({
+          expression: gr.parsed.raw,
+          label: g.label,
+          rolls: r.rolls,
+          modifier: r.modifier,
+          total: r.total,
+          timestamp: Date.now(),
+        });
+        return { ...gr, normal: r, crit: null, animKey: gr.animKey + 1 };
+      }
+    }));
+  }, [parsedGroups]);
+
+  // Roll on mount
+  useEffect(() => { rollAll(false); }, []); // eslint-disable-line
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'r' || e.key === 'R') rollAll(isCrit);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [rollAll, isCrit, onClose]);
+
+  useEffect(() => {
+    function onPointerDown(e: PointerEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, [onClose]);
+
+  const onDragHandlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (!ref.current) return;
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const rect = ref.current.getBoundingClientRect();
+    dragRef.current = { startMouseX: e.clientX, startMouseY: e.clientY, startPanelX: rect.left, startPanelY: rect.top };
+  }, []);
+
+  const onDragPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    setPos({ x: dragRef.current.startPanelX + (e.clientX - dragRef.current.startMouseX), y: dragRef.current.startPanelY + (e.clientY - dragRef.current.startMouseY) });
+  }, []);
+
+  const onDragPointerUp = useCallback(() => { dragRef.current = null; }, []);
+
+  useEffect(() => {
+    if (pos) return;
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const overflow = rect.bottom - window.innerHeight + 8;
+    if (overflow > 0) setClampedY(y => y - overflow);
+  });
+
+  if (parsedGroups.length === 0) return null;
+
+  const panelLeft = pos ? pos.x : anchorX;
+  const panelTop  = pos ? pos.y : clampedY;
+
+  return (
+    <div
+      ref={ref}
+      className={styles.roller}
+      style={{ left: panelLeft, top: panelTop, transform: pos ? 'none' : 'translateX(-50%)', width: 220 }}
+      onPointerMove={onDragPointerMove}
+      onPointerUp={onDragPointerUp}
+    >
+      <div className={`${styles.header} ${styles.rollerDragHandle}`} onPointerDown={onDragHandlePointerDown}>
+        <div className={styles.headerLeft}>
+          <span className={styles.label}>{abilityName}</span>
+          {isCrit && <span className={styles.critBanner}>✦ Critical Hit</span>}
+        </div>
+        <button className={styles.closeBtn} onClick={onClose} aria-label="Close">✕</button>
+      </div>
+
+      {parsedGroups.map((g, i) => {
+        const gr = results[i];
+        if (!gr) return null;
+        const res = gr.crit ?? gr.normal;
+        const total = gr.crit ? gr.crit.grandTotal : gr.normal?.total ?? null;
+        return (
+          <div key={i} className={styles.multiGroup}>
+            <div className={styles.multiGroupLabel}>{g.label}</div>
+            <div className={styles.multiGroupExpr}>{g.parsed.raw}</div>
+            {total != null && (
+              <>
+                <div
+                  key={gr.animKey}
+                  className={`${styles.multiGroupTotal} ${isCrit ? styles.totalCrit : styles.totalNormal} ${styles.totalDmgAnimated}`}
+                >
+                  {total}
+                </div>
+                <div className={styles.breakdown}>
+                  {gr.crit ? (
+                    <>
+                      [{gr.crit.baseDice.join(', ')}]
+                      {gr.crit.baseModifier !== 0 ? ` ${gr.crit.baseModifier >= 0 ? '+' : ''}${gr.crit.baseModifier}` : ''}
+                      {' '}× 2 = {gr.crit.doubledTotal}
+                    </>
+                  ) : res && 'rolls' in res ? (
+                    <>
+                      [{(res as RollResult).rolls.join(', ')}]
+                      {(res as RollResult).modifier !== 0 ? ` ${(res as RollResult).modifier >= 0 ? '+' : ''}${(res as RollResult).modifier}` : ''}
+                    </>
+                  ) : null}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
+
+      <div className={styles.damageActions}>
+        <button className={styles.rerollBtn} onClick={() => rollAll(isCrit)}>
+          ↺ Reroll <span className={styles.hint}>(R)</span>
+        </button>
+        <button
+          className={`${styles.critBtn} ${isCrit ? styles.critBtnActive : ''}`}
+          onClick={() => rollAll(!isCrit)}
+        >
+          ✦ Crit
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Standalone damage-only roller (used from combat tracker / direct damage clicks) ──
 
 interface DamageRollerProps {
