@@ -12,7 +12,9 @@ interface ResultsListProps {
   syncing: boolean;
   creatureCount: number;
   sortBy: 'name' | 'level';
+  sortDir: 'asc' | 'desc';
   onSortChange: (sort: 'name' | 'level') => void;
+  onSortDirChange: (dir: 'asc' | 'desc') => void;
   filtersOpen: boolean;
   onToggleFilters: () => void;
   onOpenWizard: () => void;
@@ -28,7 +30,9 @@ export function ResultsList({
   syncing,
   creatureCount,
   sortBy,
+  sortDir,
   onSortChange,
+  onSortDirChange,
   filtersOpen,
   onToggleFilters,
   onOpenWizard,
@@ -49,17 +53,31 @@ export function ResultsList({
       <div className={styles.sortGroup}>
         <button
           className={`${styles.sortBtn} ${sortBy === 'level' ? styles.sortBtnActive : ''}`}
-          onClick={() => onSortChange('level')}
+          onClick={() => {
+            if (sortBy === 'level') {
+              onSortDirChange(sortDir === 'asc' ? 'desc' : 'asc');
+            } else {
+              onSortChange('level');
+            }
+          }}
           aria-pressed={sortBy === 'level'}
         >
-          Lvl
+          {sortBy === 'level' ? `Lvl ${sortDir === 'asc' ? '↑' : '↓'}` : 'Lvl'}
+
         </button>
         <button
           className={`${styles.sortBtn} ${sortBy === 'name' ? styles.sortBtnActive : ''}`}
-          onClick={() => onSortChange('name')}
+          onClick={() => {
+            if (sortBy === 'name') {
+              onSortDirChange(sortDir === 'asc' ? 'desc' : 'asc');
+            } else {
+              onSortChange('name');
+            }
+          }}
           aria-pressed={sortBy === 'name'}
         >
-          Name
+          {sortBy === 'name' ? `name ${sortDir === 'asc' ? '↑' : '↓'}` : 'name'}
+
         </button>
       </div>
     </div>
