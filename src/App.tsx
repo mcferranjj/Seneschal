@@ -433,7 +433,9 @@ export default function App() {
                 syncing={isSyncing}
                 creatureCount={creatureCount}
                 sortBy={filters.sortBy}
+                sortDir={filters.sortDir}
                 onSortChange={s => setFilters(f => ({ ...f, sortBy: s }))}
+                onSortDirChange={s => setFilters(f => ({ ...f, sortDir: s }))}
                 filtersOpen={filtersOpen}
                 onToggleFilters={() => setFiltersOpen(o => !o)}
                 onOpenWizard={openWizard}

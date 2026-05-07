@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { CreatureRecord } from '../../db/schema';
 import type { PF2ECreature, PF2EItem } from '../../types/pf2e';
 import type { RollHistoryEntry } from '../../types/diceHistory';
@@ -138,6 +138,25 @@ export function StatblockDrawer({
   );
 }
 
+// submit str: name and str: type, returns most likely URL
+// URL will always be remaster content because aon returns it at higher priority
+// if legacy content is wanted, will need to rework this
+async function GetAONURL (search: {name: string, type: string}) {
+  try {
+    const response = await fetch ('https://elasticsearch.aonprd.com/aon/_search', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: `{"query":{"bool":{"must":[{"match_phrase":{"name":"${search.name.toLowerCase()}"}},{"term":{"type":"${search.type}"}}]}},"_source":["name","url","id","type"],"size":3}`
+      });
+    const data = await response.json();
+    const url = data.hits.hits[0]._source.url;
+    return url;
+  }
+  catch (error) {
+    console.error("err - GetAONURL - Error making POST request:", error);
+  }
+}
+
 function StatblockContent({
   creature,
   onClose,
@@ -215,6 +234,17 @@ function StatblockContent({
     ...traits,
   ];
 
+  // Get URL
+  // Only works for hazards and creatures right now. If needs to expand, needs to become a switch.
+  const aonType = creature.entityType === 'hazard' ? 'Hazard' : 'Creature';
+  const [aonURL, setAonURL] = useState<string | null>(null);
+  useEffect(() => {
+    GetAONURL({ name: c.name, type: aonType }).then(url => {
+      console.log('GetAONURL result:', url);
+      if (url) setAonURL('https://2e.aonprd.com' + url);
+    });
+  }, [c.name, c.type]);
+
   const ac = c.system?.attributes?.ac?.value ?? '—';
   const acDetail = c.system?.attributes?.ac?.details;
   const hp = c.system?.attributes?.hp?.max ?? '—';
@@ -271,12 +301,7 @@ function StatblockContent({
           {creature.packSource !== 'custom' && (
             <a
               className={styles.aonLink}
-              href={(() => {
-                if (creature.entityType === 'hazard') {
-                  return `https://2e.aonprd.com/Hazards.aspx?Name=${encodeURIComponent(c.name)}`;
-                }
-                return `https://2e.aonprd.com/Monsters.aspx?Name=${encodeURIComponent(c.name)}`;
-              })()}
+              href={aonURL}
               target="_blank"
               rel="noreferrer"
               title="View on Archives of Nethys"
