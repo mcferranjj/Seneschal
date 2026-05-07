@@ -9,6 +9,7 @@ import type { PF2ECreature } from './types/pf2e';
 import type { Section, Encounter, EncounterCreature, Condition } from './types/encounter';
 import type { RollHistoryEntry } from './types/diceHistory';
 import { db, loadEncounterState, saveEncounterState } from './db/db';
+import { importCreatureAsCustom } from './utils/importCreature';
 import { TopBar } from './components/TopBar/TopBar';
 import { SearchPanel } from './components/SearchPanel/SearchPanel';
 import { ResultsList } from './components/ResultsList/ResultsList';
@@ -400,6 +401,13 @@ export default function App() {
     // This hook exists so future expansion can open a custom creature view.
   }, []);
 
+  const handleCopyCreature = useCallback((creature: import('./db/schema').CreatureRecord) => {
+    const draft = importCreatureAsCustom(creature);
+    setWizardEditCreature(draft);
+    setSelected(null);
+    setWizardOpen(true);
+  }, []);
+
   const openWizard = useCallback(() => {
     setSelected(null);
     setWizardEditCreature(undefined);
@@ -595,6 +603,7 @@ export default function App() {
                 onDeleteCreature={handleDeleteCreature}
                 onEditCreature={openEditWizard}
                 onRoll={addRollEntry}
+                onCopyAsCustom={handleCopyCreature}
                 activeConditions={
                   selected && selectedEncounterUid
                     ? (encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.conditions ?? [])

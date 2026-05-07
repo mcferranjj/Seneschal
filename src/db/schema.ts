@@ -1,5 +1,5 @@
 import type { PF2ECreature } from '../types/pf2e';
-import type { CustomAttack, CustomAbility, CustomSpeed, CustomSense, CustomImmunity, CustomResistance } from '../types/encounter';
+import type { CustomAttack, CustomAbility, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, CustomSpellcastingEntry, CustomSkill } from '../types/encounter';
 
 export interface CreatureRecord {
   id: string;
@@ -22,6 +22,10 @@ export interface CreatureRecord {
     immunities?: CustomImmunity[];
     resistances?: CustomResistance[];
     weaknesses?: CustomResistance[];
+    spellcasting?: CustomSpellcastingEntry[];
+    skills?: CustomSkill[];
+    languages?: string[];
+    allSavesNote?: string;
   };
 }
 

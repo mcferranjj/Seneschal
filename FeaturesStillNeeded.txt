@@ -1,5 +1,4 @@
 Encounters:
-    - have a way to use a creature as a base to make your own custom version of it 
     - add custom level scaling options (use the creature builder rules: find what column a given stat is closest to (T/L/M/H/E) plus its offset from that stat, then scale it up to that same column at the desired level, then apply the same offset that was calculated)
 
     - add custom hazard creation, adding to the custom creature wizard

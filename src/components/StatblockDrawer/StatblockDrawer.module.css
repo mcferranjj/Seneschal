@@ -84,6 +84,7 @@
 .content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -183,6 +184,28 @@
 }
 
 .editBtn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255,255,255,0.6);
+  color: #fff;
+}
+
+.copyBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.copyBtn:hover {
   background: rgba(255, 255, 255, 0.28);
   border-color: rgba(255,255,255,0.6);
   color: #fff;
@@ -363,6 +386,83 @@
   font-size: 0.68rem;
   opacity: 0.85;
   margin-left: 1px;
+}
+
+.spellGroupLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-mute);
+  margin: 5px 0 1px 0.3rem;
+}
+
+/* Compact inline spellcasting line */
+.spellcastingLine {
+  margin: 5px 0;
+  line-height: 1.6;
+  font-size: 0.82rem;
+}
+
+/* Clickable spell name in inline list */
+.spellNameWrap {
+  display: inline;
+}
+
+.spellNameLink {
+  cursor: pointer;
+  color: var(--crimson);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  font-style: italic;
+}
+
+.spellNameLink:hover {
+  color: var(--crimson);
+  text-decoration-style: solid;
+}
+
+/* Spell detail popup — position:fixed applied inline, coordinates clamped to viewport */
+.spellPopup {
+  z-index: 200;
+  width: 320px;
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  padding: 8px 10px 10px;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.spellPopupHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+
+.spellPopupClose {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-mute);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.spellPopupClose:hover {
+  background: rgba(0,0,0,0.08);
+  color: var(--text);
 }
 
 .itemDesc {
