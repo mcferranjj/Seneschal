@@ -13,6 +13,6 @@
 
     - fix the build error (seems to be referencing removed tests)
 
-    - move the git references to point at my own fork of the foundry repo (don't want the risk of the foundry repo getting killed and nuking my app)
-    - fix spellcasting showing up in wrong place on non-custom creatures
+    - move the git references to point at my own fork of the foundry repo (don't want the risk of the foundry repo getting killed and nuking my app
+        - https://github.com/mcferranjj/pf2e-for-seneschal
     - consolidate custom creature and official creature storage formats, and consolidate their display

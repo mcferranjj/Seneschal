@@ -30,6 +30,7 @@ import {
 } from './statblockHelpers';
 import type { DamageGroup } from './statblockHelpers';
 import { getRecallKnowledge, eliteWeakHpDelta, eliteWeakLevel } from '../EncounterManager/EncounterManager';
+import { importSpellcasting } from '../../utils/importCreature';
 
 function processHtml(raw: string): string {
   return linkRolls(linkKeywords(stripFoundryMacros(raw)));
@@ -317,7 +318,12 @@ function StatblockContent({
   const offenseActions = allActions.filter(i => i.system?.actionType?.value !== 'reaction');
   const passives = getPassives(c);
 
-  const hasSpellcasting = c.items.some(i => i.type === 'spellcastingEntry');
+  // Unified spellcasting: for official creatures, convert items → CustomSpellcastingEntry[]
+  // so both official and custom creatures use the same SpellcastingBlock component.
+  const spellcastingEntries: CustomSpellcastingEntry[] = creature.packSource === 'custom'
+    ? (creature.customData?.spellcasting ?? [])
+    : importSpellcasting(creature);
+  const hasSpellcasting = spellcastingEntries.length > 0;
   const publicNotes = c.system?.details?.publicNotes ?? '';
   const publication = c.system?.details?.publication?.title;
 
@@ -710,30 +716,20 @@ function StatblockContent({
           );
         })}
 
+        {/* Spellcasting — rendered the same way for both official and custom creatures */}
+        {spellcastingEntries.map((entry, ei) => (
+          <SpellcastingBlock
+            key={entry.id ?? ei}
+            entry={entry}
+            ewMod={ewMod}
+            ewStyle={ewStyle}
+            onRollAll={rollAllDamage}
+          />
+        ))}
+
         {offenseActions.map(item => (
           <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} />
         ))}
-
-        {/* Spellcasting — official creatures read from items; custom from customData */}
-        {creature.packSource === 'custom'
-          ? (creature.customData?.spellcasting ?? []).map((entry, ei) => (
-              <SpellcastingBlock
-                key={entry.id ?? ei}
-                entry={entry}
-                ewMod={ewMod}
-                ewStyle={ewStyle}
-                onRollAll={rollAllDamage}
-              />
-            ))
-          : (
-              <OfficialSpellcastingBlock
-                items={c.items as Array<{ type: string; _id: string; name: string; system: Record<string, unknown> }>}
-                ewMod={ewMod}
-                ewStyle={ewStyle}
-                onRollAll={rollAllDamage}
-              />
-            )
-        }
 
         {/* Elite/Weak ability note — shown for all creature types */}
         {activeEliteWeak && (
@@ -1302,124 +1298,3 @@ function SpellcastingBlock({ entry, ewMod = 0, ewStyle, onRollAll }: {
   );
 }
 
-// Official spellcasting block — reads from PF2EItem list
-function OfficialSpellcastingBlock({ items, ewMod = 0, ewStyle, onRollAll }: {
-  items: Array<{ type: string; _id: string; name: string; system: Record<string, unknown> }>;
-  ewMod?: number;
-  ewStyle?: React.CSSProperties;
-  onRollAll?: (groups: DamageGroup[], name: string, e: React.MouseEvent) => void;
-}) {
-  const entries = items.filter(i => i.type === 'spellcastingEntry');
-  if (entries.length === 0) return null;
-
-  const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
-
-  return (
-    <>
-      {entries.map(entry => {
-        const sys = entry.system;
-        const spelldc = sys['spelldc'] as { dc?: number; value?: number } | undefined;
-        const dc = (spelldc?.dc ?? 15) + dcMod;
-        const atkMod = (spelldc?.value ?? 7) + ewMod;
-        const tradition = ((sys['tradition'] as { value?: string } | undefined)?.value ?? '');
-        const prepared = ((sys['prepared'] as { value?: string } | undefined)?.value ?? '');
-        const traditionLabel = tradition.charAt(0).toUpperCase() + tradition.slice(1);
-        const typeLabel = prepared === 'spontaneous' ? 'Spontaneous'
-          : prepared === 'innate' ? 'Innate'
-          : 'Prepared';
-
-        const entrySpells = items.filter(
-          i => i.type === 'spell' &&
-            (i.system['location'] as { value?: string } | undefined)?.value === entry._id
-        );
-
-        // Group spells
-        type SpellGroup = { label: string; spells: typeof entrySpells; sortKey: number };
-        const groups: SpellGroup[] = [];
-
-        if (prepared === 'innate') {
-          const byFreq: Record<string, typeof entrySpells> = {};
-          for (const sp of entrySpells) {
-            const rank = (sp.system['level'] as { value?: number } | undefined)?.value ?? 0;
-            const usesMax = (sp.system['location'] as { uses?: { max?: number } } | undefined)?.uses?.max;
-            let key = 'at-will';
-            if (rank === 0) key = 'cantrip';
-            else if (usesMax === 3) key = '3/day';
-            else if (usesMax === 2) key = '2/day';
-            else if (usesMax === 1) key = '1/day';
-            const descLower = ((sp.system['description'] as { value?: string } | undefined)?.value ?? '').toLowerCase();
-            if (key === 'at-will' && /constant/i.test(descLower)) key = 'constant';
-            if (!byFreq[key]) byFreq[key] = [];
-            byFreq[key].push(sp);
-          }
-          const ORDER: Array<[string, string, number]> = [
-            ['constant', 'Constant', 0],
-            ['at-will', 'At Will', 1],
-            ['cantrip', 'Cantrips (At Will)', 2],
-            ['3/day', '3/Day', 3],
-            ['2/day', '2/Day', 4],
-            ['1/day', '1/Day', 5],
-          ];
-          for (const [key, label, sortKey] of ORDER) {
-            if (byFreq[key]?.length) groups.push({ label, spells: byFreq[key], sortKey });
-          }
-        } else {
-          const byRank: Record<number, typeof entrySpells> = {};
-          for (const sp of entrySpells) {
-            const rank = (sp.system['level'] as { value?: number } | undefined)?.value ?? 0;
-            if (!byRank[rank]) byRank[rank] = [];
-            byRank[rank].push(sp);
-          }
-          const maxRank = Object.keys(byRank).map(Number).filter(r => r > 0).reduce((m, r) => Math.max(m, r), 1);
-          const ranks = Object.keys(byRank).map(Number).sort((a, b) => {
-            if (a === 0) return 1; if (b === 0) return -1; return b - a;
-          });
-          for (const rank of ranks) {
-            const label = rank === 0
-              ? `Cantrips (${SPELL_ORDINALS[maxRank]})`
-              : (SPELL_ORDINALS[rank] ?? `Rank ${rank}`);
-            groups.push({ label, spells: byRank[rank], sortKey: rank === 0 ? -1 : rank });
-          }
-        }
-
-        if (groups.length === 0) return null;
-
-        return (
-          <p key={entry._id} className={styles.spellcastingLine}>
-            <strong>{traditionLabel} {typeLabel} Spells</strong>
-            {' '}
-            <strong>DC</strong>{' '}
-            <span style={ewMod !== 0 ? ewStyle : undefined}>{dc}</span>
-            {atkMod !== 0 && (
-              <>, <strong>attack</strong>{' '}
-                <span style={ewMod !== 0 ? ewStyle : undefined}>{formatMod(atkMod)}</span>
-              </>
-            )}
-            {'; '}
-            {groups.map((grp, gi) => (
-              <span key={grp.label}>
-                {gi > 0 && '; '}
-                <strong>{grp.label}</strong>{' '}
-                {grp.spells.map((sp, si) => {
-                  const desc = (sp.system['description'] as { value?: string } | undefined)?.value ?? '';
-                  const traits = (sp.system['traits'] as { value?: string[] } | undefined)?.value ?? [];
-                  return (
-                    <span key={sp._id + si}>
-                      {si > 0 && ', '}
-                      <SpellNameLink
-                        spell={{ name: sp.name, description: desc, traits }}
-                        ewMod={ewMod}
-                        ewStyle={ewStyle}
-                        onRollAll={onRollAll}
-                      />
-                    </span>
-                  );
-                })}
-              </span>
-            ))}
-          </p>
-        );
-      })}
-    </>
-  );
-}
