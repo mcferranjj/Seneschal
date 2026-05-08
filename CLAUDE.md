@@ -1,6 +1,6 @@
 # Seneschal — PF2E GM Assistant
 
-Personal GM assistant web app for Pathfinder 2E. Searchable monster/NPC/hazard database synced from the official `foundryvtt/pf2e` GitHub repo, with encounter management, party tracking, rules reference, and in-app dice rolling.
+Personal GM assistant web app for Pathfinder 2E. Searchable monster/NPC/hazard database synced from the `mcferranjj/pf2e-for-seneschal` GitHub repo, with encounter management, party tracking, rules reference, and in-app dice rolling.
 
 ## Stack
 
@@ -21,7 +21,7 @@ npm run build      # production build
 ## Key Discoveries (verified against live data)
 
 ### PF2E repo default branch is `v14-dev`, not `master`
-The `foundryvtt/pf2e` repo's default branch is `v14-dev`. The sync engine avoids hardcoding branch names by using the `download_url` field from GitHub API directory listing responses — this always points to the correct branch automatically.
+The `mcferranjj/pf2e-for-seneschal` repo's default branch is `v14-dev`. The sync engine avoids hardcoding branch names by using the `download_url` field from GitHub API directory listing responses — this always points to the correct branch automatically.
 
 ### Creature JSON schema (confirmed field shapes)
 These differ from what you might assume from documentation:
@@ -59,8 +59,8 @@ All creature abilities, attacks, and actions live in `creature.items[]`. Key `ty
 
 ### GitHub API rate limit — only 3 calls needed per sync
 Unauthenticated limit: **60 requests/hour**. The listing phase uses the Git Trees API — 2 API calls get every file path and SHA under `packs/pf2e` at once:
-1. `GET /repos/foundryvtt/pf2e/contents/packs` → find the `pf2e/` entry, read its tree SHA
-2. `GET /repos/foundryvtt/pf2e/git/trees/{treeSha}?recursive=1` → full file listing
+1. `GET /repos/mcferranjj/pf2e-for-seneschal/contents/packs` → find the `pf2e/` entry, read its tree SHA
+2. `GET /repos/mcferranjj/pf2e-for-seneschal/git/trees/{treeSha}?recursive=1` → full file listing
 
 Combined with the commit SHA check (1 call), the entire sync costs **3 API calls** against the rate limit. Creature file content is fetched from `raw.githubusercontent.com` using the commit SHA as the ref — no rate limit on that CDN.
 
