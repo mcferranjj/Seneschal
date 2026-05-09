@@ -590,3 +590,38 @@ export function buildScaledCreature(creature: CreatureRecord, targetLevel: numbe
     weaknesses: [...weaknesses, ...customWeaknesses],
   };
 }
+
+// ---------------------------------------------------------------------------
+// Elite / Weak helpers
+// ---------------------------------------------------------------------------
+
+/** Returns the effective level after an elite/weak adjustment. */
+export function eliteWeakLevel(baseLevel: number, adjustment: 'elite' | 'weak' | undefined): number {
+  if (!adjustment) return baseLevel;
+  if (adjustment === 'elite') return baseLevel <= 0 ? baseLevel + 2 : baseLevel + 1;
+  // weak
+  return baseLevel <= 1 ? baseLevel - 2 : baseLevel - 1;
+}
+
+/** Returns the HP delta for an elite/weak adjustment based on the creature's (scaled) level. */
+export function eliteWeakHpDelta(startingLevel: number, adjustment: 'elite' | 'weak'): number {
+  if (adjustment === 'elite') {
+    if (startingLevel <= 1)  return 10;
+    if (startingLevel <= 4)  return 15;
+    if (startingLevel <= 19) return 20;
+    return 30;
+  } else {
+    if (startingLevel <= 2)  return -10;
+    if (startingLevel <= 5)  return -15;
+    if (startingLevel <= 20) return -20;
+    return -30;
+  }
+}
+
+/** Returns the adjusted max HP for a creature, accounting for elite/weak on top of any level scaling. */
+export function adjustedMaxHp(c: { maxHp: number; baseMaxHp?: number; level: number; scaledLevel?: number; eliteWeak?: 'elite' | 'weak' }): number {
+  const base = c.baseMaxHp ?? c.maxHp;
+  if (!c.eliteWeak || base <= 0) return base;
+  const effectiveBaseLevel = c.scaledLevel ?? c.level;
+  return Math.max(1, base + eliteWeakHpDelta(effectiveBaseLevel, c.eliteWeak));
+}

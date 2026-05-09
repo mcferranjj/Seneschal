@@ -10,7 +10,7 @@ import type { Section, Encounter, EncounterCreature, Condition } from './types/e
 import type { RollHistoryEntry } from './types/diceHistory';
 import { db, loadEncounterState, saveEncounterState } from './db/db';
 import { importCreatureAsCustom } from './utils/importCreature';
-import { buildScaledCreature } from './utils/levelScaling';
+import { buildScaledCreature, adjustedMaxHp } from './utils/levelScaling';
 import { TopBar } from './components/TopBar/TopBar';
 import { SearchPanel } from './components/SearchPanel/SearchPanel';
 import { ResultsList } from './components/ResultsList/ResultsList';
@@ -355,11 +355,20 @@ export default function App() {
   const setEliteWeak = useCallback(
     (uid: string, adjustment: 'elite' | 'weak' | undefined) => {
       setEncounters(prev =>
-        prev.map((enc, i) =>
-          i === activeEnc
-            ? { ...enc, creatures: enc.creatures.map(c => c.uid === uid ? { ...c, eliteWeak: adjustment } : c) }
-            : enc
-        )
+        prev.map((enc, i) => {
+          if (i !== activeEnc) return enc;
+          return {
+            ...enc,
+            creatures: enc.creatures.map(c => {
+              if (c.uid !== uid) return c;
+              // Preserve the raw base HP so toggling elite/weak multiple times doesn't stack
+              const baseMaxHp = c.baseMaxHp ?? c.maxHp;
+              const updated = { ...c, eliteWeak: adjustment, baseMaxHp };
+              const newMax = adjustedMaxHp(updated);
+              return { ...updated, maxHp: newMax, hp: newMax };
+            }),
+          };
+        })
       );
     },
     [activeEnc]
@@ -383,12 +392,14 @@ export default function App() {
               if (level == null || !record) {
                 // Remove scaling — restore original stats from DB record
                 const pf2e = record?.data as import('./types/pf2e').PF2ECreature | undefined;
+                const restoredBase = pf2e?.system?.attributes?.hp?.max ?? (c.baseMaxHp ?? c.maxHp);
                 return {
                   ...c,
                   scaledLevel: undefined,
+                  baseMaxHp: undefined, // reset; elite/weak will recompute from restored maxHp
                   ac:    pf2e?.system?.attributes?.ac?.value ?? c.ac,
-                  maxHp: pf2e?.system?.attributes?.hp?.max ?? c.maxHp,
-                  hp:    pf2e?.system?.attributes?.hp?.max ?? c.maxHp,
+                  maxHp: restoredBase,
+                  hp:    restoredBase,
                   fort:  pf2e?.system?.saves?.fortitude?.value ?? c.fort,
                   ref:   pf2e?.system?.saves?.reflex?.value ?? c.ref,
                   will:  pf2e?.system?.saves?.will?.value ?? c.will,
@@ -399,6 +410,7 @@ export default function App() {
               return {
                 ...c,
                 scaledLevel: level,
+                baseMaxHp: undefined, // reset so elite/weak recomputes from new scaled base
                 ac:    scaled.ac,
                 maxHp: scaled.hp,
                 hp:    Math.min(c.hp, scaled.hp), // keep current HP if it's lower than new max

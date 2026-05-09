@@ -366,21 +366,6 @@ function getDifficulty(totalXP: number, partySize: number) {
   return                          { label: 'Trivial',  color: '#5a7a3a', pct: (totalXP / extreme) * 100 };
 }
 
-/** Returns the HP delta for an elite/weak adjustment based on the creature's starting level. */
-export function eliteWeakHpDelta(startingLevel: number, adjustment: 'elite' | 'weak'): number {
-  if (adjustment === 'elite') {
-    if (startingLevel <= 1) return 10;
-    if (startingLevel <= 4) return 15;
-    if (startingLevel <= 19) return 20;
-    return 30;
-  } else {
-    if (startingLevel <= 2) return -10;
-    if (startingLevel <= 5) return -15;
-    if (startingLevel <= 20) return -20;
-    return -30;
-  }
-}
-
 /** Returns the effective level after elite/weak adjustment. */
 export function eliteWeakLevel(baseLevel: number, adjustment: 'elite' | 'weak' | undefined): number {
   if (!adjustment) return baseLevel;
@@ -545,7 +530,7 @@ export function EncounterManager({
   }, 0);
   const diff = getDifficulty(totalXP, partySize);
 
-  // During combat, look up live HP/maxHp/conditions from encounter state
+  // During combat, look up live HP/maxHp/conditions from encounter state (already elite/weak adjusted in state).
   const liveCombatCreatures: CombatCreature[] = combatCreatures.map(cc => {
     const live = enc.creatures.find(c => c.uid === cc.uid);
     return live ? { ...cc, hp: live.hp, maxHp: live.maxHp, conditions: live.conditions } : cc;
@@ -1100,8 +1085,8 @@ export function EncounterManager({
               const effFort = c.fort != null ? c.fort + ewMod  : null;
               const effRef  = c.ref  != null ? c.ref  + ewMod  : null;
               const effWill = c.will != null ? c.will + ewMod  : null;
-              const hpDelta = c.eliteWeak && c.maxHp > 0 ? eliteWeakHpDelta(c.level, c.eliteWeak) : 0;
-              const effMaxHp = c.maxHp > 0 ? Math.max(1, c.maxHp + hpDelta) : null;
+              const effMaxHp = c.maxHp > 0 ? c.maxHp : null;
+              const hpDelta = c.eliteWeak && c.baseMaxHp != null ? c.maxHp - c.baseMaxHp : 0;
               return (
                 <div
                   key={c.uid}

@@ -29,9 +29,9 @@ import {
   applyEliteWeakToHtml,
 } from './statblockHelpers';
 import type { DamageGroup } from './statblockHelpers';
-import { getRecallKnowledge, eliteWeakHpDelta, eliteWeakLevel } from '../EncounterManager/EncounterManager';
+import { getRecallKnowledge } from '../EncounterManager/EncounterManager';
 import { importSpellcasting } from '../../utils/importCreature';
-import { buildScaledCreature, scaleAbilityHtml } from '../../utils/levelScaling';
+import { buildScaledCreature, scaleAbilityHtml, eliteWeakHpDelta, eliteWeakLevel } from '../../utils/levelScaling';
 
 function processHtml(raw: string): string {
   return linkRolls(linkKeywords(stripFoundryMacros(raw)));
