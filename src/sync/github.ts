@@ -1,6 +1,6 @@
 const GITHUB_API = 'https://api.github.com';
-const RAW_BASE = 'https://raw.githubusercontent.com/foundryvtt/pf2e';
-const REPO = 'foundryvtt/pf2e';
+const RAW_BASE = 'https://raw.githubusercontent.com/mcferranjj/pf2e-for-seneschal';
+const REPO = 'mcferranjj/pf2e-for-seneschal';
 const PACKS_SUBPATH = 'packs/pf2e';
 
 const API_TIMEOUT_MS = 30_000;

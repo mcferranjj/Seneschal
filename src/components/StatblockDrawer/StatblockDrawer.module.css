@@ -211,6 +211,127 @@
   color: #fff;
 }
 
+/* ── Level Scaling ────────────────────────────────────────────────────────── */
+
+.scaledBadge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(180, 255, 230, 0.9);
+  letter-spacing: 0.03em;
+}
+
+.scaleWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.scaleBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.scaleBtn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255,255,255,0.6);
+  color: #fff;
+}
+
+.scaleBtnActive {
+  background: rgba(42, 122, 106, 0.5);
+  border-color: rgba(180, 255, 230, 0.6);
+  color: rgba(180, 255, 230, 0.95);
+}
+
+.scaleBtnActive:hover {
+  background: rgba(42, 122, 106, 0.7);
+}
+
+.scaleDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 300;
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  padding: 6px;
+  min-width: 140px;
+}
+
+.scaleDropdownHeader {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-mute);
+  padding: 2px 4px 6px;
+  border-bottom: 1px solid var(--border-l);
+  margin-bottom: 4px;
+}
+
+.scaleDropdownRemove {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  font-size: 0.75rem;
+  color: #8a2a18;
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: background 0.1s;
+}
+
+.scaleDropdownRemove:hover {
+  background: rgba(138, 42, 24, 0.1);
+}
+
+.scaleDropdownList {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.scaleDropdownItem {
+  padding: 4px 2px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  font-size: 0.72rem;
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.scaleDropdownItem:hover {
+  background: rgba(139, 69, 19, 0.1);
+  border-color: var(--border);
+  color: var(--crimson);
+}
+
+.scaleDropdownItemActive {
+  background: rgba(42, 122, 106, 0.15);
+  border-color: #2a7a6a;
+  color: #2a7a6a;
+  font-weight: 700;
+}
+
 /* Traits row */
 .traitsRow {
   display: flex;
