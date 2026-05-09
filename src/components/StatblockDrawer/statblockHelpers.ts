@@ -163,14 +163,67 @@ export function stripFoundryMacros(html: string): string {
         return group.split('[')[0].trim();
       }).filter(Boolean).join(' + ');
     })
-    .replace(/@Check\[([^\[\]]*(?:\[[^\]]*\][^\[\]]*)*)\]/g, (_, inner) => {
-      const dcMatch = inner.match(/dc:(\d+)/i);
-      const typeMatch = inner.match(/type:(\w+)/i);
-      if (dcMatch && typeMatch) return `DC ${dcMatch[1]} ${typeMatch[1]}`;
-      if (dcMatch) return `DC ${dcMatch[1]}`;
-      if (typeMatch) return `${typeMatch[1]} check`;
-      return 'check';
-    })
+    // @Check macro — optionally followed by {label override} and/or trailing redundant words.
+    // We consume:
+    //   - optional {label} override from the source data
+    //   - trailing "check" / "save" / "saving throw" (would duplicate the type label we emit)
+    //   - trailing "against the [possessive] X DC" when the macro already encodes defense:
+    //     (those words would duplicate the phrase we build from defense:X)
+    .replace(
+      /@Check\[([^\[\]]*(?:\[[^\]]*\][^\[\]]*)*)\](?:\{([^}]*)\})?(\s+(?:saving\s+throw|save|check)(?:\s+against\s+(?:the\s+)?(?:\w+['']s\s+)?(\w+)\s+DC)?)?/g,
+      (_, inner, labelOverride, _trailingSuffix, trailingDefense) => {
+        // If the source data provides an explicit {label}, trust it completely.
+        if (labelOverride) return labelOverride;
+
+        // The @Check format is pipe-delimited: first segment is always the check/save type,
+        // followed by optional key:value pairs like dc:N, defense:X, basic, against:X, etc.
+        const segments = inner.split('|');
+        const checkType = segments[0]?.trim() ?? '';
+        const dcMatch = inner.match(/\bdc:(\d+)/i);
+        const defenseMatch = inner.match(/\bdefense:(\w+)/i);
+        const againstMatch = inner.match(/\bagainst:(\w+(?:-\w+)*)/i);
+        const isBasic = /\bbasic\b/i.test(inner);
+
+        // Map internal type names to display labels
+        const saveTypes = new Set(['fortitude', 'reflex', 'will']);
+        const isSave = saveTypes.has(checkType.toLowerCase());
+        const isFlat = checkType.toLowerCase() === 'flat';
+
+        // Build the human-readable check/save label
+        const typeLabel = (() => {
+          if (isFlat) return 'flat check';
+          if (isSave) return `${checkType.charAt(0).toUpperCase() + checkType.slice(1)} save`;
+          // Skill or other check — capitalize and append "check"
+          return `${checkType.charAt(0).toUpperCase() + checkType.slice(1)} check`;
+        })();
+
+        const basicPrefix = isBasic ? 'basic ' : '';
+
+        if (dcMatch) {
+          // Trailing "save" / "check" is consumed by the regex; dc: already contains the DC.
+          return `DC ${dcMatch[1]} ${basicPrefix}${typeLabel}`;
+        }
+        if (defenseMatch) {
+          // The trailing "check/save against the X DC" text is consumed by the regex — we emit
+          // the full canonical phrase ourselves.
+          const defense = defenseMatch[1];
+          const defenseLabel = defense.charAt(0).toUpperCase() + defense.slice(1);
+          return `${basicPrefix}${typeLabel} against the creature's ${defenseLabel} DC`;
+        }
+        if (againstMatch) {
+          const against = againstMatch[1].replace(/-/g, ' ');
+          const againstLabel = against.charAt(0).toUpperCase() + against.slice(1);
+          return `${basicPrefix}${typeLabel} against ${againstLabel} DC`;
+        }
+        // No DC in macro — if trailing text told us the defense type, use it.
+        if (trailingDefense) {
+          const defenseLabel = trailingDefense.charAt(0).toUpperCase() + trailingDefense.slice(1);
+          return `${basicPrefix}${typeLabel} against the creature's ${defenseLabel} DC`;
+        }
+        // No DC info at all — just emit the type label.
+        return `${basicPrefix}${typeLabel}`;
+      }
+    )
     // [[/gmr 1d4 #label]]{display text} → display text; [[/cmd]]{label} → label; [[/cmd]] → ''
     .replace(/\[\[\/[^\]]+\]\]\{([^}]+)\}/g, '$1')
     .replace(/\[\[\/[^\]]+\]\]/g, '')
