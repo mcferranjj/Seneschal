@@ -310,6 +310,7 @@ interface EncounterManagerProps {
   onSelectEncounterCreature: (uid: string) => void;
   onUpdateConditions: (uid: string, conditions: Condition[]) => void;
   onSetEliteWeak: (uid: string, adjustment: 'elite' | 'weak' | undefined) => void;
+  onSetScaledLevel: (uid: string, level: number | undefined) => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
   resultsOpen?: boolean;
   onToggleResults?: () => void;
@@ -409,6 +410,7 @@ export function EncounterManager({
   onSelectEncounterCreature,
   onUpdateConditions,
   onSetEliteWeak,
+  onSetScaledLevel: _onSetScaledLevel,
   onRoll,
   resultsOpen = true,
   onToggleResults,
@@ -534,10 +536,12 @@ export function EncounterManager({
     }
   }, [combatMode, enc.creatures]);
 
-  // Custom creatures with isEnemy=false don't count toward XP budget
+  // Custom creatures with isEnemy=false don't count toward XP budget.
+  // scaledLevel takes priority over the base level for XP; elite/weak still applies on top.
   const totalXP = enc.creatures.reduce((s, c) => {
     if (c.custom && c.isEnemy === false) return s;
-    return s + xpFor(eliteWeakLevel(c.level, c.eliteWeak), partyLevel);
+    const effectiveBaseLevel = c.scaledLevel ?? c.level;
+    return s + xpFor(eliteWeakLevel(effectiveBaseLevel, c.eliteWeak), partyLevel);
   }, 0);
   const diff = getDifficulty(totalXP, partySize);
 
@@ -1083,7 +1087,8 @@ export function EncounterManager({
               </div>
             )}
             {enc.creatures.map(c => {
-              const effLevel = eliteWeakLevel(c.level, c.eliteWeak);
+              const effectiveBaseLevel = c.scaledLevel ?? c.level;
+              const effLevel = eliteWeakLevel(effectiveBaseLevel, c.eliteWeak);
               const xp = (c.custom && c.isEnemy === false) ? 0 : xpFor(effLevel, partyLevel);
               const ewMod = c.eliteWeak === 'elite' ? 2 : c.eliteWeak === 'weak' ? -2 : 0;
               const ewValStyle = c.eliteWeak === 'elite'
@@ -1168,7 +1173,11 @@ export function EncounterManager({
                   {/* Bottom row: level/XP + Elite/Weak toggle buttons */}
                   <div className={styles.plannerMetaRow}>
                     <span className={styles.plannerMeta}>
-                      Lvl {effLevel}{c.eliteWeak ? ` (base ${c.level})` : ''}{xp > 0 ? ` · ${xp} XP` : ''}
+                      {c.scaledLevel != null
+                        ? <><span className={styles.scaledBadge} title={`Scaled from level ${c.level}`}>⇅ Lv {effLevel}</span>{` (base ${c.level})`}</>
+                        : <>Lvl {effLevel}{c.eliteWeak ? ` (base ${c.level})` : ''}</>
+                      }
+                      {xp > 0 ? ` · ${xp} XP` : ''}
                     </span>
                     <div className={styles.eliteWeakBtns} onClick={e => e.stopPropagation()}>
                       <button

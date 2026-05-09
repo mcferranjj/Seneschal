@@ -31,6 +31,7 @@ import {
 import type { DamageGroup } from './statblockHelpers';
 import { getRecallKnowledge, eliteWeakHpDelta, eliteWeakLevel } from '../EncounterManager/EncounterManager';
 import { importSpellcasting } from '../../utils/importCreature';
+import { buildScaledCreature, scaleAbilityHtml } from '../../utils/levelScaling';
 
 function processHtml(raw: string): string {
   return linkRolls(linkKeywords(stripFoundryMacros(raw)));
@@ -98,6 +99,10 @@ interface DrawerProps {
   activeConditions?: Condition[];
   /** Elite/Weak adjustment applied to this creature instance in the encounter */
   activeEliteWeak?: 'elite' | 'weak';
+  /** Custom level scaling applied to this creature instance in the encounter */
+  activeScaledLevel?: number;
+  /** Callback to set or clear custom level scaling on the current encounter instance */
+  onSetScaledLevel?: (level: number | undefined) => void;
   onCopyAsCustom?: (creature: CreatureRecord) => void;
 }
 
@@ -115,6 +120,8 @@ export function StatblockDrawer({
   onRoll,
   activeConditions,
   activeEliteWeak,
+  activeScaledLevel,
+  onSetScaledLevel,
   onCopyAsCustom,
 }: DrawerProps) {
   return (
@@ -135,12 +142,24 @@ export function StatblockDrawer({
             onRoll={onRoll}
             activeConditions={activeConditions}
             activeEliteWeak={activeEliteWeak}
+            activeScaledLevel={activeScaledLevel}
+            onSetScaledLevel={onSetScaledLevel}
             onDelete={onDeleteCreature}
             onEdit={onEditCreature}
             onCopyAsCustom={onCopyAsCustom}
           />
         ) : (
-          <StatblockContent creature={creature} onClose={onClose} onAddToEncounter={onAddToEncounter} onRoll={onRoll} activeConditions={activeConditions} activeEliteWeak={activeEliteWeak} onCopyAsCustom={onCopyAsCustom} />
+          <StatblockContent
+            creature={creature}
+            onClose={onClose}
+            onAddToEncounter={onAddToEncounter}
+            onRoll={onRoll}
+            activeConditions={activeConditions}
+            activeEliteWeak={activeEliteWeak}
+            activeScaledLevel={activeScaledLevel}
+            onSetScaledLevel={onSetScaledLevel}
+            onCopyAsCustom={onCopyAsCustom}
+          />
         )
       ) : (
         <div className={styles.emptyState}>
@@ -179,6 +198,8 @@ function StatblockContent({
   onRoll,
   activeConditions,
   activeEliteWeak,
+  activeScaledLevel,
+  onSetScaledLevel,
   onDelete,
   onEdit,
   onCopyAsCustom,
@@ -189,11 +210,15 @@ function StatblockContent({
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
   activeConditions?: Condition[];
   activeEliteWeak?: 'elite' | 'weak';
+  activeScaledLevel?: number;
+  onSetScaledLevel?: (level: number | undefined) => void;
   onDelete?: (id: string) => void;
   onEdit?: (creature: CreatureRecord) => void;
   onCopyAsCustom?: (creature: CreatureRecord) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [scaleDropdownOpen, setScaleDropdownOpen] = useState(false);
+
   const [diceRoll, setDiceRoll] = useState<{
     expr: string; label?: string;
     damageExpr?: string; damageLabel?: string; damageTraits?: string[];
@@ -252,6 +277,19 @@ function StatblockContent({
     }
   }, []);
 
+  // Close scale dropdown on outside click
+  useEffect(() => {
+    if (!scaleDropdownOpen) return;
+    function handler(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.' + styles.scaleWrap)) {
+        setScaleDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [scaleDropdownOpen]);
+
   const activeConditionList = activeConditions ?? [];
   const pen = computePenalties(activeConditionList);
   const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
@@ -266,6 +304,9 @@ function StatblockContent({
 
   const c = creature.data as PF2ECreature;
   const level = getLevel(c);
+
+  // Compute scaled stats when a custom level is active. Always derived from original data.
+  const scaledStats = activeScaledLevel != null ? buildScaledCreature(creature, activeScaledLevel) : null;
   const size = getSize(c);
   const rarity = c.system?.traits?.rarity ?? 'common';
   const traits = c.system?.traits?.value ?? [];
@@ -286,33 +327,40 @@ function StatblockContent({
     });
   }, [c.name, c.type]);
 
-  const ac = c.system?.attributes?.ac?.value ?? '—';
-  const acDetail = c.system?.attributes?.ac?.details;
-  const hp = c.system?.attributes?.hp?.max ?? '—';
-  const hpDetail = c.system?.attributes?.hp?.details;
+  const ac = scaledStats ? scaledStats.ac : (c.system?.attributes?.ac?.value ?? '—');
+  const acDetail = scaledStats ? undefined : c.system?.attributes?.ac?.details;
+  const hp = scaledStats ? scaledStats.hp : (c.system?.attributes?.hp?.max ?? '—');
+  const hpDetail = scaledStats ? undefined : c.system?.attributes?.hp?.details;
   const allSaves = c.system?.attributes?.allSaves?.value;
 
-  const fort = c.system?.saves?.fortitude?.value;
-  const ref = c.system?.saves?.reflex?.value;
-  const will = c.system?.saves?.will?.value;
-  const fortDetail = c.system?.saves?.fortitude?.saveDetail;
-  const refDetail = c.system?.saves?.reflex?.saveDetail;
-  const willDetail = c.system?.saves?.will?.saveDetail;
+  const fort = scaledStats ? scaledStats.fort : c.system?.saves?.fortitude?.value;
+  const ref  = scaledStats ? scaledStats.ref  : c.system?.saves?.reflex?.value;
+  const will = scaledStats ? scaledStats.will : c.system?.saves?.will?.value;
+  const fortDetail = scaledStats ? undefined : c.system?.saves?.fortitude?.saveDetail;
+  const refDetail  = scaledStats ? undefined : c.system?.saves?.reflex?.saveDetail;
+  const willDetail = scaledStats ? undefined : c.system?.saves?.will?.saveDetail;
 
-  const str = c.system?.abilities?.str?.mod;
-  const dex = c.system?.abilities?.dex?.mod;
-  const con = c.system?.abilities?.con?.mod;
-  const int_ = c.system?.abilities?.int?.mod;
-  const wis = c.system?.abilities?.wis?.mod;
-  const cha = c.system?.abilities?.cha?.mod;
+  const str  = scaledStats ? scaledStats.str : c.system?.abilities?.str?.mod;
+  const dex  = scaledStats ? scaledStats.dex : c.system?.abilities?.dex?.mod;
+  const con  = scaledStats ? scaledStats.con : c.system?.abilities?.con?.mod;
+  const int_ = scaledStats ? scaledStats.int : c.system?.abilities?.int?.mod;
+  const wis  = scaledStats ? scaledStats.wis : c.system?.abilities?.wis?.mod;
+  const cha  = scaledStats ? scaledStats.cha : c.system?.abilities?.cha?.mod;
 
   const langs = getLanguages(c);
-  const skills = getSkills(c);
+  const skills = scaledStats ? scaledStats.skills : getSkills(c);
   const senses = getSenses(c);
   const speed = getSpeedString(c);
-  const { immunities, resistances, weaknesses } = getImmResWeak(c);
+  const rawImmResWeak = getImmResWeak(c);
+  const immunities = rawImmResWeak.immunities;
+  const resistances = scaledStats
+    ? scaledStats.resistances.map(r => `${r.type} ${r.value}${r.exceptions ? ` (except ${r.exceptions})` : ''}`).join(', ')
+    : rawImmResWeak.resistances;
+  const weaknesses = scaledStats
+    ? scaledStats.weaknesses.map(w => `${w.type} ${w.value}${w.exceptions ? ` (except ${w.exceptions})` : ''}`).join(', ')
+    : rawImmResWeak.weaknesses;
 
-  const attacks = getAttacks(c);
+  const attacks = scaledStats ? [] : getAttacks(c); // When scaled, use scaledStats.attacks instead
   const allActions = getActions(c);
   const reactions = allActions.filter(i => i.system?.actionType?.value === 'reaction');
   const offenseActions = allActions.filter(i => i.system?.actionType?.value !== 'reaction');
@@ -320,9 +368,11 @@ function StatblockContent({
 
   // Unified spellcasting: for official creatures, convert items → CustomSpellcastingEntry[]
   // so both official and custom creatures use the same SpellcastingBlock component.
-  const spellcastingEntries: CustomSpellcastingEntry[] = creature.packSource === 'custom'
-    ? (creature.customData?.spellcasting ?? [])
-    : importSpellcasting(creature);
+  const spellcastingEntries: CustomSpellcastingEntry[] = scaledStats
+    ? scaledStats.spellcasting
+    : creature.packSource === 'custom'
+      ? (creature.customData?.spellcasting ?? [])
+      : importSpellcasting(creature);
   const hasSpellcasting = spellcastingEntries.length > 0;
   const publicNotes = c.system?.details?.publicNotes ?? '';
   const publication = c.system?.details?.publication?.title;
@@ -341,11 +391,17 @@ function StatblockContent({
         <div className={styles.headerMain}>
           <span className={styles.creatureName}>
             {c.name}{activeEliteWeak === 'elite' ? ' (Elite)' : activeEliteWeak === 'weak' ? ' (Weak)' : ''}
+            {activeScaledLevel != null && (
+              <span className={styles.scaledBadge}> ⇅ Lv {activeScaledLevel}</span>
+            )}
           </span>
           <span className={styles.creatureLevel}>
             {creature.entityType === 'hazard' ? 'Hazard' : 'Creature'}{' '}
-            {activeEliteWeak ? eliteWeakLevel(level, activeEliteWeak) : level}
-            {activeEliteWeak && ` (base ${level})`}
+            {activeScaledLevel != null
+              ? activeEliteWeak ? eliteWeakLevel(activeScaledLevel, activeEliteWeak) : activeScaledLevel
+              : activeEliteWeak ? eliteWeakLevel(level, activeEliteWeak) : level}
+            {activeEliteWeak && ` (base ${activeScaledLevel ?? level})`}
+            {activeScaledLevel != null && !activeEliteWeak && ` (base ${level})`}
             {creature.entityType !== 'hazard' && ` · ${size}`}
           </span>
         </div>
@@ -353,7 +409,7 @@ function StatblockContent({
           {creature.packSource !== 'custom' && (
             <a
               className={styles.aonLink}
-              href={aonURL}
+              href={aonURL ?? undefined}
               target="_blank"
               rel="noreferrer"
               title="View on Archives of Nethys"
@@ -370,6 +426,42 @@ function StatblockContent({
             <button className={styles.copyBtn} onClick={() => onCopyAsCustom(creature)} title="Copy and edit as custom creature">
               ⧉
             </button>
+          )}
+          {/* Level scaling button — only shown when creature is in an encounter instance */}
+          {onSetScaledLevel && creature.entityType !== 'hazard' && (
+            <div className={styles.scaleWrap}>
+              <button
+                className={`${styles.scaleBtn} ${activeScaledLevel != null ? styles.scaleBtnActive : ''}`}
+                title="Scale creature to a different level"
+                onClick={e => { e.stopPropagation(); setScaleDropdownOpen(o => !o); }}
+              >
+                ⇅
+              </button>
+              {scaleDropdownOpen && (
+                <div className={styles.scaleDropdown}>
+                  <div className={styles.scaleDropdownHeader}>Scale to level</div>
+                  {activeScaledLevel != null && (
+                    <button
+                      className={styles.scaleDropdownRemove}
+                      onClick={() => { onSetScaledLevel(undefined); setScaleDropdownOpen(false); }}
+                    >
+                      ✕ Remove scaling
+                    </button>
+                  )}
+                  <div className={styles.scaleDropdownList}>
+                    {Array.from({ length: 27 }, (_, i) => i - 1).filter(l => l !== level).map(l => (
+                      <button
+                        key={l}
+                        className={`${styles.scaleDropdownItem} ${activeScaledLevel === l ? styles.scaleDropdownItemActive : ''}`}
+                        onClick={() => { onSetScaledLevel(l); setScaleDropdownOpen(false); }}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close statblock">
             ✕
@@ -404,17 +496,35 @@ function StatblockContent({
       <div className={styles.body}>
         {/* Recall Knowledge DC — top of body (creatures only, not hazards) */}
         {creature.entityType !== 'hazard' && (() => {
-          const rk = getRecallKnowledge(level, traits, rarity);
+          // Use the effective level: scaled level if active, then elite/weak on top
+          const effectiveLevel = activeScaledLevel != null
+            ? (activeEliteWeak ? eliteWeakLevel(activeScaledLevel, activeEliteWeak) : activeScaledLevel)
+            : (activeEliteWeak ? eliteWeakLevel(level, activeEliteWeak) : level);
+          const rk = getRecallKnowledge(effectiveLevel, traits, rarity);
           return (
             <p className={styles.rkLine}>
               <span className={styles.rkLineLabel}>Recall Knowledge DC </span>
-              <span className={styles.rkLineDc}>{rk.dc}</span>
+              <span
+                className={styles.rkLineDc}
+                style={(activeScaledLevel != null || activeEliteWeak) ? { color: '#2a7a6a', fontWeight: 700 } : undefined}
+              >{rk.dc}</span>
               {rk.skills.length > 0 && (
                 <span className={styles.rkLineSkills}> ({rk.skills.join(' / ')})</span>
               )}
             </p>
           );
         })()}
+
+        {/* Level scaling banner */}
+        {activeScaledLevel != null && (
+          <p className={styles.eliteWeakBanner} style={{ borderColor: '#2a7a6a', background: 'rgba(42,122,106,0.08)' }}>
+            <strong style={{ color: '#2a7a6a' }}>⇅ Scaled to Level {activeScaledLevel}</strong>
+            {' '}
+            <span style={{ color: 'var(--text-mute)' }}>
+              All stats recalculated from base level {level}.
+            </span>
+          </p>
+        )}
 
         {/* Elite/Weak adjustment banner */}
         {activeEliteWeak && (
@@ -442,7 +552,7 @@ function StatblockContent({
         {/* Perception / Senses */}
         <p className={styles.infoLine}>
           {(() => {
-            const percMod = c.system?.perception?.mod ?? c.system?.perception?.value;
+            const percMod = scaledStats ? scaledStats.perception : (c.system?.perception?.mod ?? c.system?.perception?.value);
             const effPercMod = percMod != null ? percMod + pen.perception + ewMod : percMod;
             const rest = senses.replace(/^Perception [+-]?\d+;?\s*/, '').replace(/^Perception [+-]?\d+$/, '');
             const percStyle = pen.perception !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
@@ -631,10 +741,10 @@ function StatblockContent({
         })()}
 
         {passives.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
         ))}
         {reactions.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
         ))}
 
         <hr className={styles.divider} />
@@ -657,8 +767,69 @@ function StatblockContent({
           />
         ))}
 
-        {/* Custom creature attacks (stored in customData, not items) */}
-        {creature.packSource === 'custom' && (creature.customData?.attacks ?? []).map((atk, i) => {
+        {/* Scaled attacks — rendered when level scaling is active (replaces both official and custom attacks) */}
+        {scaledStats && scaledStats.attacks.map((atk, i) => {
+          const bonus = atk.bonus + ewMod;
+          const isAgile = atk.traits?.includes('agile') ?? false;
+          const map2 = bonus - (isAgile ? 4 : 5);
+          const map3 = bonus - (isAgile ? 8 : 10);
+          const rangeStr = atk.range != null ? `range ${atk.range} ft.` : null;
+          const fullTraitStr = [rangeStr, ...(atk.traits ?? [])].filter(Boolean).join(', ');
+          const displayTraitStr = fullTraitStr ? `(${fullTraitStr})` : '';
+          const damageExprMatch = atk.damage?.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
+          const baseDamageExpr = damageExprMatch
+            ? (damageExprMatch[2] ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}` : damageExprMatch[1])
+            : '';
+          const ewDmgMod = ewMod;
+          const damageExpr = baseDamageExpr && ewDmgMod !== 0
+            ? `${baseDamageExpr}${ewDmgMod >= 0 ? `+${ewDmgMod}` : ewDmgMod}`
+            : baseDamageExpr;
+          const displayDamage = ewDmgMod !== 0 && damageExpr ? damageExpr : atk.damage;
+          const damageLabel = `${atk.name} damage`;
+          const typeLabel = atk.type === 'ranged' ? 'Ranged' : 'Melee';
+          const scaledStyle = { color: '#2a7a6a', fontWeight: 700 } as const;
+          const finalStyle = ewMod !== 0 ? ewStyle : scaledStyle;
+          return (
+            <p key={i} className={styles.attackLine}>
+              <span className={styles.attackTypeLabel}>{typeLabel}</span>
+              {' ◆ '}
+              <span className={styles.rollMod} title="Roll attack (1st action)"
+                style={finalStyle}
+                onClick={e => rollAttack(bonus, atk.name, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
+                <strong>{atk.name}</strong> {formatMod(bonus)}
+              </span>
+              {' ['}
+              <span className={styles.mapRoll} title="Roll attack (2nd action, MAP)"
+                onClick={e => rollAttack(map2, `${atk.name} (MAP 2)`, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
+                {formatMod(map2)}
+              </span>
+              {'/'}
+              <span className={styles.mapRoll} title="Roll attack (3rd action, MAP)"
+                onClick={e => rollAttack(map3, `${atk.name} (MAP 3)`, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
+                {formatMod(map3)}
+              </span>
+              {']'}
+              {displayTraitStr && <span className={styles.attackTraits}> {displayTraitStr}</span>}
+              {atk.damage && (
+                <>
+                  {', '}
+                  {damageExpr ? (
+                    <span className={styles.rollMod} title="Roll damage"
+                      style={finalStyle}
+                      onClick={e => rollDamage(damageExpr, damageLabel, atk.traits ?? [], e)}>
+                      <strong>Damage</strong> {displayDamage}
+                    </span>
+                  ) : (
+                    <><strong>Damage</strong> {displayDamage}</>
+                  )}
+                </>
+              )}
+            </p>
+          );
+        })}
+
+        {/* Custom creature attacks (stored in customData, not items) — suppressed when scaling active */}
+        {!scaledStats && creature.packSource === 'custom' && (creature.customData?.attacks ?? []).map((atk, i) => {
           const bonus = atk.bonus + ewMod;
           const isAgile = atk.traits?.includes('agile') ?? false;
           const map2 = bonus - (isAgile ? 4 : 5);
@@ -728,7 +899,7 @@ function StatblockContent({
         ))}
 
         {offenseActions.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
         ))}
 
         {/* Elite/Weak ability note — shown for all creature types */}
@@ -751,7 +922,9 @@ function StatblockContent({
           const dmgMod = ewMod !== 0 ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2)) : 0;
           const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
           const rawDesc = ab.description ?? '';
-          const adjustedDesc = (dmgMod !== 0 || dcMod !== 0) ? applyEliteWeakToHtml(rawDesc, dmgMod, dcMod) : rawDesc;
+          // Apply level scaling first (if active), then elite/weak on top
+          const scaledDesc = scaledStats ? scaleAbilityHtml(rawDesc, level, scaledStats.targetLevel) : rawDesc;
+          const adjustedDesc = (dmgMod !== 0 || dcMod !== 0) ? applyEliteWeakToHtml(scaledDesc, dmgMod, dcMod) : scaledDesc;
           const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];
           const hasDamage = damageGroups.length > 0;
           return (
@@ -1020,17 +1193,24 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
   );
 }
 
-function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle }: {
+function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle, baseLevel, targetLevel }: {
   item: PF2EItem;
   onRollAll?: (groups: DamageGroup[], abilityName: string, e: React.MouseEvent) => void;
   ewMod?: number;
   ewStyle?: React.CSSProperties;
+  baseLevel?: number;
+  targetLevel?: number;
 }) {
   const symbol = actionSymbol(item);
   const rawDesc = item.system?.description?.value ?? '';
   const traits = item.system?.traits?.value ?? [];
   const trigger = item.system?.trigger?.value;
   const traitStr = traits.length > 0 ? `(${traits.join(', ')})` : '';
+
+  // Apply level scaling first (if active), then elite/weak on top
+  const scaledDesc = (baseLevel != null && targetLevel != null && baseLevel !== targetLevel)
+    ? scaleAbilityHtml(rawDesc, baseLevel, targetLevel)
+    : rawDesc;
 
   // Determine elite/weak damage modifier for this ability
   const limited = isLimitedUse(item);
@@ -1041,8 +1221,8 @@ function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle }: {
   // DC adjustment is always ±2; damage mod is ±2 (at-will) or ±4 (limited)
   const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
   const adjustedDesc = (dmgMod !== 0 || dcMod !== 0)
-    ? applyEliteWeakToHtml(rawDesc, dmgMod, dcMod)
-    : rawDesc;
+    ? applyEliteWeakToHtml(scaledDesc, dmgMod, dcMod)
+    : scaledDesc;
 
   // Extract damage groups from the (adjusted) raw description
   const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];

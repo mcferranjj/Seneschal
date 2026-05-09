@@ -358,9 +358,15 @@ export function applyEliteWeakToHtml(rawHtml: string, dmgMod: number, dcMod: num
   );
 
   // ── 2. Adjust all @Check dc: values by dcMod (±2) ───────────────────────
+  // Flat checks (@Check[flat|...]) are never adjusted — they represent pure random
+  // probability with no modifiers.
   if (dcMod !== 0) result = result.replace(
-    /(@Check\[[^\]]*\bdc:)(\d+)(\b[^\]]*\])/g,
-    (_, pre, dc, post) => `${pre}${parseInt(dc) + dcMod}${post}`
+    /@Check\[([^\]]*)\]/g,
+    (fullMatch, inner) => {
+      const checkType = inner.split('|')[0]?.trim().toLowerCase() ?? '';
+      if (checkType === 'flat') return fullMatch;
+      return fullMatch.replace(/(\bdc:)(\d+)/, (_, pre, dc) => `${pre}${parseInt(dc) + dcMod}`);
+    }
   );
 
   return result;

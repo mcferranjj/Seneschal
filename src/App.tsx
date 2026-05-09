@@ -10,6 +10,7 @@ import type { Section, Encounter, EncounterCreature, Condition } from './types/e
 import type { RollHistoryEntry } from './types/diceHistory';
 import { db, loadEncounterState, saveEncounterState } from './db/db';
 import { importCreatureAsCustom } from './utils/importCreature';
+import { buildScaledCreature } from './utils/levelScaling';
 import { TopBar } from './components/TopBar/TopBar';
 import { SearchPanel } from './components/SearchPanel/SearchPanel';
 import { ResultsList } from './components/ResultsList/ResultsList';
@@ -364,6 +365,55 @@ export default function App() {
     [activeEnc]
   );
 
+  const setScaledLevel = useCallback(
+    async (uid: string, level: number | undefined) => {
+      // Look up the CreatureRecord so we can compute (or restore) scaled stats for the card
+      const enc = encounters.find((_, i) => i === activeEnc);
+      const creature = enc?.creatures.find(c => c.uid === uid);
+      const creatureId = creature?.creatureId;
+      const record = creatureId ? await db.creatures.get(creatureId) : undefined;
+
+      setEncounters(prev =>
+        prev.map((enc, i) => {
+          if (i !== activeEnc) return enc;
+          return {
+            ...enc,
+            creatures: enc.creatures.map(c => {
+              if (c.uid !== uid) return c;
+              if (level == null || !record) {
+                // Remove scaling — restore original stats from DB record
+                const pf2e = record?.data as import('./types/pf2e').PF2ECreature | undefined;
+                return {
+                  ...c,
+                  scaledLevel: undefined,
+                  ac:    pf2e?.system?.attributes?.ac?.value ?? c.ac,
+                  maxHp: pf2e?.system?.attributes?.hp?.max ?? c.maxHp,
+                  hp:    pf2e?.system?.attributes?.hp?.max ?? c.maxHp,
+                  fort:  pf2e?.system?.saves?.fortitude?.value ?? c.fort,
+                  ref:   pf2e?.system?.saves?.reflex?.value ?? c.ref,
+                  will:  pf2e?.system?.saves?.will?.value ?? c.will,
+                };
+              }
+              // Apply scaling — use buildScaledCreature to get new card values
+              const scaled = buildScaledCreature(record, level);
+              return {
+                ...c,
+                scaledLevel: level,
+                ac:    scaled.ac,
+                maxHp: scaled.hp,
+                hp:    Math.min(c.hp, scaled.hp), // keep current HP if it's lower than new max
+                fort:  scaled.fort,
+                ref:   scaled.ref,
+                will:  scaled.will,
+              };
+            }),
+          };
+        })
+      );
+    },
+    [activeEnc, encounters]
+  );
+
   const duplicateCreature = useCallback(
     (uid: string) => {
       setEncounters(prev =>
@@ -574,6 +624,7 @@ export default function App() {
                 onSelectEncounterCreature={selectEncounterCreature}
                 onUpdateConditions={updateConditions}
                 onSetEliteWeak={setEliteWeak}
+                onSetScaledLevel={setScaledLevel}
                 onRoll={addRollEntry}
                 resultsOpen={resultsOpen}
                 onToggleResults={() => {
@@ -614,6 +665,16 @@ export default function App() {
                 activeEliteWeak={
                   selected && selectedEncounterUid
                     ? encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.eliteWeak
+                    : undefined
+                }
+                activeScaledLevel={
+                  selected && selectedEncounterUid
+                    ? encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.scaledLevel
+                    : undefined
+                }
+                onSetScaledLevel={
+                  selectedEncounterUid
+                    ? (level) => setScaledLevel(selectedEncounterUid, level)
                     : undefined
                 }
               />
