@@ -7,28 +7,7 @@ import { DiceRoller, cryptoD } from '../DiceRoller/DiceRoller';
 import styles from './EncounterManager.module.css';
 import { HP_TABLE, AC_TABLE, SAVE_TABLE, ATTACK_TABLE, DAMAGE_TABLE } from '../../data/pf2eTables';
 import type { HpTier, AcTier, SaveTier } from '../../data/pf2eTables';
-
-interface ConditionCategory {
-  label: string;
-  conditions: string[];
-}
-
-const CONDITION_CATEGORIES: ConditionCategory[] = [
-  { label: 'Circumstantial', conditions: ['Grabbed', 'Prone', 'Off-Guard', 'Immobilized', 'Restrained', 'Persistent Damage'] },
-  { label: 'Status',         conditions: ['Frightened', 'Sickened', 'Fatigued', 'Encumbered'] },
-  { label: 'Ability Scores', conditions: ['Clumsy', 'Enfeebled', 'Drained', 'Stupefied'] },
-  { label: 'Action Economy', conditions: ['Stunned', 'Slowed', 'Quickened'] },
-  { label: 'Death / Dying',  conditions: ['Dying', 'Wounded', 'Doomed', 'Unconscious'] },
-  { label: 'Detection',      conditions: ['Concealed', 'Hidden', 'Undetected', 'Invisible'] },
-  { label: 'Senses',         conditions: ['Blinded', 'Dazzled', 'Deafened', 'Fascinated'] },
-  { label: 'Disabled',       conditions: ['Controlled', 'Confused', 'Fleeing', 'Paralyzed', 'Petrified'] },
-];
-
-// Conditions that take a numeric value
-const VALUED_CONDITIONS = new Set([
-  'clumsy', 'doomed', 'drained', 'dying', 'enfeebled', 'frightened',
-  'quickened', 'sickened', 'slowed', 'stunned', 'stupefied', 'persistent damage', 'wounded',
-]);
+import { CONDITION_CATEGORIES, VALUED_CONDITIONS } from '../../data/conditions';
 
 interface AttackDraft {
   name: string;

@@ -1,4 +1,5 @@
 import type { CreatureRecord } from '../../db/schema';
+import { SIZE_LABELS } from '../../data/pf2eConstants';
 import styles from './ResultsList.module.css';
 
 const RARITY_COLORS: Record<string, string> = {
@@ -17,14 +18,6 @@ const TRAIT_COLORS: Record<string, string> = {
   celestial: '#2a4a6a',
 };
 
-const SIZE_LABELS: Record<string, string> = {
-  tiny: 'Tiny',
-  sm: 'Small',
-  med: 'Medium',
-  lg: 'Large',
-  huge: 'Huge',
-  grg: 'Gargantuan',
-};
 
 function traitBg(trait: string): string {
   return TRAIT_COLORS[trait.toLowerCase()] ?? '#6a5a3a';

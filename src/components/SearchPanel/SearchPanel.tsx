@@ -2,39 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { SearchFilters, PackSourceInfo } from '../../search/search';
 import { getAllTraits, getAllPackSourcesWithMeta } from '../../search/search';
 import type { PackEra, PackCategory } from '../../sync/packList';
+import { CREATURE_TYPES, SIZES, RARITIES, HAZARD_TYPES } from '../../data/pf2eConstants';
 import styles from './SearchPanel.module.css';
-
-const HAZARD_TYPES = [
-  { value: 'trap',         label: 'Trap' },
-  { value: 'haunt',        label: 'Haunt' },
-  { value: 'environmental',label: 'Environmental' },
-  { value: 'magical',      label: 'Magical' },
-  { value: 'mechanical',   label: 'Mechanical' },
-  { value: 'curse',        label: 'Curse' },
-  { value: 'disease',      label: 'Disease' },
-];
-
-const CREATURE_TYPES = [
-  'Aberration', 'Animal', 'Astral', 'Beast', 'Celestial', 'Construct',
-  'Dragon', 'Dream', 'Elemental', 'Ethereal', 'Fey', 'Fiend', 'Fungus',
-  'Humanoid', 'Monitor', 'Ooze', 'Plant', 'Shade', 'Spirit', 'Time', 'Undead',
-];
-
-const SIZES = [
-  { value: 'tiny', label: 'Tiny' },
-  { value: 'sm', label: 'Small' },
-  { value: 'med', label: 'Medium' },
-  { value: 'lg', label: 'Large' },
-  { value: 'huge', label: 'Huge' },
-  { value: 'grg', label: 'Gargantuan' },
-];
-
-const RARITIES = [
-  { value: 'common', label: 'Common' },
-  { value: 'uncommon', label: 'Uncommon' },
-  { value: 'rare', label: 'Rare' },
-  { value: 'unique', label: 'Unique' },
-];
 
 const BESTIARY_EXCEPTIONS = new Set([
   'pathfinder-bestiary',

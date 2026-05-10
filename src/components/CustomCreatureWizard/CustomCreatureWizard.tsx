@@ -4,6 +4,7 @@ import {
   AREA_DAMAGE_TABLE, ABILITY_TABLE, PERCEPTION_TABLE, RES_WEAK_TABLE,
 } from '../../data/pf2eTables';
 import type { HpTier, AcTier, SaveTier, AbilityTier, ResWeakTier } from '../../data/pf2eTables';
+import { CREATURE_TYPES, SIZES, DAMAGE_TYPES } from '../../data/pf2eConstants';
 import type { CreatureRecord } from '../../db/schema';
 import type { CustomAttack, CustomAbility, AbilityActionType, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, SpeedType, CustomSpellcastingEntry, CustomSpell, SpellTradition, SpellcastingType, SpellFrequency, CustomSkill } from '../../types/encounter';
 import { db } from '../../db/db';
@@ -15,20 +16,6 @@ function processHtml(raw: string): string {
   return linkRolls(linkKeywords(stripFoundryMacros(raw)));
 }
 
-const CREATURE_TYPES = [
-  'Aberration', 'Animal', 'Astral', 'Beast', 'Celestial', 'Construct',
-  'Dragon', 'Dream', 'Elemental', 'Ethereal', 'Fey', 'Fiend', 'Fungus',
-  'Humanoid', 'Monitor', 'Ooze', 'Plant', 'Shade', 'Spirit', 'Time', 'Undead',
-];
-
-const SIZES: { value: string; label: string }[] = [
-  { value: 'tiny', label: 'Tiny' },
-  { value: 'sm',   label: 'Small' },
-  { value: 'med',  label: 'Medium' },
-  { value: 'lg',   label: 'Large' },
-  { value: 'huge', label: 'Huge' },
-  { value: 'grg',  label: 'Gargantuan' },
-];
 
 const WEAPON_TRAITS = [
   'agile', 'backstabber', 'backswing', 'deadly', 'disarm',
@@ -73,14 +60,6 @@ const LANGUAGE_SUGGESTIONS = [
   'Shadowtongue', 'Sussuran', 'Thalassic', 'Muan', 'Talican',
 ];
 
-const DAMAGE_TYPES = [
-  'acid', 'bludgeoning', 'cold', 'electricity', 'fire', 'force',
-  'mental', 'negative', 'piercing', 'poison', 'positive', 'slashing', 'sonic',
-  'bleed', 'chaotic', 'evil', 'good', 'lawful', 'void', 'vitality',
-  'cold iron', 'silver', 'adamantine', 'magical',
-  'disease', 'death effects', 'doomed', 'drained', 'fatigued',
-  'paralyzed', 'petrified', 'poison', 'sleep', 'unconscious',
-];
 
 interface AttackDraft {
   name: string;
