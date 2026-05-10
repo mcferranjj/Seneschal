@@ -7,6 +7,7 @@ Minor Improvements:
     - add slide animation when the >> button is pressed (when the columns are being brought back)
     - pictures?
         - not implemented
+    - make ability damage scaler use dice more rather than applying the flat damage difference right in the damage description (e.g. magma dragon breath)
 
 Backend Cleanup/Improvements:
     - add "fatal dX" and "deadly dX" to be tracked the same as "fatal-dX" and "deadly-dX" currently are for the dice roller
