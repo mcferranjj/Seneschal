@@ -1,5 +1,5 @@
 import type { PF2ECreature } from '../types/pf2e';
-import type { CustomAttack, CustomAbility, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, CustomSpellcastingEntry, CustomSkill } from '../types/encounter';
+import type { CustomAttack, CustomAbility, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, CustomSpellcastingEntry, CustomSkill, Encounter } from '../types/encounter';
 
 export interface CreatureRecord {
   id: string;
@@ -27,6 +27,30 @@ export interface CreatureRecord {
     languages?: string[];
     allSavesNote?: string;
   };
+}
+
+export interface CharacterRecord {
+  id: string;
+  name: string;
+  playerName: string;
+  ancestry: string;
+  class: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+  ac: number;
+  fort: number;
+  ref: number;
+  will: number;
+  perception: number;
+}
+
+export interface EncounterStateRecord {
+  key: string;
+  encounters: Encounter[];
+  activeEnc: number;
+  partySize: number;
+  partyLevel: number;
 }
 
 export interface MetaRecord {
