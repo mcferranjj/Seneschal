@@ -1,0 +1,162 @@
+.panel {
+  position: fixed;
+  top: 48px;
+  right: 10px;
+  z-index: 600;
+  width: 280px;
+  max-height: 480px;
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.clearBtn {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-mute);
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+}
+
+.clearBtn:hover:not(:disabled) {
+  color: var(--crimson);
+  border-color: var(--crimson);
+}
+
+.clearBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--text-mute);
+  font-size: 0.85rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.closeBtn:hover {
+  color: var(--crimson);
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.empty {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-mute);
+  padding: 24px 0;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-l);
+  transition: background 0.1s;
+}
+
+.entry:last-child {
+  border-bottom: none;
+}
+
+.entry:hover {
+  background: rgba(139, 69, 19, 0.04);
+}
+
+.entryLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.entryLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entryExpr {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--text-mute);
+  font-weight: 600;
+}
+
+.entryBreakdown {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-mute);
+  opacity: 0.75;
+}
+
+.entryTime {
+  font-size: 0.6rem;
+  color: var(--text-mute);
+  opacity: 0.6;
+}
+
+.entryTotal {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  min-width: 36px;
+  text-align: right;
+}
+
+.entryTotalNormal {
+  color: var(--text);
+}
+
+.entryTotalCrit {
+  color: var(--gold, #c8922a);
+}
+
+.entryTotalFumble {
+  color: #c03030;
+}

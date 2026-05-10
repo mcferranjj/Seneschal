@@ -1,0 +1,1 @@
+export { CharactersSection } from './CharactersSection';

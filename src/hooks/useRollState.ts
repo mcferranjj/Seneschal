@@ -8,7 +8,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import type { DamageGroupInput } from '../components/DiceRoller/DiceRoller';
+import type { DamageGroupInput } from '../features/dice/DiceRoller';
 
 export interface DiceRollState {
   expr: string;

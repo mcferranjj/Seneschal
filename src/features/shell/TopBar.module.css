@@ -1,0 +1,256 @@
+.topBar {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  height: 44px;
+  background: var(--crimson);
+  color: #f0e6cc;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.logoMark {
+  font-size: 15px;
+  opacity: 0.8;
+}
+
+.appName {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #f0e6cc;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 14px;
+  flex: 1;
+}
+
+.navPill {
+  padding: 4px 11px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(240, 230, 204, 0.6);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.navPill:hover {
+  color: #f0e6cc;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.navPillActive {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #f0e6cc;
+}
+
+.rightButtons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.iconBtn {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(240, 230, 204, 0.7);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+
+.iconBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  color: #f0e6cc;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.iconBtnActive {
+  background: rgba(255, 255, 255, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #f0e6cc !important;
+}
+
+.iconBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.settingsWrap {
+  position: relative;
+}
+
+.settingsMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--surface, #2a1a1a);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 7px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  min-width: 210px;
+  z-index: 200;
+  padding: 4px;
+  overflow: hidden;
+}
+
+.settingsMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: #f0e6cc;
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.settingsMenuItem:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.settingsMenuIcon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* ── Confirmation dialog ── */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirmDialog {
+  background: var(--surface, #2a1a1a);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+  padding: 28px 28px 22px;
+  max-width: 400px;
+  width: calc(100vw - 48px);
+}
+
+.confirmTitle {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f0e6cc;
+  margin: 0 0 12px;
+}
+
+.confirmBody {
+  font-size: 0.85rem;
+  color: rgba(240, 230, 204, 0.8);
+  line-height: 1.55;
+  margin: 0 0 22px;
+}
+
+.confirmBody strong {
+  color: #f0e6cc;
+}
+
+.confirmButtons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.confirmCancel {
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(240, 230, 204, 0.75);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.confirmCancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f0e6cc;
+}
+
+.confirmCancel:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.confirmDelete {
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--crimson, #8b1a1a);
+  color: #f0e6cc;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, opacity 0.12s;
+}
+
+.confirmDelete:hover:not(:disabled) {
+  background: #a52020;
+}
+
+.confirmDelete:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.historyBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #f0e6cc;
+  color: var(--crimson);
+  font-size: 0.5rem;
+  font-weight: 800;
+  border-radius: 8px;
+  padding: 0 3px;
+  min-width: 13px;
+  height: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  pointer-events: none;
+}

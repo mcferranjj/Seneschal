@@ -6,6 +6,7 @@
  */
 
 import { loadTraitDescriptions } from '../sync/sync';
+import type { PF2EItem } from '../types/pf2e';
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -256,4 +257,24 @@ export function linkKeywords(html: string): string {
     });
     return `>${linked}<`;
   });
+}
+
+/**
+ * Returns true if the PF2EItem is a limited-use ability (recharge, per-day,
+ * per-encounter, etc.) rather than an at-will action. Used to determine whether
+ * elite/weak adjustments apply +2 or +4 damage.
+ */
+export function isLimitedUse(item: PF2EItem): boolean {
+  const desc = item.system?.description?.value ?? '';
+  const actionType = item.system?.actionType?.value;
+  // Recharge mechanic
+  if (/\[\[\/gmr\b/i.test(desc)) return true;
+  // "can't/cannot use X again"
+  if (/can['']t use .+ again|cannot use .+ again/i.test(desc)) return true;
+  // Frequency language: "N times per X" where X is not "round"
+  const freqMatch = desc.match(/\b(?:once|twice|\d+ times?)\s+per\s+(round|minute|hour|day|week|encounter|combat)/i);
+  if (freqMatch && freqMatch[1].toLowerCase() !== 'round') return true;
+  // Free action / reaction triggered abilities are typically limited
+  if (actionType === 'reaction') return true;
+  return false;
 }

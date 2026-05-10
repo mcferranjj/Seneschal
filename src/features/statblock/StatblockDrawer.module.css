@@ -1,0 +1,705 @@
+/* Fixed panel — always visible, fills .statblockCol wrapper */
+.drawer {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+  background: var(--parchment);
+}
+
+/* Empty state */
+.emptyState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-mute);
+}
+
+.emptyIcon {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 2.5rem;
+  opacity: 0.12;
+}
+
+.emptyTitle {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-mid);
+}
+
+.emptyHint {
+  font-size: 0.78rem;
+}
+
+.imageContainer {
+  background: var(--parchment);
+  display: flex;
+  justify-content: center;
+  border-bottom: 1px solid var(--border-l);
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.creatureImage {
+  max-height: 160px;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+/* Clickable modifier roll spans */
+.rollMod {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 2px;
+  transition: background 0.1s, color 0.1s;
+  font-weight: inherit;
+}
+
+.rollMod:hover {
+  background: rgba(139, 69, 19, 0.15);
+  color: var(--crimson);
+}
+
+/* MAP individual roll spans inside the bracket */
+.mapRoll {
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 0 1px;
+  transition: background 0.1s, color 0.1s;
+}
+
+.mapRoll:hover {
+  background: rgba(139, 69, 19, 0.15);
+  color: var(--crimson);
+}
+
+/* Scrollable content */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header bar */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  background: var(--crimson);
+  color: #fff;
+  padding: 11px 14px 10px;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.headerMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.creatureName {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+  display: block;
+}
+
+.creatureLevel {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 1px;
+  display: block;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.aonLink {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.65);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 4px;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.aonLink:hover {
+  color: #fff;
+  border-color: rgba(255,255,255,0.6);
+}
+
+.closeBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s;
+}
+
+.closeBtn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+.editBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.editBtn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255,255,255,0.6);
+  color: #fff;
+}
+
+.copyBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.copyBtn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255,255,255,0.6);
+  color: #fff;
+}
+
+/* ── Level Scaling ────────────────────────────────────────────────────────── */
+
+.scaledBadge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(180, 255, 230, 0.9);
+  letter-spacing: 0.03em;
+}
+
+.scaleWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.scaleBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.scaleBtn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255,255,255,0.6);
+  color: #fff;
+}
+
+.scaleBtnActive {
+  background: rgba(42, 122, 106, 0.5);
+  border-color: rgba(180, 255, 230, 0.6);
+  color: rgba(180, 255, 230, 0.95);
+}
+
+.scaleBtnActive:hover {
+  background: rgba(42, 122, 106, 0.7);
+}
+
+.scaleDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 300;
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  padding: 6px;
+  min-width: 140px;
+}
+
+.scaleDropdownHeader {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-mute);
+  padding: 2px 4px 6px;
+  border-bottom: 1px solid var(--border-l);
+  margin-bottom: 4px;
+}
+
+.scaleDropdownRemove {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  font-size: 0.75rem;
+  color: #8a2a18;
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: background 0.1s;
+}
+
+.scaleDropdownRemove:hover {
+  background: rgba(138, 42, 24, 0.1);
+}
+
+.scaleDropdownList {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.scaleDropdownItem {
+  padding: 4px 2px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  font-size: 0.72rem;
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.scaleDropdownItem:hover {
+  background: rgba(139, 69, 19, 0.1);
+  border-color: var(--border);
+  color: var(--crimson);
+}
+
+.scaleDropdownItemActive {
+  background: rgba(42, 122, 106, 0.15);
+  border-color: #2a7a6a;
+  color: #2a7a6a;
+  font-weight: 700;
+}
+
+/* Traits row */
+.traitsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 10px;
+  background: #4a1010;
+  border-bottom: 2px solid #360c0c;
+  flex-shrink: 0;
+}
+
+.traitChip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #fff;
+  background: #8b4513;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  padding: 2px 7px;
+}
+
+/* Body */
+.body {
+  padding: 10px 14px 16px;
+  font-size: 0.82rem;
+  color: var(--text);
+  line-height: 1.5;
+  flex: 1;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 7px 0;
+}
+
+.sourceLine {
+  margin: 0 0 5px;
+  font-size: 0.72rem;
+  color: var(--text-mute);
+}
+
+/* Elite/Weak adjustment banner shown at top of statblock body */
+.eliteWeakBanner {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border-left: 3px solid;
+  line-height: 1.5;
+}
+
+/* Recall Knowledge line — same typographic weight/size as .sourceLine */
+.rkLine {
+  margin: 0 0 5px;
+  font-size: 0.72rem;
+  color: var(--text-mute);
+}
+
+/* "RK DC" prefix — matches the <strong> weight used in source/conditions lines */
+.rkLineLabel {
+  font-weight: 700;
+  color: var(--text-mute);
+}
+
+/* The numeric DC value */
+.rkLineDc {
+  font-weight: 700;
+  color: var(--text-mute);
+}
+
+/* Skills list — italic like the <em> source title */
+.rkLineSkills {
+  font-style: italic;
+}
+
+.infoLine {
+  margin: 3px 0;
+}
+
+.abilityLine {
+  margin: 5px 0 3px;
+}
+
+.defenseLine {
+  margin: 3px 0;
+}
+
+.attackLine {
+  margin: 5px 0;
+  line-height: 1.55;
+}
+
+.attackTypeLabel {
+  font-style: italic;
+  color: var(--text-mid);
+}
+
+.mapBracket {
+  font-size: 0.8em;
+  color: var(--text-mute);
+}
+
+.attackTraits {
+  font-size: 0.82em;
+  color: var(--text-mid);
+  font-style: italic;
+}
+
+.actionSymbol {
+  color: var(--crimson);
+  font-weight: 700;
+}
+
+.itemBlock {
+  margin: 5px 0;
+}
+
+.itemHeader {
+  margin: 4px 0 1px;
+  line-height: 1.45;
+}
+
+.itemName {
+  font-size: 0.85rem;
+  color: var(--text);
+  font-family: 'Cinzel', Georgia, serif;
+}
+
+.itemTraits {
+  font-size: 0.8em;
+  color: var(--text-mid);
+  font-style: italic;
+}
+
+.eliteWeakAbilityNote {
+  margin: 4px 0 6px;
+  font-size: 0.72rem;
+  font-style: italic;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.04);
+  border-left: 3px solid currentColor;
+  line-height: 1.5;
+}
+
+.rollAllDmgBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0 2px 0.5rem;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--crimson);
+  background: transparent;
+  color: var(--crimson);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.12s, color 0.12s;
+}
+
+.rollAllDmgBtn:hover {
+  background: var(--crimson);
+  color: #f0e6cc;
+  border-color: var(--crimson);
+}
+
+.rollAllDmgMod {
+  font-size: 0.68rem;
+  opacity: 0.85;
+  margin-left: 1px;
+}
+
+.spellGroupLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-mute);
+  margin: 5px 0 1px 0.3rem;
+}
+
+/* Compact inline spellcasting line */
+.spellcastingLine {
+  margin: 5px 0;
+  line-height: 1.6;
+  font-size: 0.82rem;
+}
+
+/* Clickable spell name in inline list */
+.spellNameWrap {
+  display: inline;
+}
+
+.spellNameLink {
+  cursor: pointer;
+  color: var(--crimson);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  font-style: italic;
+}
+
+.spellNameLink:hover {
+  color: var(--crimson);
+  text-decoration-style: solid;
+}
+
+/* Spell detail popup — position:fixed applied inline, coordinates clamped to viewport */
+.spellPopup {
+  z-index: 200;
+  width: 320px;
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  padding: 8px 10px 10px;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.spellPopupHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+
+.spellPopupClose {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-mute);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.spellPopupClose:hover {
+  background: rgba(0,0,0,0.08);
+  color: var(--text);
+}
+
+.itemDesc {
+  margin: 1px 0 1px 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-mid);
+}
+
+.itemDesc p {
+  margin: 2px 0;
+}
+
+.itemDesc ul,
+.itemDesc ol {
+  margin: 4px 0;
+  padding-left: 1.25rem;
+}
+
+.itemDesc hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 6px 0;
+}
+
+.flavorBox {
+  background: rgba(122, 92, 46, 0.07);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 4px 4px 0;
+  padding: 8px 12px;
+  margin: 2px 0 4px;
+}
+
+.publicNotes {
+  font-size: 0.77rem;
+  font-style: italic;
+  color: var(--text-mid);
+  line-height: 1.6;
+}
+
+.publicNotes p {
+  margin: 4px 0;
+}
+
+.publicNotes hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 6px 0;
+}
+
+/* Add to Encounter button */
+.addToEncBtn {
+  margin-top: 14px;
+  padding: 7px 16px;
+  border-radius: 6px;
+  background: var(--crimson);
+  color: #f0e6cc;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: opacity 0.12s;
+  display: inline-block;
+}
+
+.addToEncBtn:hover {
+  opacity: 0.88;
+}
+
+/* Delete custom creature */
+.deleteBtn {
+  display: block;
+  margin-top: 8px;
+  padding: 5px 12px;
+  border-radius: 4px;
+  background: transparent;
+  color: #8a2a18;
+  border: 1px solid #8a2a18;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.12s, color 0.12s;
+}
+
+.deleteBtn:hover {
+  background: #8a2a18;
+  color: #fff;
+}
+
+.deleteConfirm {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--text-mid);
+}
+
+.deleteConfirmBtn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: #8a2a18;
+  color: #fff;
+  border: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.deleteCancelBtn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-mute);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  cursor: pointer;
+}

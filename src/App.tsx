@@ -12,15 +12,15 @@ import { loadEncounterState, saveEncounterState } from './db/db';
 import { creatureRepository } from './db/repositories/CreatureRepository';
 import { importCreatureAsCustom } from './utils/importCreature';
 import { buildScaledCreature, adjustedMaxHp } from './utils/levelScaling';
-import { TopBar } from './components/TopBar/TopBar';
-import { SearchPanel } from './components/SearchPanel/SearchPanel';
-import { ResultsList } from './components/ResultsList/ResultsList';
-import { StatblockDrawer } from './components/StatblockDrawer/StatblockDrawer';
-import { EncounterManager } from './components/EncounterManager/EncounterManager';
-import { RulesSection } from './components/RulesSection/RulesSection';
-import { CharactersSection } from './components/CharactersSection/CharactersSection';
-import { RollHistory } from './components/RollHistory/RollHistory';
-import styles from './App.module.css';
+import { TopBar } from './features/shell/TopBar';
+import { SearchPanel } from './features/creatures/SearchPanel/SearchPanel';
+import { ResultsList } from './features/creatures/ResultsList/ResultsList';
+import { StatblockDrawer } from './features/statblock/StatblockDrawer';
+import { EncounterManager } from './features/encounter/EncounterManager';
+import { RulesSection } from './features/rules/RulesSection';
+import { CharactersSection } from './features/characters/CharactersSection';
+import { RollHistory } from './features/roll-history/RollHistory';
+import styles from './features/shell/App.module.css';
 
 const SEARCH_DEBOUNCE_MS = 200;
 
