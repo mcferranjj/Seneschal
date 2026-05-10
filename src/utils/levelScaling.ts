@@ -24,7 +24,7 @@ import {
   ABILITY_TABLE,
   PERCEPTION_TABLE,
   RES_WEAK_TABLE,
-} from '../components/CustomCreatureWizard/CustomCreatureWizard';
+} from '../data/pf2eTables';
 import { importSpellcasting } from './importCreature';
 
 // ── Tier definitions ──────────────────────────────────────────────────────────
