@@ -4,6 +4,8 @@ import {
   parseDice, cryptoD, rollDice, rollCrit,
 } from '../../utils/dice';
 import type { ParsedDice, RollResult, CritResult } from '../../utils/dice';
+import { useOutsideClick } from '../../hooks/useOutsideClick';
+import { useFloatingPanel } from '../../hooks/useFloatingPanel';
 import styles from './DiceRoller.module.css';
 
 // Re-export for callers that import these from DiceRoller directly
@@ -42,14 +44,13 @@ export function DiceRoller({
   const [atkResult, setAtkResult] = useState<RollResult | null>(null);
   const [dmgResult, setDmgResult] = useState<RollResult | null>(null);
   const [critResult, setCritResult] = useState<CritResult | null>(null);
-  const [clampedY, setClampedY] = useState(anchorY);
-  // Drag state: offset from top-left of panel, null when not dragging
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   // Animation keys bump on each roll to retrigger CSS animation
   const [atkAnimKey, setAtkAnimKey] = useState(0);
   const [dmgAnimKey, setDmgAnimKey] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startMouseX: number; startMouseY: number; startPanelX: number; startPanelY: number } | null>(null);
+  const {
+    ref, pos, panelLeft, panelTop, panelTransform,
+    onDragHandlePointerDown, onDragPointerMove, onDragPointerUp,
+  } = useFloatingPanel(anchorX, anchorY, onClose);
   const onRollRef = useRef(onRoll);
   onRollRef.current = onRoll;
 
@@ -136,54 +137,6 @@ export function DiceRoller({
     return () => window.removeEventListener('keydown', onKey);
   }, [performAtkRoll, onClose]);
 
-  useEffect(() => {
-    function onPointerDown(e: PointerEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    }
-    window.addEventListener('pointerdown', onPointerDown);
-    return () => window.removeEventListener('pointerdown', onPointerDown);
-  }, [onClose]);
-
-  // Drag handlers
-  const onDragHandlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (!ref.current) return;
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const rect = ref.current.getBoundingClientRect();
-    // Always use the actual rendered left edge so the transition from
-    // translateX(-50%) to transform:none doesn't cause a jump.
-    const currentX = rect.left;
-    const currentY = rect.top;
-    dragRef.current = {
-      startMouseX: e.clientX,
-      startMouseY: e.clientY,
-      startPanelX: currentX,
-      startPanelY: currentY,
-    };
-  }, []);
-
-  const onDragPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    const dx = e.clientX - dragRef.current.startMouseX;
-    const dy = e.clientY - dragRef.current.startMouseY;
-    setPos({
-      x: dragRef.current.startPanelX + dx,
-      y: dragRef.current.startPanelY + dy,
-    });
-  }, []);
-
-  const onDragPointerUp = useCallback(() => {
-    dragRef.current = null;
-  }, []);
-
-  // Clamp vertical position so roller never overflows the bottom of the viewport
-  useEffect(() => {
-    if (pos) return; // user is dragging — skip auto-clamp
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const overflow = rect.bottom - window.innerHeight + 8; // 8px margin
-    if (overflow > 0) setClampedY(y => y - overflow);
-  });
 
   if (!atkResult || !parsed) return null;
 
@@ -192,14 +145,11 @@ export function DiceRoller({
   const isNat1  = isD20 && atkResult.rolls[0] === 1;
   const atkTotalClass = isNat20 ? styles.totalCrit : isNat1 ? styles.totalFumble : styles.totalNormal;
 
-  const panelLeft = pos ? pos.x : anchorX;
-  const panelTop  = pos ? pos.y : clampedY;
-
   return (
     <div
       ref={ref}
       className={styles.roller}
-      style={{ left: panelLeft, top: panelTop, transform: pos ? 'none' : 'translateX(-50%)' }}
+      style={{ left: panelLeft, top: panelTop, transform: panelTransform }}
       onPointerMove={onDragPointerMove}
       onPointerUp={onDragPointerUp}
     >
@@ -319,10 +269,10 @@ export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClo
     parsedGroups.map(g => ({ parsed: g.parsed, normal: null, crit: null, animKey: 0 }))
   );
   const [isCrit, setIsCrit] = useState(false);
-  const [clampedY, setClampedY] = useState(anchorY);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startMouseX: number; startMouseY: number; startPanelX: number; startPanelY: number } | null>(null);
+  const {
+    ref, pos, panelLeft: mdrPanelLeft, panelTop: mdrPanelTop, panelTransform: mdrPanelTransform,
+    onDragHandlePointerDown, onDragPointerMove, onDragPointerUp,
+  } = useFloatingPanel(anchorX, anchorY, onClose);
   const onRollRef = useRef(onRoll);
   onRollRef.current = onRoll;
 
@@ -368,47 +318,13 @@ export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClo
     return () => window.removeEventListener('keydown', onKey);
   }, [rollAll, isCrit, onClose]);
 
-  useEffect(() => {
-    function onPointerDown(e: PointerEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    }
-    window.addEventListener('pointerdown', onPointerDown);
-    return () => window.removeEventListener('pointerdown', onPointerDown);
-  }, [onClose]);
-
-  const onDragHandlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (!ref.current) return;
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const rect = ref.current.getBoundingClientRect();
-    dragRef.current = { startMouseX: e.clientX, startMouseY: e.clientY, startPanelX: rect.left, startPanelY: rect.top };
-  }, []);
-
-  const onDragPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    setPos({ x: dragRef.current.startPanelX + (e.clientX - dragRef.current.startMouseX), y: dragRef.current.startPanelY + (e.clientY - dragRef.current.startMouseY) });
-  }, []);
-
-  const onDragPointerUp = useCallback(() => { dragRef.current = null; }, []);
-
-  useEffect(() => {
-    if (pos) return;
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const overflow = rect.bottom - window.innerHeight + 8;
-    if (overflow > 0) setClampedY(y => y - overflow);
-  });
-
   if (parsedGroups.length === 0) return null;
-
-  const panelLeft = pos ? pos.x : anchorX;
-  const panelTop  = pos ? pos.y : clampedY;
 
   return (
     <div
       ref={ref}
       className={styles.roller}
-      style={{ left: panelLeft, top: panelTop, transform: pos ? 'none' : 'translateX(-50%)', width: 220 }}
+      style={{ left: mdrPanelLeft, top: mdrPanelTop, transform: mdrPanelTransform, width: 220 }}
       onPointerMove={onDragPointerMove}
       onPointerUp={onDragPointerUp}
     >
@@ -488,11 +404,11 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
   const parsed = parseDice(expression);
   const [dmgResult, setDmgResult] = useState<RollResult | null>(null);
   const [critResult, setCritResult] = useState<CritResult | null>(null);
-  const [clampedY, setClampedY] = useState(anchorY);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const [animKey, setAnimKey] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startMouseX: number; startMouseY: number; startPanelX: number; startPanelY: number } | null>(null);
+  const {
+    ref, pos, panelLeft: drPanelLeft, panelTop: drPanelTop, panelTransform: drPanelTransform,
+    onDragHandlePointerDown, onDragPointerMove, onDragPointerUp,
+  } = useFloatingPanel(anchorX, anchorY, onClose);
   const onRollRef = useRef(onRoll);
   onRollRef.current = onRoll;
 
@@ -532,21 +448,6 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
     });
   }, [parsed, traits, label]);
 
-  const onDragHandlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (!ref.current) return;
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const rect = ref.current.getBoundingClientRect();
-    dragRef.current = { startMouseX: e.clientX, startMouseY: e.clientY, startPanelX: rect.left, startPanelY: rect.top };
-  }, []);
-
-  const onDragPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    setPos({ x: dragRef.current.startPanelX + (e.clientX - dragRef.current.startMouseX), y: dragRef.current.startPanelY + (e.clientY - dragRef.current.startMouseY) });
-  }, []);
-
-  const onDragPointerUp = useCallback(() => { dragRef.current = null; }, []);
-
   useEffect(() => { performDmgRoll(); }, []); // eslint-disable-line
 
   useEffect(() => {
@@ -558,27 +459,7 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
     return () => window.removeEventListener('keydown', onKey);
   }, [performDmgRoll, onClose]);
 
-  useEffect(() => {
-    function onPointerDown(e: PointerEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    }
-    window.addEventListener('pointerdown', onPointerDown);
-    return () => window.removeEventListener('pointerdown', onPointerDown);
-  }, [onClose]);
-
-  // Clamp vertical position so roller never overflows the bottom of the viewport
-  useEffect(() => {
-    if (pos) return;
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const overflow = rect.bottom - window.innerHeight + 8;
-    if (overflow > 0) setClampedY(y => y - overflow);
-  });
-
   if (!dmgResult || !parsed) return null;
-
-  const panelLeft = pos ? pos.x : anchorX;
-  const panelTop  = pos ? pos.y : clampedY;
 
   // Detect deadly / fatal traits for display
   const fatalTrait  = traits.find(t => /^fatal-\d*d\d+$/i.test(t));
@@ -593,7 +474,7 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
     <div
       ref={ref}
       className={styles.roller}
-      style={{ left: panelLeft, top: panelTop, transform: pos ? 'none' : 'translateX(-50%)' }}
+      style={{ left: drPanelLeft, top: drPanelTop, transform: drPanelTransform }}
       onPointerMove={onDragPointerMove}
       onPointerUp={onDragPointerUp}
     >

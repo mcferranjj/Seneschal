@@ -33,6 +33,7 @@ import { getRecallKnowledge } from '../EncounterManager/EncounterManager';
 import { importSpellcasting } from '../../utils/importCreature';
 import { buildScaledCreature, scaleAbilityHtml, eliteWeakHpDelta, eliteWeakLevel } from '../../utils/levelScaling';
 import { traitColor } from '../../utils/traitColors';
+import { useRollState } from '../../hooks/useRollState';
 
 function processHtml(raw: string): string {
   return linkRolls(linkKeywords(stripFoundryMacros(raw)));
@@ -192,62 +193,19 @@ function StatblockContent({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [scaleDropdownOpen, setScaleDropdownOpen] = useState(false);
 
-  const [diceRoll, setDiceRoll] = useState<{
-    expr: string; label?: string;
-    damageExpr?: string; damageLabel?: string; damageTraits?: string[];
-    x: number; y: number;
-  } | null>(null);
-  const [damageRoll, setDamageRoll] = useState<{
-    expr: string; label?: string; traits?: string[];
-    x: number; y: number;
-  } | null>(null);
-  const [multiDamageRoll, setMultiDamageRoll] = useState<{
-    groups: DamageGroupInput[]; abilityName: string;
-    x: number; y: number;
-  } | null>(null);
-
-  const roll = useCallback((mod: number | undefined, label: string, e: React.MouseEvent) => {
-    if (mod == null) return;
-    e.stopPropagation();
-    const expr = `1d20${mod >= 0 ? `+${mod}` : mod}`;
-    setDiceRoll({ expr, label, x: e.clientX, y: e.clientY - 160 });
-    setDamageRoll(null);
-    setMultiDamageRoll(null);
-  }, []);
-
-  const rollAttack = useCallback((
-    mod: number, label: string,
-    damageExpr: string, damageLabel: string, damageTraits: string[],
-    e: React.MouseEvent,
-  ) => {
-    e.stopPropagation();
-    const expr = `1d20${mod >= 0 ? `+${mod}` : mod}`;
-    setDiceRoll({ expr, label, damageExpr, damageLabel, damageTraits, x: e.clientX, y: e.clientY - 160 });
-    setDamageRoll(null);
-    setMultiDamageRoll(null);
-  }, []);
-
-  const rollDamage = useCallback((expr: string, label: string, traits: string[], e: React.MouseEvent) => {
-    e.stopPropagation();
-    setDamageRoll({ expr, label, traits, x: e.clientX, y: e.clientY - 160 });
-    setDiceRoll(null);
-    setMultiDamageRoll(null);
-  }, []);
-
-  const rollAllDamage = useCallback((groups: DamageGroup[], abilityName: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setMultiDamageRoll({ groups, abilityName, x: e.clientX, y: e.clientY - 160 });
-    setDiceRoll(null);
-    setDamageRoll(null);
-  }, []);
+  const {
+    diceRoll, damageRoll, multiDamageRoll,
+    roll, rollAttack, rollDamage, rollAllDamage, rollExpr,
+  } = useRollState();
 
   const handleBodyClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains('pf2roll')) {
       const expr = target.dataset.expr ?? '';
       const label = target.dataset.label ?? undefined;
-      if (expr) setDiceRoll({ expr, label, x: e.clientX, y: e.clientY - 160 });
+      if (expr) rollExpr(expr, label, e);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Close scale dropdown on outside click

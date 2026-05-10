@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import { formatTime } from '../../utils/formatters';
+import { useOutsideClick } from '../../hooks/useOutsideClick';
 import styles from './RollHistory.module.css';
 
 interface RollHistoryProps {
@@ -13,14 +14,7 @@ export function RollHistory({ entries, onClear, onClose }: RollHistoryProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
-  useEffect(() => {
-    function onPointerDown(e: PointerEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
-    }
-    window.addEventListener('pointerdown', onPointerDown);
-    return () => window.removeEventListener('pointerdown', onPointerDown);
-  }, [onClose]);
+  useOutsideClick(panelRef, onClose);
 
   // Scroll to top when new entry arrives
   useEffect(() => {
