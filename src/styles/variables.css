@@ -1,0 +1,18 @@
+:root {
+  --bg: #f4ead6;
+  --parchment: #faf4e8;
+  --crimson: #5c1414;
+  --brown: #7a5c2e;
+  --gold: #9a7228;
+  --border: #d8c8a4;
+  --border-l: #ecddc4;
+  --text: #2a1a0e;
+  --text-mid: #5a3a20;
+  --text-mute: #8a6a4a;
+  --rarity-common: #5a7a3a;
+  --rarity-uncommon: #8a6a18;
+  --rarity-rare: #2a4a8a;
+  --rarity-unique: #6a2a8a;
+  --trait-include: #3a7a3a;
+  --trait-exclude: #8a2a18;
+}
