@@ -12,9 +12,6 @@ export function isCreaturePack(packName: string): boolean {
   return true;
 }
 
-export function isCorePack(packName: string): boolean {
-  return packName.startsWith('pathfinder-') || packName === 'npc-gallery';
-}
 
 export type PackEra = 'remaster' | 'legacy' | 'sf2e';
 export type PackCategory = 'core' | 'supplemental' | 'misc';

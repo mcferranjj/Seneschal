@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Section } from '../../types/encounter';
-import { formatTimestamp } from '../../utils/formatters';
 import styles from './TopBar.module.css';
 
 interface TopBarProps {

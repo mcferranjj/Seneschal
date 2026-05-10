@@ -129,15 +129,3 @@ export function getDamageString(damageRolls: Record<string, { damage: string; da
     .join(' + ');
 }
 
-export function getActionCostLabel(item: PF2EItem): string {
-  const at = item.system?.actionType?.value;
-  const cost = item.system?.actions?.value;
-  if (at === 'reaction') return '[R]';
-  if (at === 'free') return '[F]';
-  if (at === 'passive') return '';
-  if (cost === 1) return '[A]';
-  if (cost === 2) return '[AA]';
-  if (cost === 3) return '[AAA]';
-  return '';
-}
-
