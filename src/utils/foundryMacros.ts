@@ -260,6 +260,14 @@ export function linkKeywords(html: string): string {
 }
 
 /**
+ * Apply the standard Foundry HTML processing pipeline:
+ * strip macros → link keywords → link roll expressions.
+ */
+export function processFoundryHtml(raw: string): string {
+  return linkRolls(linkKeywords(stripFoundryMacros(raw)));
+}
+
+/**
  * Returns true if the PF2EItem is a limited-use ability (recharge, per-day,
  * per-encounter, etc.) rather than an at-will action. Used to determine whether
  * elite/weak adjustments apply +2 or +4 damage.

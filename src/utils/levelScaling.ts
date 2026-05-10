@@ -35,9 +35,9 @@ type SaveTier    = 'terrible' | 'low' | 'moderate' | 'high' | 'extreme';
 type AbilityTier = 'low' | 'moderate' | 'high' | 'extreme';
 type ResWeakTier = 'low' | 'moderate' | 'high';
 
-const HP_TIERS:       HpTier[]      = ['low', 'moderate', 'high'];
-const AC_TIERS:       AcTier[]      = ['low', 'moderate', 'high', 'extreme'];
-const SAVE_TIERS:     SaveTier[]    = ['terrible', 'low', 'moderate', 'high', 'extreme'];
+export const HP_TIERS:       HpTier[]      = ['low', 'moderate', 'high'];
+export const AC_TIERS:       AcTier[]      = ['low', 'moderate', 'high', 'extreme'];
+export const SAVE_TIERS:     SaveTier[]    = ['terrible', 'low', 'moderate', 'high', 'extreme'];
 const ABILITY_TIERS:  AbilityTier[] = ['low', 'moderate', 'high', 'extreme'];
 const RES_WEAK_TIERS: ResWeakTier[] = ['low', 'moderate', 'high'];
 
@@ -45,6 +45,33 @@ const RES_WEAK_TIERS: ResWeakTier[] = ['low', 'moderate', 'high'];
 
 function clampLevel(level: number): number {
   return Math.max(-1, Math.min(25, level));
+}
+
+// ── Table lookup helpers ──────────────────────────────────────────────────────
+
+/** Look up a creature's HP for a given level and tier. */
+export function lookupHp(level: number, tier: HpTier): number {
+  return (HP_TABLE[clampLevel(level)] ?? HP_TABLE[0])[tier];
+}
+
+/** Look up a creature's AC for a given level and tier. */
+export function lookupAc(level: number, tier: AcTier): number {
+  return (AC_TABLE[clampLevel(level)] ?? AC_TABLE[0])[tier];
+}
+
+/** Look up a creature's save modifier for a given level and tier. */
+export function lookupSave(level: number, tier: SaveTier): number {
+  return (SAVE_TABLE[clampLevel(level)] ?? SAVE_TABLE[0])[tier];
+}
+
+/** Look up a creature's attack bonus for a given level and tier. */
+export function lookupAttack(level: number, tier: AcTier): number {
+  return (ATTACK_TABLE[clampLevel(level)] ?? ATTACK_TABLE[0])[tier];
+}
+
+/** Look up a creature's damage expression for a given level and tier. */
+export function lookupDamage(level: number, tier: AcTier): string {
+  return (DAMAGE_TABLE[clampLevel(level)] ?? DAMAGE_TABLE[0])[tier];
 }
 
 /**
@@ -616,6 +643,23 @@ export function eliteWeakHpDelta(startingLevel: number, adjustment: 'elite' | 'w
     if (startingLevel <= 20) return -20;
     return -30;
   }
+}
+
+/**
+ * Returns the damage modifier for an elite/weak adjustment on an ability.
+ * Limited-use abilities (reactions, per-day, etc.) get ±4; at-will abilities get ±2.
+ */
+export function eliteWeakDmgMod(ewMod: number, isLimited: boolean): number {
+  if (ewMod === 0) return 0;
+  return ewMod > 0 ? (isLimited ? 4 : 2) : (isLimited ? -4 : -2);
+}
+
+/**
+ * Returns the DC modifier for an elite/weak adjustment. Always ±2; flat checks are exempt.
+ */
+export function eliteWeakDcMod(ewMod: number): number {
+  if (ewMod === 0) return 0;
+  return ewMod > 0 ? 2 : -2;
 }
 
 /** Returns the adjusted max HP for a creature, accounting for elite/weak on top of any level scaling. */

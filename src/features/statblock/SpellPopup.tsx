@@ -2,16 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import {
   applyEliteWeakToHtml,
   extractDamageGroups,
-  stripFoundryMacros,
-  linkKeywords,
-  linkRolls,
+  processFoundryHtml,
 } from '../../utils/foundryMacros';
 import type { DamageGroup } from '../../utils/foundryMacros';
+import { eliteWeakDmgMod, eliteWeakDcMod } from '../../utils/levelScaling';
+import { useOutsideClick } from '../../hooks/useOutsideClick';
 import styles from './StatblockDrawer.module.css';
-
-function processHtml(raw: string): string {
-  return linkRolls(linkKeywords(stripFoundryMacros(raw)));
-}
 
 interface SpellPopupProps {
   name: string;
@@ -28,12 +24,12 @@ export function SpellPopup({ name, description, traits, ewMod, ewStyle, onRollAl
   const popupRef = useRef<HTMLDivElement>(null);
   const traitStr = traits && traits.length > 0 ? `(${traits.join(', ')})` : '';
   const limited = /1\/day|2\/day|3\/day|focus/i.test(description);
-  const dmgMod = ewMod !== 0 ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2)) : 0;
-  const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
+  const dmgMod = eliteWeakDmgMod(ewMod, limited);
+  const dcMod  = eliteWeakDcMod(ewMod);
   const adjustedDesc = (dmgMod !== 0 || dcMod !== 0) ? applyEliteWeakToHtml(description, dmgMod, dcMod) : description;
   const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];
   const hasDamage = damageGroups.length > 0 && onRollAll != null;
-  const html = processHtml(adjustedDesc);
+  const html = processFoundryHtml(adjustedDesc);
 
   // Compute viewport-clamped position from anchor element
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; maxH: number } | null>(null);
@@ -67,17 +63,8 @@ export function SpellPopup({ name, description, traits, ewMod, ewStyle, onRollAl
     setPos(posResult);
   }, [anchorRef]);
 
-  // Close on outside click
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (popupRef.current && !popupRef.current.contains(e.target as Node) &&
-          anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    }
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose, anchorRef]);
+  // Close on outside click, excluding the anchor that toggled this popup open
+  useOutsideClick(popupRef, onClose, anchorRef);
 
   if (!pos) return null;
 

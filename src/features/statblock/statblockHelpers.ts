@@ -6,28 +6,13 @@ export {
   stripFoundryMacros,
   linkRolls,
   linkKeywords,
-  initTraitDescriptions,
   applyEliteWeakToHtml,
   extractDamageGroups,
   isLimitedUse,
+  processFoundryHtml,
 } from '../../utils/foundryMacros';
 export type { DamageGroup } from '../../utils/foundryMacros';
-
-export function getLevel(c: PF2ECreature): number {
-  const lvl = c.system?.details?.level;
-  if (!lvl) return 0;
-  return typeof lvl === 'object' ? lvl.value ?? 0 : (lvl as number);
-}
-
-export function getSize(c: PF2ECreature): string {
-  const sz = c.system?.traits?.size;
-  if (!sz) return 'Medium';
-  const raw = typeof sz === 'object' ? sz.value : (sz as string);
-  const map: Record<string, string> = {
-    tiny: 'Tiny', sm: 'Small', med: 'Medium', lg: 'Large', huge: 'Huge', grg: 'Gargantuan',
-  };
-  return map[raw] ?? raw;
-}
+export { getLevel, getSizeLabel as getSize } from '../../utils/pf2eHelpers';
 
 export function getLanguages(c: PF2ECreature): string {
   const langs = c.system?.details?.languages;

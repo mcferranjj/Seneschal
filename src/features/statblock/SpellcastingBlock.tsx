@@ -1,6 +1,7 @@
 import type { CustomSpellcastingEntry, CustomSpell } from '../../types/encounter';
 import type { DamageGroup } from '../../utils/foundryMacros';
 import { formatMod } from '../../utils/formatters';
+import { eliteWeakDcMod } from '../../utils/levelScaling';
 import { SpellNameLink } from './SpellNameLink';
 import styles from './StatblockDrawer.module.css';
 
@@ -14,7 +15,7 @@ interface SpellcastingBlockProps {
 }
 
 export function SpellcastingBlock({ entry, ewMod = 0, ewStyle, onRollAll }: SpellcastingBlockProps) {
-  const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
+  const dcMod = eliteWeakDcMod(ewMod);
   const effDc = entry.dc + dcMod;
   const effAtk = entry.attackMod + ewMod;
   const traditionLabel = entry.tradition.charAt(0).toUpperCase() + entry.tradition.slice(1);

@@ -24,6 +24,7 @@ import {
   linkRolls,
   extractDamageGroups,
   applyEliteWeakToHtml,
+  processFoundryHtml,
 } from './statblockHelpers';
 import { getRecallKnowledge } from '../encounter/EncounterManager';
 import { importSpellcasting } from '../../utils/importCreature';
@@ -35,10 +36,6 @@ import { AttackLine } from './AttackLine';
 import { ItemBlock } from './ItemBlock';
 import { SpellcastingBlock } from './SpellcastingBlock';
 import styles from './StatblockDrawer.module.css';
-
-function processHtml(raw: string): string {
-  return linkRolls(linkKeywords(stripFoundryMacros(raw)));
-}
 
 function skillDisplayName(raw: string): string {
   return raw.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -757,7 +754,7 @@ function StatblockContent({
               {adjustedDesc && (
                 <div
                   className={styles.itemDesc}
-                  dangerouslySetInnerHTML={{ __html: processHtml(adjustedDesc) }}
+                  dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc) }}
                 />
               )}
               {hasDamage && (
@@ -779,7 +776,7 @@ function StatblockContent({
             <div className={styles.flavorBox}>
               <div
                 className={styles.publicNotes}
-                dangerouslySetInnerHTML={{ __html: processHtml(publicNotes) }}
+                dangerouslySetInnerHTML={{ __html: processFoundryHtml(publicNotes) }}
               />
             </div>
           </>

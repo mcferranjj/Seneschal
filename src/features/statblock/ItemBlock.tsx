@@ -3,17 +3,11 @@ import {
   applyEliteWeakToHtml,
   extractDamageGroups,
   isLimitedUse,
-  stripFoundryMacros,
-  linkKeywords,
-  linkRolls,
+  processFoundryHtml,
 } from '../../utils/foundryMacros';
 import type { DamageGroup } from '../../utils/foundryMacros';
-import { scaleAbilityHtml } from '../../utils/levelScaling';
+import { scaleAbilityHtml, eliteWeakDmgMod, eliteWeakDcMod } from '../../utils/levelScaling';
 import styles from './StatblockDrawer.module.css';
-
-function processHtml(raw: string): string {
-  return linkRolls(linkKeywords(stripFoundryMacros(raw)));
-}
 
 function actionSymbol(item: PF2EItem): string {
   const at = item.system?.actionType?.value;
@@ -48,14 +42,10 @@ export function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle, baseLevel, targ
     ? scaleAbilityHtml(rawDesc, baseLevel, targetLevel)
     : rawDesc;
 
-  // Determine elite/weak damage modifier for this ability
+  // Determine elite/weak damage and DC modifiers for this ability
   const limited = isLimitedUse(item);
-  const dmgMod = ewMod !== 0
-    ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2))
-    : 0;
-
-  // DC adjustment is always ±2; damage mod is ±2 (at-will) or ±4 (limited)
-  const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
+  const dmgMod = eliteWeakDmgMod(ewMod, limited);
+  const dcMod  = eliteWeakDcMod(ewMod);
   const adjustedDesc = (dmgMod !== 0 || dcMod !== 0)
     ? applyEliteWeakToHtml(scaledDesc, dmgMod, dcMod)
     : scaledDesc;
@@ -80,7 +70,7 @@ export function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle, baseLevel, targ
       {adjustedDesc && (
         <div
           className={styles.itemDesc}
-          dangerouslySetInnerHTML={{ __html: processHtml(adjustedDesc) }}
+          dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc) }}
         />
       )}
       {hasDamage && (

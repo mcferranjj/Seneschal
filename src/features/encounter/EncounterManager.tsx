@@ -6,47 +6,11 @@ import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '..
 import { DiceRoller } from '../dice/DiceRoller';
 import { cryptoD } from '../../utils/dice';
 import styles from './EncounterManager.module.css';
-import { HP_TABLE, AC_TABLE, SAVE_TABLE, ATTACK_TABLE, DAMAGE_TABLE } from '../../data/pf2eTables';
 import type { HpTier, AcTier, SaveTier } from '../../data/pf2eTables';
+import { eliteWeakLevel } from '../../utils/levelScaling';
 import { CONDITION_CATEGORIES, VALUED_CONDITIONS } from '../../data/conditions';
+import { QuickCreatureForm } from './QuickCreatureForm';
 
-interface AttackDraft {
-  name: string;
-  type: 'melee' | 'ranged';
-  bonus: number;
-  bonusTier: AcTier;
-  damage: string;
-  damageTier: AcTier;
-  range?: number;
-}
-
-const HP_TIERS:   HpTier[]   = ['low', 'moderate', 'high'];
-const AC_TIERS:   AcTier[]   = ['low', 'moderate', 'high', 'extreme'];
-const SAVE_TIERS: SaveTier[] = ['terrible', 'low', 'moderate', 'high', 'extreme'];
-
-const TIER_ABBREV: Record<HpTier | AcTier | SaveTier, string> = {
-  terrible: 'T', low: 'L', moderate: 'M', high: 'H', extreme: 'E',
-};
-function lookupHp(level: number, tier: HpTier): number {
-  const l = Math.max(-1, Math.min(25, level));
-  return (HP_TABLE[l] ?? HP_TABLE[0])[tier];
-}
-function lookupAc(level: number, tier: AcTier): number {
-  const l = Math.max(-1, Math.min(25, level));
-  return (AC_TABLE[l] ?? AC_TABLE[0])[tier];
-}
-function lookupSave(level: number, tier: SaveTier): number {
-  const l = Math.max(-1, Math.min(25, level));
-  return (SAVE_TABLE[l] ?? SAVE_TABLE[0])[tier];
-}
-function lookupAttack(level: number, tier: AcTier): number {
-  const l = Math.max(-1, Math.min(25, level));
-  return (ATTACK_TABLE[l] ?? ATTACK_TABLE[0])[tier];
-}
-function lookupDamage(level: number, tier: AcTier): string {
-  const l = Math.max(-1, Math.min(25, level));
-  return (DAMAGE_TABLE[l] ?? DAMAGE_TABLE[0])[tier];
-}
 
 // Only Frightened auto-reduces by 1 at end of each creature's turn per PF2e rules.
 const AUTO_REDUCE_CONDITIONS = new Set(['frightened']);
@@ -190,14 +154,6 @@ function getDifficulty(totalXP: number, partySize: number) {
   return                          { label: 'Trivial',  color: '#5a7a3a', pct: (totalXP / extreme) * 100 };
 }
 
-/** Returns the effective level after elite/weak adjustment. */
-export function eliteWeakLevel(baseLevel: number, adjustment: 'elite' | 'weak' | undefined): number {
-  if (!adjustment) return baseLevel;
-  if (adjustment === 'elite') return baseLevel <= 0 ? baseLevel + 2 : baseLevel + 1;
-  // weak
-  return baseLevel <= 1 ? baseLevel - 2 : baseLevel - 1;
-}
-
 export function EncounterManager({
   encounters,
   activeEnc,
@@ -229,22 +185,6 @@ export function EncounterManager({
   const [activeTurn, setActiveTurn] = useState(0);
   const [combatCreatures, setCombatCreatures] = useState<CombatCreature[]>([]);
   const [showCustomForm, setShowCustomForm] = useState(false);
-  const [wizardStep, setWizardStep] = useState(0); // 0=name/level, 1=stats
-  const [useQuickWizard, setUseQuickWizard] = useState(false);
-  const [customName, setCustomName] = useState('');
-  const [customLevel, setCustomLevel] = useState(1);
-  const [customHp, setCustomHp] = useState(20);
-  const [customAc, setCustomAc] = useState(15);
-  const [customFort, setCustomFort] = useState(7);
-  const [customRef, setCustomRef] = useState(7);
-  const [customWill, setCustomWill] = useState(7);
-  const [hpTier, setHpTier] = useState<HpTier>('moderate');
-  const [acTier, setAcTier] = useState<AcTier>('moderate');
-  const [fortTier, setFortTier] = useState<SaveTier>('moderate');
-  const [refTier, setRefTier] = useState<SaveTier>('moderate');
-  const [willTier, setWillTier] = useState<SaveTier>('moderate');
-  const [customAttacks, setCustomAttacks] = useState<AttackDraft[]>([]);
-  const [customAbilities, setCustomAbilities] = useState<CustomAbility[]>([]);
   const [conditionPickerUid, setConditionPickerUid] = useState<string | null>(null);
   const [conditionPickerSort, setConditionPickerSort] = useState<'category' | 'alpha'>('category');
   const [conditionPickerAnchor, setConditionPickerAnchor] = useState<{ x: number; y: number; top: number; spaceBelow: number; spaceAbove: number } | null>(null);
@@ -284,9 +224,6 @@ export function EncounterManager({
     ro.observe(el);
     combatHeaderRoRef.current = ro;
   }, []);
-
-  // isEnemy checkbox in wizard
-  const [wizardIsEnemy, setWizardIsEnemy] = useState(true);
 
   // Click-outside to cancel delete confirmation
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -454,73 +391,6 @@ export function EncounterManager({
 
   const onCondPickerDragEnd = useCallback(() => { condPickerDragRef.current = null; }, []);
 
-  function defaultAttack(level: number): AttackDraft {
-    return {
-      name: 'Strike',
-      type: 'melee',
-      bonus: lookupAttack(level, 'moderate'),
-      bonusTier: 'moderate',
-      damage: lookupDamage(level, 'moderate'),
-      damageTier: 'moderate',
-    };
-  }
-
-  function applyTiers(level: number) {
-    setCustomHp(lookupHp(level, 'moderate'));
-    setCustomAc(lookupAc(level, 'moderate'));
-    setCustomFort(lookupSave(level, 'moderate'));
-    setCustomRef(lookupSave(level, 'moderate'));
-    setCustomWill(lookupSave(level, 'moderate'));
-    setHpTier('moderate');
-    setAcTier('moderate');
-    setFortTier('moderate');
-    setRefTier('moderate');
-    setWillTier('moderate');
-    setCustomAttacks([defaultAttack(level)]);
-    setCustomAbilities([]);
-  }
-
-  function openWizard() {
-    setCustomName('');
-    setCustomLevel(partyLevel);
-    setUseQuickWizard(false);
-    setWizardIsEnemy(true);
-    applyTiers(partyLevel);
-    setWizardStep(0);
-    setShowCustomForm(true);
-  }
-
-  function wizardNext() {
-    if (wizardStep === 0) {
-      if (!customName.trim()) return;
-      if (!useQuickWizard) {
-        onAddCustomCreature(customName.trim(), customLevel, undefined, undefined, undefined, undefined, undefined, undefined, undefined, wizardIsEnemy);
-        setShowCustomForm(false);
-        return;
-      }
-      applyTiers(customLevel);
-      setWizardStep(1);
-    } else {
-      const attacks: CustomAttack[] = customAttacks
-        .filter(a => a.name.trim())
-        .map(({ name, type, bonus, damage, range }) => ({ name: name.trim(), type, bonus, damage, range }));
-      const abilities: CustomAbility[] = customAbilities
-        .filter(a => a.name.trim())
-        .map(({ name, description }) => ({ name: name.trim(), description }));
-      onAddCustomCreature(customName.trim(), customLevel, customHp, customAc, customFort, customRef, customWill,
-        attacks.length ? attacks : undefined,
-        abilities.length ? abilities : undefined,
-        wizardIsEnemy,
-      );
-      setShowCustomForm(false);
-    }
-  }
-
-  function closeWizard() {
-    setShowCustomForm(false);
-    setWizardStep(0);
-  }
-
   function commitInit(uid: string) {
     const val = parseInt(editInitVal, 10);
     if (!isNaN(val)) {
@@ -552,206 +422,6 @@ export function EncounterManager({
       if (!isNaN(val)) onSetHP(uid, val);
     }
     setEditingHp(null);
-  }
-
-  function updateAttack(i: number, patch: Partial<AttackDraft>) {
-    setCustomAttacks(prev => prev.map((a, idx) => idx === i ? { ...a, ...patch } : a));
-  }
-
-  // All 5 tier slots in display order; rows with fewer tiers get spacers so M always aligns.
-  const ALL_TIER_SLOTS: SaveTier[] = ['terrible', 'low', 'moderate', 'high', 'extreme'];
-
-  function renderWizard(step0Title: string) {
-    return (
-      <div className={styles.customForm}>
-        {wizardStep === 0 ? (
-          <>
-            <div className={styles.wizardTitle}>{step0Title}</div>
-            <input
-              className={styles.customInput}
-              value={customName}
-              autoFocus
-              onChange={e => setCustomName(e.target.value)}
-              placeholder="Name…"
-              onKeyDown={e => e.key === 'Enter' && wizardNext()}
-            />
-            <div className={styles.wizardCheckRow}>
-              <label className={styles.quickWizardCheck}>
-                <input
-                  type="checkbox"
-                  checked={useQuickWizard}
-                  onChange={e => setUseQuickWizard(e.target.checked)}
-                />
-                Use quick wizard?
-              </label>
-              <label className={styles.quickWizardCheck}>
-                <input
-                  type="checkbox"
-                  checked={wizardIsEnemy}
-                  onChange={e => setWizardIsEnemy(e.target.checked)}
-                />
-                Enemy?
-              </label>
-            </div>
-            <div className={styles.customLevelRow}>
-              <span className={styles.partyLabel}>Level</span>
-              <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.max(-1, l - 1))}>−</button>
-              <span className={styles.partyVal}>{customLevel}</span>
-              <button className={styles.stepBtn} onClick={() => setCustomLevel(l => Math.min(25, l + 1))}>+</button>
-            </div>
-            <div className={styles.customActions}>
-              <button className={styles.addCustomBtn} onClick={wizardNext} disabled={!customName.trim()}>
-                {useQuickWizard ? 'Next →' : 'Add'}
-              </button>
-              <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className={styles.wizardTitle}>
-              {customName} (Lvl {customLevel}) — Stats
-            </div>
-            <div className={styles.wizardHint}>Click a tier to prefill · T=Terrible L=Low M=Moderate H=High E=Extreme</div>
-            {renderWizardStats()}
-            <div className={styles.customActions}>
-              <button className={styles.cancelBtn} onClick={() => setWizardStep(0)}>← Back</button>
-              <button className={styles.addCustomBtn} onClick={wizardNext}>Add</button>
-              <button className={styles.cancelBtn} onClick={closeWizard}>Cancel</button>
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
-
-  function renderWizardStats() {
-    return (
-      <div className={styles.wizardStatList}>
-        {/* ── Defenses ── */}
-        <div className={styles.wizardSectionHead}>Defenses</div>
-        {([
-          { label: 'HP',   tiers: HP_TIERS   as readonly string[], tier: hpTier,   setTier: (t: HpTier)   => { setHpTier(t);   setCustomHp(lookupHp(customLevel, t));   }, val: customHp,   setVal: setCustomHp,   min: 1,   max: 9999 },
-          { label: 'AC',   tiers: AC_TIERS   as readonly string[], tier: acTier,   setTier: (t: AcTier)   => { setAcTier(t);   setCustomAc(lookupAc(customLevel, t));   }, val: customAc,   setVal: setCustomAc,   min: 1,   max: 99   },
-          { label: 'Fort', tiers: SAVE_TIERS as readonly string[], tier: fortTier, setTier: (t: SaveTier) => { setFortTier(t); setCustomFort(lookupSave(customLevel, t)); }, val: customFort, setVal: setCustomFort, min: -10, max: 60   },
-          { label: 'Ref',  tiers: SAVE_TIERS as readonly string[], tier: refTier,  setTier: (t: SaveTier) => { setRefTier(t);  setCustomRef(lookupSave(customLevel, t));  }, val: customRef,  setVal: setCustomRef,  min: -10, max: 60   },
-          { label: 'Will', tiers: SAVE_TIERS as readonly string[], tier: willTier, setTier: (t: SaveTier) => { setWillTier(t); setCustomWill(lookupSave(customLevel, t)); }, val: customWill, setVal: setCustomWill, min: -10, max: 60   },
-        ] as const).map(({ label, tiers, tier, setTier, val, setVal, min, max }) => (
-          <div key={label} className={styles.wizardStatRow}>
-            <span className={styles.wizardStatLabel}>{label}</span>
-            <div className={styles.tierBtns}>
-              {ALL_TIER_SLOTS.map(slot => (
-                tiers.includes(slot)
-                  ? <button
-                      key={slot}
-                      title={slot.charAt(0).toUpperCase() + slot.slice(1)}
-                      className={`${styles.tierBtn} ${tier === slot ? styles.tierBtnActive : ''}`}
-                      onClick={() => (setTier as (t: string) => void)(slot)}
-                    >{TIER_ABBREV[slot]}</button>
-                  : <span key={slot} className={styles.tierBtnSpacer} />
-              ))}
-            </div>
-            <input
-              className={styles.wizardStatInput}
-              type="number" min={min} max={max}
-              value={val}
-              onChange={e => setVal(Number(e.target.value))}
-            />
-          </div>
-        ))}
-
-        {/* ── Attacks ── */}
-        <div className={styles.wizardSectionHead}>
-          Attacks
-          <button
-            className={styles.wizardAddBtn}
-            onClick={() => setCustomAttacks(prev => [...prev, defaultAttack(customLevel)])}
-          >+ Add</button>
-        </div>
-        {customAttacks.map((atk, i) => (
-          <div key={i} className={styles.attackDraft}>
-            <div className={styles.attackDraftRow1}>
-              <button
-                className={`${styles.typeToggle} ${atk.type === 'melee' ? styles.typeToggleMelee : styles.typeToggleRanged}`}
-                title={atk.type === 'melee' ? 'Melee (click to switch)' : 'Ranged (click to switch)'}
-                onClick={() => updateAttack(i, { type: atk.type === 'melee' ? 'ranged' : 'melee', range: atk.type === 'melee' ? 30 : undefined })}
-              >{atk.type === 'melee' ? '⚔' : '🏹'}</button>
-              <input
-                className={styles.attackNameInput}
-                value={atk.name}
-                onChange={e => updateAttack(i, { name: e.target.value })}
-                placeholder="Name…"
-              />
-              <button className={styles.removeAttackBtn} onClick={() => setCustomAttacks(prev => prev.filter((_, idx) => idx !== i))}>×</button>
-            </div>
-            <div className={styles.attackDraftRow2}>
-              <span className={styles.attackSubLabel}>Atk</span>
-              <div className={styles.tierBtns}>
-                {ALL_TIER_SLOTS.map(slot => (
-                  (AC_TIERS as readonly string[]).includes(slot)
-                    ? <button key={slot} title={slot} className={`${styles.tierBtn} ${atk.bonusTier === slot ? styles.tierBtnActive : ''}`}
-                        onClick={() => updateAttack(i, { bonusTier: slot as AcTier, bonus: lookupAttack(customLevel, slot as AcTier) })}
-                      >{TIER_ABBREV[slot]}</button>
-                    : <span key={slot} className={styles.tierBtnSpacer} />
-                ))}
-              </div>
-              <input className={styles.wizardStatInput} type="number" min={-10} max={70}
-                value={atk.bonus} onChange={e => updateAttack(i, { bonus: Number(e.target.value) })} />
-              <span className={styles.attackSubLabel}>Dmg</span>
-              <div className={styles.tierBtns}>
-                {ALL_TIER_SLOTS.map(slot => (
-                  (AC_TIERS as readonly string[]).includes(slot)
-                    ? <button key={slot} title={slot} className={`${styles.tierBtn} ${atk.damageTier === slot ? styles.tierBtnActive : ''}`}
-                        onClick={() => updateAttack(i, { damageTier: slot as AcTier, damage: lookupDamage(customLevel, slot as AcTier) })}
-                      >{TIER_ABBREV[slot]}</button>
-                    : <span key={slot} className={styles.tierBtnSpacer} />
-                ))}
-              </div>
-              <input className={styles.wizardDmgInput} type="text"
-                value={atk.damage} onChange={e => updateAttack(i, { damage: e.target.value })}
-                placeholder="2d8+9" />
-            </div>
-            {atk.type === 'ranged' && (
-              <div className={styles.attackDraftRow3}>
-                <span className={styles.attackSubLabel}>Range</span>
-                <input className={styles.wizardStatInput} type="number" min={5} max={500} step={5}
-                  value={atk.range ?? 30}
-                  onChange={e => updateAttack(i, { range: Number(e.target.value) })} />
-                <span className={styles.attackSubLabel}>ft</span>
-              </div>
-            )}
-          </div>
-        ))}
-
-        {/* ── Abilities ── */}
-        <div className={styles.wizardSectionHead}>
-          Abilities
-          <button
-            className={styles.wizardAddBtn}
-            onClick={() => setCustomAbilities(prev => [...prev, { name: '', description: '' }])}
-          >+ Add</button>
-        </div>
-        {customAbilities.map((ab, i) => (
-          <div key={i} className={styles.abilityDraft}>
-            <div className={styles.abilityDraftRow1}>
-              <input
-                className={styles.abilityNameInput}
-                value={ab.name}
-                onChange={e => setCustomAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, name: e.target.value } : a))}
-                placeholder="Ability name…"
-              />
-              <button className={styles.removeAttackBtn} onClick={() => setCustomAbilities(prev => prev.filter((_, idx) => idx !== i))}>×</button>
-            </div>
-            <textarea
-              className={styles.abilityDescInput}
-              value={ab.description}
-              onChange={e => setCustomAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, description: e.target.value } : a))}
-              placeholder="Description (optional)…"
-              rows={2}
-            />
-          </div>
-        ))}
-      </div>
-    );
   }
 
   return (
@@ -1016,11 +686,16 @@ export function EncounterManager({
             })}
 
             {showCustomForm
-              ? renderWizard('Placeholder Creature — Name & Level')
-              : (
+              ? (
+                <QuickCreatureForm
+                  partyLevel={partyLevel}
+                  onAdd={(...args) => { onAddCustomCreature(...args); setShowCustomForm(false); }}
+                  onCancel={() => setShowCustomForm(false)}
+                />
+              ) : (
                 <button
                   className={styles.addPlaceholderBtn}
-                  onClick={openWizard}
+                  onClick={() => setShowCustomForm(true)}
                 >
                   ＋ Add Placeholder Creature
                 </button>
@@ -1315,11 +990,16 @@ export function EncounterManager({
 
             {/* Add creatures during combat */}
             {showCustomForm
-              ? renderWizard('Add to Combat — Name & Level')
-              : (
+              ? (
+                <QuickCreatureForm
+                  partyLevel={partyLevel}
+                  onAdd={(...args) => { onAddCustomCreature(...args); setShowCustomForm(false); }}
+                  onCancel={() => setShowCustomForm(false)}
+                />
+              ) : (
                 <button
                   className={styles.addPlaceholderBtn}
-                  onClick={openWizard}
+                  onClick={() => setShowCustomForm(true)}
                 >
                   ＋ Add Placeholder Creature
                 </button>
