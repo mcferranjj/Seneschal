@@ -1,9 +1,8 @@
 import type { PF2EItem } from '../../types/pf2e';
 import type { Condition } from '../../types/encounter';
 import { computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
-import { formatMod } from '../../utils/formatters';
-import { linkKeywords, getDamageString } from './statblockHelpers';
-import styles from './StatblockDrawer.module.css';
+import { getDamageString } from './statblockHelpers';
+import { AttackLine } from './AttackLine';
 
 interface AttackBlockProps {
   item: PF2EItem;
@@ -28,7 +27,6 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
     item.system?.range?.increment != null ||
     traits.some(t => t.startsWith('thrown'));
   const attackType = isRanged ? 'ranged' : 'melee';
-  const typeLabel = isRanged ? 'Ranged' : 'Melee';
   const isAgile = traits.includes('agile');
 
   // Condition-aware penalties for this specific attack
@@ -38,12 +36,7 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
   const isDebuffedDmg = dmgPen !== 0;
   const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
 
-  // Elite/Weak: +2 attack; +2 damage for standard at-will strikes
-  const ewDmgMod = ewMod;
-
   const effBonus = bonus != null ? bonus + atkRollPen + ewMod : null;
-  const map2 = effBonus != null ? effBonus - (isAgile ? 4 : 5) : null;
-  const map3 = effBonus != null ? effBonus - (isAgile ? 8 : 10) : null;
 
   const range = item.system?.range;
   const rangeDisplay =
@@ -51,12 +44,8 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
       ? `range increment ${range.increment} feet`
       : range?.value
         ? `range ${range.value} feet`
-        : null;
+        : undefined;
 
-  const displayTraits = rangeDisplay ? [...traits, rangeDisplay] : traits;
-  const traitStr = displayTraits.length > 0 ? `(${displayTraits.join(', ')})` : '';
-  // Traits get keyword tooltips only — no dice linking (trait names like "deadly-2d10" or "reload-0" are not rollable)
-  const traitHtml = traitStr ? linkKeywords(`<span>${traitStr}</span>`).replace(/^<span>/, '').replace(/<\/span>$/, '') : '';
   const fullDamage = [damage, ...effects].filter(Boolean).join(' plus ');
 
   // Extract the first dice+modifier from fullDamage, tolerating spaces
@@ -67,86 +56,31 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
         : damageExprMatch[1])
     : '';
   // Combine condition damage penalty and elite/weak damage modifier
-  const totalDmgMod = dmgPen + ewDmgMod;
+  const totalDmgMod = dmgPen + ewMod;
   const damageExpr = baseDamageExpr && totalDmgMod !== 0
     ? `${baseDamageExpr}${totalDmgMod >= 0 ? `+${totalDmgMod}` : totalDmgMod}`
     : baseDamageExpr;
-  const damageLabel = `${item.name} damage`;
 
-  function fireAttack(mod: number, mapLabel: string, e: React.MouseEvent) {
-    onRollAttack(mod, `${item.name}${mapLabel}`, damageExpr, damageLabel, traits, e);
-  }
-
-  // Display damage string: show adjusted expression if debuffed or elite/weak adjusted, otherwise raw text
-  const displayDamage = (isDebuffedDmg || ewDmgMod !== 0) && damageExpr ? damageExpr : fullDamage;
+  const attackStyle = isDebuffedAtk ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
+  const damageStyle = isDebuffedDmg ? debuffStyle : ewMod !== 0 && ewMod !== dmgPen ? ewStyle : undefined;
 
   return (
-    <p className={styles.attackLine}>
-      <span className={styles.attackTypeLabel}>{typeLabel}</span>
-      {' ◆ '}
-      {effBonus != null ? (
-        <>
-          {/* Primary attack: name + bonus */}
-          <span
-            className={styles.rollMod}
-            title="Roll attack (1st action)"
-            style={isDebuffedAtk ? debuffStyle : ewMod !== 0 ? ewStyle : undefined}
-            onClick={e => fireAttack(effBonus, '', e)}
-          >
-            <strong>{item.name}</strong> {formatMod(effBonus)}
-          </span>
-          {/* MAP brackets — each individually clickable */}
-          {map2 != null && map3 != null && (
-            <span className={styles.mapBracket} style={isDebuffedAtk ? { color: '#c0392b' } : ewMod !== 0 ? { color: ewStyle?.color } : undefined}>
-              {' ['}
-              <span
-                className={styles.mapRoll}
-                title="Roll attack (2nd action, MAP)"
-                onClick={e => fireAttack(map2, ' (MAP 2)', e)}
-              >
-                {formatMod(map2)}
-              </span>
-              {'/'}
-              <span
-                className={styles.mapRoll}
-                title="Roll attack (3rd action, MAP)"
-                onClick={e => fireAttack(map3, ' (MAP 3)', e)}
-              >
-                {formatMod(map3)}
-              </span>
-              {']'}
-            </span>
-          )}
-        </>
-      ) : (
-        <strong>{item.name}</strong>
-      )}
-      {traitHtml && (
-        <>
-          {' '}
-          <span
-            className={styles.attackTraits}
-            dangerouslySetInnerHTML={{ __html: traitHtml }}
-          />
-        </>
-      )}
-      {fullDamage && (
-        <>
-          {', '}
-          {damageExpr ? (
-            <span
-              className={styles.rollMod}
-              title="Roll damage"
-              style={isDebuffedDmg ? debuffStyle : ewDmgMod !== 0 ? ewStyle : undefined}
-              onClick={e => onRollDamage(damageExpr, damageLabel, traits, e)}
-            >
-              <strong>Damage</strong> {displayDamage}
-            </span>
-          ) : (
-            <><strong>Damage</strong> {fullDamage}</>
-          )}
-        </>
-      )}
-    </p>
+    <AttackLine
+      name={item.name}
+      type={attackType}
+      bonus={effBonus}
+      damage={fullDamage}
+      damageExpr={damageExpr}
+      damageModified={isDebuffedDmg || ewMod !== 0}
+      traits={traits}
+      rangeDisplay={rangeDisplay}
+      attackStyle={attackStyle}
+      damageStyle={damageStyle}
+      isAgile={isAgile}
+      onRollAttack={(mod, label, e) => {
+        onRollAttack(mod, label, damageExpr, `${item.name} damage`, traits, e);
+      }}
+      onRollDamage={(expr, _label, e) => onRollDamage(expr, `${item.name} damage`, traits, e)}
+    />
   );
 }

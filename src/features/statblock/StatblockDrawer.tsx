@@ -31,6 +31,7 @@ import { buildScaledCreature, scaleAbilityHtml, eliteWeakHpDelta, eliteWeakLevel
 import { traitColor } from '../../utils/traitColors';
 import { useRollState } from '../../hooks/useRollState';
 import { AttackBlock } from './AttackBlock';
+import { AttackLine } from './AttackLine';
 import { ItemBlock } from './ItemBlock';
 import { SpellcastingBlock } from './SpellcastingBlock';
 import styles from './StatblockDrawer.module.css';
@@ -674,121 +675,69 @@ function StatblockContent({
 
         {/* Scaled attacks — rendered when level scaling is active (replaces both official and custom attacks) */}
         {scaledStats && scaledStats.attacks.map((atk, i) => {
-          const bonus = atk.bonus + ewMod;
+          const scaledStyle = { color: '#2a7a6a', fontWeight: 700 } as const;
+          const finalStyle = ewMod !== 0 ? ewStyle : scaledStyle;
+          const effBonus = atk.bonus + ewMod;
           const isAgile = atk.traits?.includes('agile') ?? false;
-          const map2 = bonus - (isAgile ? 4 : 5);
-          const map3 = bonus - (isAgile ? 8 : 10);
-          const rangeStr = atk.range != null ? `range ${atk.range} ft.` : null;
-          const fullTraitStr = [rangeStr, ...(atk.traits ?? [])].filter(Boolean).join(', ');
-          const displayTraitStr = fullTraitStr ? `(${fullTraitStr})` : '';
           const damageExprMatch = atk.damage?.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
           const baseDamageExpr = damageExprMatch
             ? (damageExprMatch[2] ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}` : damageExprMatch[1])
             : '';
-          const ewDmgMod = ewMod;
-          const damageExpr = baseDamageExpr && ewDmgMod !== 0
-            ? `${baseDamageExpr}${ewDmgMod >= 0 ? `+${ewDmgMod}` : ewDmgMod}`
+          const damageExpr = baseDamageExpr && ewMod !== 0
+            ? `${baseDamageExpr}${ewMod >= 0 ? `+${ewMod}` : ewMod}`
             : baseDamageExpr;
-          const displayDamage = ewDmgMod !== 0 && damageExpr ? damageExpr : atk.damage;
+          const rangeDisplay = atk.range != null ? `range ${atk.range} ft.` : undefined;
           const damageLabel = `${atk.name} damage`;
-          const typeLabel = atk.type === 'ranged' ? 'Ranged' : 'Melee';
-          const scaledStyle = { color: '#2a7a6a', fontWeight: 700 } as const;
-          const finalStyle = ewMod !== 0 ? ewStyle : scaledStyle;
           return (
-            <p key={i} className={styles.attackLine}>
-              <span className={styles.attackTypeLabel}>{typeLabel}</span>
-              {' ◆ '}
-              <span className={styles.rollMod} title="Roll attack (1st action)"
-                style={finalStyle}
-                onClick={e => rollAttack(bonus, atk.name, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
-                <strong>{atk.name}</strong> {formatMod(bonus)}
-              </span>
-              {' ['}
-              <span className={styles.mapRoll} title="Roll attack (2nd action, MAP)"
-                onClick={e => rollAttack(map2, `${atk.name} (MAP 2)`, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
-                {formatMod(map2)}
-              </span>
-              {'/'}
-              <span className={styles.mapRoll} title="Roll attack (3rd action, MAP)"
-                onClick={e => rollAttack(map3, `${atk.name} (MAP 3)`, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
-                {formatMod(map3)}
-              </span>
-              {']'}
-              {displayTraitStr && <span className={styles.attackTraits}> {displayTraitStr}</span>}
-              {atk.damage && (
-                <>
-                  {', '}
-                  {damageExpr ? (
-                    <span className={styles.rollMod} title="Roll damage"
-                      style={finalStyle}
-                      onClick={e => rollDamage(damageExpr, damageLabel, atk.traits ?? [], e)}>
-                      <strong>Damage</strong> {displayDamage}
-                    </span>
-                  ) : (
-                    <><strong>Damage</strong> {displayDamage}</>
-                  )}
-                </>
-              )}
-            </p>
+            <AttackLine
+              key={i}
+              name={atk.name}
+              type={atk.type}
+              bonus={effBonus}
+              damage={atk.damage ?? ''}
+              damageExpr={damageExpr}
+              damageModified={ewMod !== 0}
+              traits={atk.traits ?? []}
+              rangeDisplay={rangeDisplay}
+              attackStyle={finalStyle}
+              damageStyle={finalStyle}
+              isAgile={isAgile}
+              onRollAttack={(mod, label, e) => rollAttack(mod, label, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}
+              onRollDamage={(expr, _label, e) => rollDamage(expr, damageLabel, atk.traits ?? [], e)}
+            />
           );
         })}
 
         {/* Custom creature attacks (stored in customData, not items) — suppressed when scaling active */}
         {!scaledStats && creature.packSource === 'custom' && (creature.customData?.attacks ?? []).map((atk, i) => {
-          const bonus = atk.bonus + ewMod;
+          const effBonus = atk.bonus + ewMod;
           const isAgile = atk.traits?.includes('agile') ?? false;
-          const map2 = bonus - (isAgile ? 4 : 5);
-          const map3 = bonus - (isAgile ? 8 : 10);
-          const rangeStr = atk.range != null ? `range ${atk.range} ft.` : null;
-          const fullTraitStr = [rangeStr, ...(atk.traits ?? [])].filter(Boolean).join(', ');
-          const displayTraitStr = fullTraitStr ? `(${fullTraitStr})` : '';
           const damageExprMatch = atk.damage?.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
           const baseDamageExpr = damageExprMatch
             ? (damageExprMatch[2] ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}` : damageExprMatch[1])
             : '';
-          const ewDmgMod = ewMod; // ±2 damage for standard at-will strikes
-          const damageExpr = baseDamageExpr && ewDmgMod !== 0
-            ? `${baseDamageExpr}${ewDmgMod >= 0 ? `+${ewDmgMod}` : ewDmgMod}`
+          const damageExpr = baseDamageExpr && ewMod !== 0
+            ? `${baseDamageExpr}${ewMod >= 0 ? `+${ewMod}` : ewMod}`
             : baseDamageExpr;
-          const displayDamage = ewDmgMod !== 0 && damageExpr ? damageExpr : atk.damage;
+          const rangeDisplay = atk.range != null ? `range ${atk.range} ft.` : undefined;
           const damageLabel = `${atk.name} damage`;
-          const typeLabel = atk.type === 'ranged' ? 'Ranged' : 'Melee';
           return (
-            <p key={i} className={styles.attackLine}>
-              <span className={styles.attackTypeLabel}>{typeLabel}</span>
-              {' ◆ '}
-              <span className={styles.rollMod} title="Roll attack (1st action)"
-                style={ewMod !== 0 ? ewStyle : undefined}
-                onClick={e => rollAttack(bonus, atk.name, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
-                <strong>{atk.name}</strong> {formatMod(bonus)}
-              </span>
-              {' ['}
-              <span className={styles.mapRoll} title="Roll attack (2nd action, MAP)"
-                onClick={e => rollAttack(map2, `${atk.name} (MAP 2)`, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
-                {formatMod(map2)}
-              </span>
-              {'/'}
-              <span className={styles.mapRoll} title="Roll attack (3rd action, MAP)"
-                onClick={e => rollAttack(map3, `${atk.name} (MAP 3)`, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
-                {formatMod(map3)}
-              </span>
-              {']'}
-              {displayTraitStr && <span className={styles.attackTraits}> {displayTraitStr}</span>}
-              {atk.damage && (
-                <>
-                  {', '}
-                  {damageExpr ? (
-                    <span className={styles.rollMod} title="Roll damage"
-                      style={ewMod !== 0 ? ewStyle : undefined}
-                      onClick={e => rollDamage(damageExpr, damageLabel, atk.traits ?? [], e)}>
-                      <strong>Damage</strong> {displayDamage}
-                    </span>
-                  ) : (
-                    <><strong>Damage</strong> {displayDamage}</>
-                  )}
-                </>
-              )}
-            </p>
+            <AttackLine
+              key={i}
+              name={atk.name}
+              type={atk.type}
+              bonus={effBonus}
+              damage={atk.damage ?? ''}
+              damageExpr={damageExpr}
+              damageModified={ewMod !== 0}
+              traits={atk.traits ?? []}
+              rangeDisplay={rangeDisplay}
+              attackStyle={ewMod !== 0 ? ewStyle : undefined}
+              damageStyle={ewMod !== 0 ? ewStyle : undefined}
+              isAgile={isAgile}
+              onRollAttack={(mod, label, e) => rollAttack(mod, label, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}
+              onRollDamage={(expr, _label, e) => rollDamage(expr, damageLabel, atk.traits ?? [], e)}
+            />
           );
         })}
 
