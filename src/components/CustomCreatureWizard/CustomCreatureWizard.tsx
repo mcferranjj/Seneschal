@@ -9,7 +9,7 @@ import type { CreatureRecord } from '../../db/schema';
 import type { CustomAttack, CustomAbility, AbilityActionType, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, SpeedType, CustomSpellcastingEntry, CustomSpell, SpellTradition, SpellcastingType, SpellFrequency, CustomSkill } from '../../types/encounter';
 import { db } from '../../db/db';
 import { getAllTraits } from '../../search/search';
-import { stripFoundryMacros, linkKeywords, linkRolls } from '../StatblockDrawer/statblockHelpers';
+import { stripFoundryMacros, linkKeywords, linkRolls } from '../../utils/foundryMacros';
 import styles from './CustomCreatureWizard.module.css';
 
 function processHtml(raw: string): string {

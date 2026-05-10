@@ -32,39 +32,12 @@ import type { DamageGroup } from './statblockHelpers';
 import { getRecallKnowledge } from '../EncounterManager/EncounterManager';
 import { importSpellcasting } from '../../utils/importCreature';
 import { buildScaledCreature, scaleAbilityHtml, eliteWeakHpDelta, eliteWeakLevel } from '../../utils/levelScaling';
+import { traitColor } from '../../utils/traitColors';
 
 function processHtml(raw: string): string {
   return linkRolls(linkKeywords(stripFoundryMacros(raw)));
 }
 import styles from './StatblockDrawer.module.css';
-
-const TRAIT_RARITY_COLORS: Record<string, string> = {
-  uncommon: '#8a6a18',
-  rare: '#2a4a8a',
-  unique: '#6a2a8a',
-};
-
-const TRAIT_ALIGNMENT_COLORS: Record<string, string> = {
-  lg: '#2255aa',
-  ng: '#2255aa',
-  cg: '#2255aa',
-  ln: '#555',
-  n: '#555',
-  cn: '#555',
-  le: '#aa2222',
-  ne: '#aa2222',
-  ce: '#aa2222',
-  good: '#2255aa',
-  evil: '#aa2222',
-  lawful: '#555',
-  chaotic: '#555',
-  neutral: '#555',
-};
-
-export function traitColor(trait: string, rarity: string): string {
-  if (trait === rarity && TRAIT_RARITY_COLORS[rarity]) return TRAIT_RARITY_COLORS[rarity];
-  return TRAIT_ALIGNMENT_COLORS[trait.toLowerCase()] ?? '#8b4513';
-}
 
 function actionSymbol(item: PF2EItem): string {
   const at = item.system?.actionType?.value;

@@ -3,6 +3,8 @@ import type { CreatureRecord } from '../db/schema';
 import type { PF2ECreature } from '../types/pf2e';
 import { fetchLatestCommitSha, fetchPf2eTree, fetchCreatureRaw, fetchTraitDescriptions, GithubError } from './github';
 import { isCreaturePack } from './packList';
+import { getLevel, getSize } from '../utils/pf2eHelpers';
+import { runInBatches } from '../utils/async';
 
 const META_KEY = 'sync_state';
 const FETCH_CONCURRENCY = 15;
@@ -18,17 +20,8 @@ export interface SyncProgress {
 
 export type ProgressCallback = (progress: SyncProgress) => void;
 
-function getLevel(creature: PF2ECreature): number {
-  const lvl = creature.system?.details?.level;
-  if (!lvl) return 0;
-  return typeof lvl === 'object' ? lvl.value ?? 0 : (lvl as number);
-}
-
-function getSize(creature: PF2ECreature): string {
-  const sz = creature.system?.traits?.size;
-  if (!sz) return 'med';
-  return typeof sz === 'object' ? sz.value ?? 'med' : (sz as string);
-}
+// Re-export for callers that use runInBatches from sync (backward compatibility)
+export { runInBatches };
 
 export function toRecord(creature: PF2ECreature, packSource: string, blobSha: string): CreatureRecord {
   return {
@@ -46,23 +39,6 @@ export function toRecord(creature: PF2ECreature, packSource: string, blobSha: st
   };
 }
 
-export async function runInBatches<T>(
-  items: T[],
-  concurrency: number,
-  fn: (item: T) => Promise<void>,
-  onProgress?: (done: number, total: number) => void,
-): Promise<void> {
-  let done = 0;
-  for (let i = 0; i < items.length; i += concurrency) {
-    const batch = items.slice(i, i + concurrency);
-    await Promise.all(
-      batch.map(async item => {
-        await fn(item);
-        onProgress?.(++done, items.length);
-      }),
-    );
-  }
-}
 
 export async function runSync(onProgress?: ProgressCallback): Promise<void> {
   try {

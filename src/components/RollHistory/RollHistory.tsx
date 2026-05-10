@@ -1,15 +1,12 @@
 import { useEffect, useRef } from 'react';
 import type { RollHistoryEntry } from '../../types/diceHistory';
+import { formatTime } from '../../utils/formatters';
 import styles from './RollHistory.module.css';
 
 interface RollHistoryProps {
   entries: RollHistoryEntry[];
   onClear: () => void;
   onClose: () => void;
-}
-
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 export function RollHistory({ entries, onClear, onClose }: RollHistoryProps) {

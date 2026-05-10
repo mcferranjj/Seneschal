@@ -1,27 +1,7 @@
 import type { CreatureRecord } from '../../db/schema';
 import { SIZE_LABELS } from '../../data/pf2eConstants';
+import { RARITY_COLORS, traitBg } from '../../utils/traitColors';
 import styles from './ResultsList.module.css';
-
-const RARITY_COLORS: Record<string, string> = {
-  uncommon: '#8a6a18',
-  rare: '#2a4a8a',
-  unique: '#6a2a8a',
-};
-
-const TRAIT_COLORS: Record<string, string> = {
-  undead: '#6b2222',
-  construct: '#4a4a5a',
-  humanoid: '#6a5a3a',
-  animal: '#3a5a3a',
-  dragon: '#5a3a6a',
-  fiend: '#6a2a4a',
-  celestial: '#2a4a6a',
-};
-
-
-function traitBg(trait: string): string {
-  return TRAIT_COLORS[trait.toLowerCase()] ?? '#6a5a3a';
-}
 
 interface CreatureRowProps {
   creature: CreatureRecord;

@@ -1,137 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { RollHistoryEntry } from '../../types/diceHistory';
+import {
+  parseDice, cryptoD, rollDice, rollCrit,
+} from '../../utils/dice';
+import type { ParsedDice, RollResult, CritResult } from '../../utils/dice';
 import styles from './DiceRoller.module.css';
 
-// ─── Dice parsing ────────────────────────────────────────────────────────────
-
-export interface ParsedDice {
-  count: number;
-  sides: number;
-  modifier: number;
-  raw: string; // normalized, e.g. "2d6+3"
-}
-
-export function parseDice(expr: string): ParsedDice | null {
-  // Normalize: collapse spaces around +/-
-  const spaceNorm = expr.trim().replace(/\s*([+-])\s*/g, '$1');
-
-  // Strip trailing non-numeric text (e.g. "slashing", "fire") — keep only the dice math
-  const mathOnly = spaceNorm.replace(/^(\d+d\d+(?:[+-]\d+)*).*$/i, '$1');
-
-  // Pure modifier "+7" / "-3" → treat as 1d20+mod
-  const modOnly = mathOnly.match(/^([+-]\d+)$/);
-  if (modOnly) {
-    const mod = parseInt(modOnly[1]);
-    return { count: 1, sides: 20, modifier: mod, raw: mathOnly };
-  }
-
-  // Extract dice portion and all subsequent +/- terms, then sum them into one modifier
-  const diceMatch = mathOnly.match(/^(\d+)d(\d+)((?:[+-]\d+)*)$/i);
-  if (diceMatch) {
-    const count = parseInt(diceMatch[1]);
-    const sides = parseInt(diceMatch[2]);
-    // Sum all modifier terms: e.g. "+1-3" → [+1, -3] → -2
-    const modTerms = diceMatch[3].match(/[+-]\d+/g) ?? [];
-    const modifier = modTerms.reduce((sum, t) => sum + parseInt(t), 0);
-    // Rebuild a clean canonical expression
-    const raw = `${count}d${sides}${modifier > 0 ? `+${modifier}` : modifier < 0 ? `${modifier}` : ''}`;
-    return { count, sides, modifier, raw };
-  }
-
-  return null;
-}
-
-interface RollResult {
-  rolls: number[];
-  modifier: number;
-  total: number;
-}
-
-// Cryptographically random integer in [1, sides] using Web Crypto API.
-// crypto.getRandomValues() is seeded from OS-level entropy and is not
-// predictable, unlike Math.random() (xorshift128+ PRNG).
-const _buf = new Uint32Array(1);
-export function cryptoD(sides: number): number {
-  crypto.getRandomValues(_buf);
-  // Use modulo rejection sampling to avoid bias when sides doesn't divide 2^32 evenly.
-  // The bias from plain modulo on a 32-bit value is at most 1 in 2^32 / sides,
-  // which is negligible for any die size we'll ever use, but rejection sampling
-  // is the correct approach.
-  const limit = 2 ** 32 - ((2 ** 32) % sides);
-  let val = _buf[0];
-  while (val >= limit) {
-    crypto.getRandomValues(_buf);
-    val = _buf[0];
-  }
-  return (val % sides) + 1;
-}
-
-function rollDice(parsed: ParsedDice): RollResult {
-  const rolls = Array.from({ length: parsed.count }, () => cryptoD(parsed.sides));
-  const total = rolls.reduce((a, b) => a + b, 0) + parsed.modifier;
-  return { rolls, modifier: parsed.modifier, total };
-}
-
-// ─── Critical damage calculation ─────────────────────────────────────────────
-// PF2E crit rules (Remaster):
-//   1. If the weapon has the Fatal trait (fatal-dX):
-//      - Replace ALL damage dice with dX for the initial roll
-//      - After doubling, add one extra dX
-//   2. Otherwise roll normal dice
-//   3. Double the total (dice + modifier)
-//   4. If Deadly (deadly-dX): add 1×dX (tier 1), 2×dX (tier 2+), or 3×dX (tier 3+)
-//      Deadly tier is based on die size: d6=tier1, d8=tier1, d10=tier2, d12=tier3
-//   For simplicity we roll 1×dX for deadly (most NPCs are tier 1).
-
-export interface CritResult {
-  baseDice: number[];   // the dice rolled (fatal-upsized if applicable)
-  baseModifier: number;
-  doubledTotal: number; // (dice sum + modifier) * 2
-  extraDice: number[];  // fatal extra die, or deadly dice
-  extraLabel: string;   // "Fatal d12 extra" / "Deadly d6"
-  grandTotal: number;
-}
-
-export function rollCrit(parsed: ParsedDice, traits: string[]): CritResult {
-  // Detect fatal / deadly — both may include a count prefix: fatal-d12, fatal-2d12, deadly-d10, deadly-2d10
-  const fatalTrait = traits.find(t => /^fatal-\d*d\d+$/i.test(t));
-  const deadlyTrait = traits.find(t => /^deadly-\d*d\d+$/i.test(t));
-
-  function parseTraitDice(trait: string, prefix: string): { count: number; sides: number } | null {
-    const m = trait.replace(new RegExp(`^${prefix}-`, 'i'), '').match(/^(\d+)?d(\d+)$/i);
-    if (!m) return null;
-    return { count: m[1] ? parseInt(m[1]) : 1, sides: parseInt(m[2]) };
-  }
-
-  const fatalDice = fatalTrait ? parseTraitDice(fatalTrait, 'fatal') : null;
-  const deadlyDice = deadlyTrait ? parseTraitDice(deadlyTrait, 'deadly') : null;
-
-  // Step 1: roll damage dice (fatal replaces die size)
-  const dieSides = fatalDice?.sides ?? parsed.sides;
-  const baseDice = Array.from({ length: parsed.count }, () => cryptoD(dieSides));
-  const baseSum = baseDice.reduce((a, b) => a + b, 0);
-
-  // Step 2: double (dice + modifier)
-  const doubledTotal = (baseSum + parsed.modifier) * 2;
-
-  // Step 3: extra dice
-  let extraDice: number[] = [];
-  let extraLabel = '';
-
-  if (fatalDice != null) {
-    // One extra fatal die added after doubling (always 1 die, just the upsized sides)
-    extraDice = [cryptoD(fatalDice.sides)];
-    extraLabel = `Fatal d${fatalDice.sides}`;
-  } else if (deadlyDice != null) {
-    // Roll all deadly dice (count from the trait, e.g. deadly-2d10 = 2 extra d10)
-    extraDice = Array.from({ length: deadlyDice.count }, () => cryptoD(deadlyDice.sides));
-    extraLabel = `Deadly ${deadlyDice.count > 1 ? `${deadlyDice.count}d` : 'd'}${deadlyDice.sides}`;
-  }
-
-  const grandTotal = doubledTotal + extraDice.reduce((a, b) => a + b, 0);
-
-  return { baseDice, baseModifier: parsed.modifier, doubledTotal, extraDice, extraLabel, grandTotal };
-}
+// Re-export for callers that import these from DiceRoller directly
+export type { ParsedDice, CritResult };
+export { parseDice, cryptoD, rollCrit };
 
 // ─── Component ───────────────────────────────────────────────────────────────
 

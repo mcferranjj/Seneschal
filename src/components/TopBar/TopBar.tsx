@@ -1,15 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Section } from '../../types/encounter';
+import { formatTimestamp } from '../../utils/formatters';
 import styles from './TopBar.module.css';
-
-export function formatTimestamp(ts: number): string {
-  return new Date(ts).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 interface TopBarProps {
   activeSection: Section;
