@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { db } from '../../db/db';
-import type { CharacterRecord } from '../../db/db';
+import type { CharacterRecord } from '../../db/schema';
+import { characterRepository } from '../../db/repositories/CharacterRepository';
 import styles from './CharactersSection.module.css';
 
 const PF2E_CLASSES = [
@@ -31,7 +31,7 @@ export function CharactersSection() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const all = await db.characters.toArray();
+    const all = await characterRepository.getAll();
     setCharacters(all);
   }, []);
 
@@ -40,9 +40,9 @@ export function CharactersSection() {
   async function saveCharacter() {
     if (!form.name.trim()) return;
     if (editingId) {
-      await db.characters.put({ id: editingId, ...form });
+      await characterRepository.put({ id: editingId, ...form });
     } else {
-      await db.characters.add({ id: `pc-${Date.now()}`, ...form });
+      await characterRepository.add({ id: `pc-${Date.now()}`, ...form });
     }
     setShowForm(false);
     setEditingId(null);
@@ -51,7 +51,7 @@ export function CharactersSection() {
   }
 
   async function deleteCharacter(id: string) {
-    await db.characters.delete(id);
+    await characterRepository.delete(id);
     if (selectedId === id) setSelectedId(null);
     load();
   }
@@ -67,7 +67,7 @@ export function CharactersSection() {
     const c = characters.find(x => x.id === id);
     if (!c) return;
     const newHp = Math.max(0, Math.min(c.maxHp, c.hp + delta));
-    await db.characters.update(id, { hp: newHp });
+    await characterRepository.update(id, { hp: newHp });
     setCharacters(prev => prev.map(x => x.id === id ? { ...x, hp: newHp } : x));
   }
 

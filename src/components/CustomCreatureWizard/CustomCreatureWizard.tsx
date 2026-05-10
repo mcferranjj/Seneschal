@@ -7,7 +7,7 @@ import type { HpTier, AcTier, SaveTier, AbilityTier, ResWeakTier } from '../../d
 import { CREATURE_TYPES, SIZES, DAMAGE_TYPES } from '../../data/pf2eConstants';
 import type { CreatureRecord } from '../../db/schema';
 import type { CustomAttack, CustomAbility, AbilityActionType, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, SpeedType, CustomSpellcastingEntry, CustomSpell, SpellTradition, SpellcastingType, SpellFrequency, CustomSkill } from '../../types/encounter';
-import { db } from '../../db/db';
+import { creatureRepository } from '../../db/repositories/CreatureRepository';
 import { getAllTraits } from '../../search/search';
 import { stripFoundryMacros, linkKeywords, linkRolls } from '../../utils/foundryMacros';
 import styles from './CustomCreatureWizard.module.css';
@@ -476,7 +476,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
         allSavesNote: allSavesNote.trim() || undefined,
       },
     };
-    await db.creatures.put(record);
+    await creatureRepository.put(record);
     onSave(record);
   }
 

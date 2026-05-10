@@ -8,7 +8,8 @@ import type { SyncProgress } from './sync/sync';
 import type { PF2ECreature } from './types/pf2e';
 import type { Section, Encounter, EncounterCreature, Condition } from './types/encounter';
 import type { RollHistoryEntry } from './types/diceHistory';
-import { db, loadEncounterState, saveEncounterState } from './db/db';
+import { loadEncounterState, saveEncounterState } from './db/db';
+import { creatureRepository } from './db/repositories/CreatureRepository';
 import { importCreatureAsCustom } from './utils/importCreature';
 import { buildScaledCreature, adjustedMaxHp } from './utils/levelScaling';
 import { TopBar } from './components/TopBar/TopBar';
@@ -380,7 +381,7 @@ export default function App() {
       const enc = encounters.find((_, i) => i === activeEnc);
       const creature = enc?.creatures.find(c => c.uid === uid);
       const creatureId = creature?.creatureId;
-      const record = creatureId ? await db.creatures.get(creatureId) : undefined;
+      const record = creatureId ? await creatureRepository.get(creatureId) : undefined;
 
       setEncounters(prev =>
         prev.map((enc, i) => {
@@ -450,7 +451,7 @@ export default function App() {
   const [selectedEncounterUid, setSelectedEncounterUid] = useState<string | null>(null);
 
   const selectCreatureById = useCallback(async (id: string, encounterUid?: string) => {
-    const creature = await db.creatures.get(id);
+    const creature = await creatureRepository.get(id);
     if (creature) {
       setSelected(creature);
       setSelectedEncounterUid(encounterUid ?? null);
@@ -503,7 +504,7 @@ export default function App() {
   }, [triggerSync]);
 
   const handleDeleteCreature = useCallback(async (id: string) => {
-    await db.creatures.delete(id);
+    await creatureRepository.delete(id);
     setSelected(null);
     const { results: r, totalCount: tc } = await searchCreatures(filtersRef.current);
     setResults(r);

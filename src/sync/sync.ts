@@ -5,6 +5,7 @@ import { fetchLatestCommitSha, fetchPf2eTree, fetchCreatureRaw, fetchTraitDescri
 import { isCreaturePack } from './packList';
 import { getLevel, getSize } from '../utils/pf2eHelpers';
 import { runInBatches } from '../utils/async';
+import { creatureRepository } from '../db/repositories/CreatureRepository';
 
 const META_KEY = 'sync_state';
 const FETCH_CONCURRENCY = 15;
@@ -118,7 +119,7 @@ export async function runSync(onProgress?: ProgressCallback): Promise<void> {
 
     // --- Step 5: persist ---
     onProgress?.({ phase: 'saving' });
-    await db.creatures.bulkPut(records);
+    await creatureRepository.bulkPut(records);
     await ensureTraitDescriptions(latestCommitSha);
 
     const newFileShas = { ...storedFileShas };
@@ -174,7 +175,7 @@ export async function getLastSynced(): Promise<number | null> {
 }
 
 export async function getCreatureCount(): Promise<number> {
-  return db.creatures.count();
+  return creatureRepository.count();
 }
 
 /**
@@ -183,7 +184,7 @@ export async function getCreatureCount(): Promise<number> {
  */
 export async function resetDatabase(): Promise<void> {
   await Promise.all([
-    db.creatures.clear(),
+    creatureRepository.clear(),
     db.meta.clear(),
     db.traitDescriptions.clear(),
   ]);
