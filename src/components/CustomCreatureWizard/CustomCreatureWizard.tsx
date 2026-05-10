@@ -254,6 +254,38 @@ export const DAMAGE_TABLE: Record<number, Record<AcTier, string>> = {
   [25]: { extreme: '4d12+45', high: '4d12+28', moderate: '4d10+24', low: '4d6+22' },
 };
 
+// Table 2–12: Area Damage (GM Core). Two tiers: unlimited-use and limited-use.
+type AreaDamageTier = 'unlimited' | 'limited';
+export const AREA_DAMAGE_TABLE: Record<number, Record<AreaDamageTier, string>> = {
+  [-1]: { unlimited: '1d4',    limited: '1d6'    },
+  [0]:  { unlimited: '1d6',    limited: '1d10'   },
+  [1]:  { unlimited: '2d4',    limited: '2d6'    },
+  [2]:  { unlimited: '2d6',    limited: '3d6'    },
+  [3]:  { unlimited: '2d8',    limited: '4d6'    },
+  [4]:  { unlimited: '3d6',    limited: '5d6'    },
+  [5]:  { unlimited: '2d10',   limited: '6d6'    },
+  [6]:  { unlimited: '4d6',    limited: '7d6'    },
+  [7]:  { unlimited: '4d6',    limited: '8d6'    },
+  [8]:  { unlimited: '5d6',    limited: '9d6'    },
+  [9]:  { unlimited: '5d6',    limited: '10d6'   },
+  [10]: { unlimited: '6d6',    limited: '11d6'   },
+  [11]: { unlimited: '6d6',    limited: '12d6'   },
+  [12]: { unlimited: '5d8',    limited: '13d6'   },
+  [13]: { unlimited: '7d6',    limited: '14d6'   },
+  [14]: { unlimited: '4d12',   limited: '15d6'   },
+  [15]: { unlimited: '6d8',    limited: '16d6'   },
+  [16]: { unlimited: '8d6',    limited: '17d6'   },
+  [17]: { unlimited: '8d6',    limited: '18d6'   },
+  [18]: { unlimited: '9d6',    limited: '19d6'   },
+  [19]: { unlimited: '7d8',    limited: '20d6'   },
+  [20]: { unlimited: '6d10',   limited: '21d6'   },
+  [21]: { unlimited: '10d6',   limited: '22d6'   },
+  [22]: { unlimited: '8d8',    limited: '23d6'   },
+  [23]: { unlimited: '11d6',   limited: '24d6'   },
+  [24]: { unlimited: '11d6',   limited: '25d6'   },
+  [25]: { unlimited: '12d6',   limited: '26d6'   },
+};
+
 // Ability modifier tiers: Extreme/High/Moderate/Low (no Terrible for abilities)
 type AbilityTier = 'low' | 'moderate' | 'high' | 'extreme';
 const ABILITY_TIERS: AbilityTier[] = ['low', 'moderate', 'high', 'extreme'];

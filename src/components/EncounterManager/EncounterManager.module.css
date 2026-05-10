@@ -335,6 +335,13 @@
   color: var(--text-mute);
 }
 
+.scaledBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #2a7a6a;
+  letter-spacing: 0.02em;
+}
+
 .eliteWeakBtns {
   display: flex;
   align-items: center;
