@@ -253,8 +253,18 @@ function StatblockContent({
   const wis  = scaledStats ? scaledStats.wis : c.system?.abilities?.wis?.mod;
   const cha  = scaledStats ? scaledStats.cha : c.system?.abilities?.cha?.mod;
 
-  const langs = getLanguages(c);
-  const skills = scaledStats ? scaledStats.skills : getSkills(c);
+  // Unified languages: custom creatures store them in customData; official creatures in the system blob
+  const langs = creature.packSource === 'custom'
+    ? (creature.customData?.languages ?? []).join(', ')
+    : getLanguages(c);
+
+  // Unified skills: custom creatures store them in customData; official creatures in the system blob.
+  // Both shapes are normalized to { name: string; mod: number } for rendering.
+  const rawSkills = scaledStats
+    ? scaledStats.skills
+    : creature.packSource === 'custom'
+      ? (creature.customData?.skills ?? []).map(sk => ({ name: sk.name, mod: sk.mod }))
+      : getSkills(c);
   const senses = getSenses(c);
   const speed = getSpeedString(c);
   const rawImmResWeak = getImmResWeak(c);
@@ -478,59 +488,30 @@ function StatblockContent({
           })()}
         </p>
 
-        {/* Custom creature Skills (from customData) */}
-        {creature.packSource === 'custom' && (creature.customData?.skills ?? []).length > 0 && (
+        {/* Languages — unified for both custom and official creatures */}
+        {langs && (
           <p className={styles.infoLine}>
-            <strong>Skills</strong>{' '}
-            {(creature.customData!.skills!).map((sk, i) => {
-              const effMod = sk.mod + ewMod;
-              return (
-                <span key={sk.name + i}>
-                  {i > 0 && ', '}
-                  <span
-                    className={styles.rollMod}
-                    title={`Roll ${sk.name}`}
-                    onClick={e => roll(effMod, sk.name, e)}
-                    style={ewMod !== 0 ? ewStyle : undefined}
-                  >
-                    {sk.name} {formatMod(effMod)}
-                  </span>
-                </span>
-              );
-            })}
+            <strong>Languages</strong> {langs}
           </p>
         )}
 
-        {/* Languages — for custom creatures use customData.languages; for official use system blob */}
-        {creature.packSource === 'custom'
-          ? (creature.customData?.languages ?? []).length > 0 && (
-              <p className={styles.infoLine}>
-                <strong>Languages</strong> {creature.customData!.languages!.join(', ')}
-              </p>
-            )
-          : langs && (
-              <p className={styles.infoLine}>
-                <strong>Languages</strong> {langs}
-              </p>
-            )
-        }
-
-        {/* Skills */}
-        {skills.length > 0 && (
+        {/* Skills — unified for both custom and official creatures */}
+        {rawSkills.length > 0 && (
           <p className={styles.infoLine}>
             <strong>Skills</strong>{' '}
-            {skills.map((s, i) => {
+            {rawSkills.map((s, i) => {
               const effSkillMod = s.mod + ewMod;
+              const displayName = skillDisplayName(s.name);
               return (
-                <span key={s.name}>
+                <span key={s.name + i}>
                   {i > 0 && ', '}
                   <span
                     className={styles.rollMod}
-                    title={`Roll ${skillDisplayName(s.name)}`}
-                    onClick={e => roll(effSkillMod, skillDisplayName(s.name), e)}
+                    title={`Roll ${displayName}`}
+                    onClick={e => roll(effSkillMod, displayName, e)}
                     style={ewMod !== 0 ? ewStyle : undefined}
                   >
-                    {skillDisplayName(s.name)} {formatMod(effSkillMod)}
+                    {displayName} {formatMod(effSkillMod)}
                   </span>
                 </span>
               );
@@ -673,73 +654,50 @@ function StatblockContent({
           />
         ))}
 
-        {/* Scaled attacks — rendered when level scaling is active (replaces both official and custom attacks) */}
-        {scaledStats && scaledStats.attacks.map((atk, i) => {
+        {/* Non-official attacks: scaled (when level scaling active) or custom creature attacks.
+            Both paths share the same AttackLine rendering. Scaled attacks get a teal highlight
+            style; custom attacks use the elite/weak style or none. */}
+        {(() => {
           const scaledStyle = { color: '#2a7a6a', fontWeight: 700 } as const;
-          const finalStyle = ewMod !== 0 ? ewStyle : scaledStyle;
-          const effBonus = atk.bonus + ewMod;
-          const isAgile = atk.traits?.includes('agile') ?? false;
-          const damageExprMatch = atk.damage?.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
-          const baseDamageExpr = damageExprMatch
-            ? (damageExprMatch[2] ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}` : damageExprMatch[1])
-            : '';
-          const damageExpr = baseDamageExpr && ewMod !== 0
-            ? `${baseDamageExpr}${ewMod >= 0 ? `+${ewMod}` : ewMod}`
-            : baseDamageExpr;
-          const rangeDisplay = atk.range != null ? `range ${atk.range} ft.` : undefined;
-          const damageLabel = `${atk.name} damage`;
-          return (
-            <AttackLine
-              key={i}
-              name={atk.name}
-              type={atk.type}
-              bonus={effBonus}
-              damage={atk.damage ?? ''}
-              damageExpr={damageExpr}
-              damageModified={ewMod !== 0}
-              traits={atk.traits ?? []}
-              rangeDisplay={rangeDisplay}
-              attackStyle={finalStyle}
-              damageStyle={finalStyle}
-              isAgile={isAgile}
-              onRollAttack={(mod, label, e) => rollAttack(mod, label, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}
-              onRollDamage={(expr, _label, e) => rollDamage(expr, damageLabel, atk.traits ?? [], e)}
-            />
-          );
-        })}
-
-        {/* Custom creature attacks (stored in customData, not items) — suppressed when scaling active */}
-        {!scaledStats && creature.packSource === 'custom' && (creature.customData?.attacks ?? []).map((atk, i) => {
-          const effBonus = atk.bonus + ewMod;
-          const isAgile = atk.traits?.includes('agile') ?? false;
-          const damageExprMatch = atk.damage?.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
-          const baseDamageExpr = damageExprMatch
-            ? (damageExprMatch[2] ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}` : damageExprMatch[1])
-            : '';
-          const damageExpr = baseDamageExpr && ewMod !== 0
-            ? `${baseDamageExpr}${ewMod >= 0 ? `+${ewMod}` : ewMod}`
-            : baseDamageExpr;
-          const rangeDisplay = atk.range != null ? `range ${atk.range} ft.` : undefined;
-          const damageLabel = `${atk.name} damage`;
-          return (
-            <AttackLine
-              key={i}
-              name={atk.name}
-              type={atk.type}
-              bonus={effBonus}
-              damage={atk.damage ?? ''}
-              damageExpr={damageExpr}
-              damageModified={ewMod !== 0}
-              traits={atk.traits ?? []}
-              rangeDisplay={rangeDisplay}
-              attackStyle={ewMod !== 0 ? ewStyle : undefined}
-              damageStyle={ewMod !== 0 ? ewStyle : undefined}
-              isAgile={isAgile}
-              onRollAttack={(mod, label, e) => rollAttack(mod, label, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}
-              onRollDamage={(expr, _label, e) => rollDamage(expr, damageLabel, atk.traits ?? [], e)}
-            />
-          );
-        })}
+          const nonOfficialAttacks = scaledStats
+            ? scaledStats.attacks.map(atk => ({ ...atk, isScaled: true as const }))
+            : creature.packSource === 'custom'
+              ? (creature.customData?.attacks ?? []).map(atk => ({ ...atk, isScaled: false as const }))
+              : [];
+          return nonOfficialAttacks.map((atk, i) => {
+            const baseStyle = atk.isScaled ? scaledStyle : undefined;
+            const atkStyle = ewMod !== 0 ? ewStyle : baseStyle;
+            const effBonus = atk.bonus + ewMod;
+            const isAgile = atk.traits?.includes('agile') ?? false;
+            const damageExprMatch = atk.damage?.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
+            const baseDamageExpr = damageExprMatch
+              ? (damageExprMatch[2] ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}` : damageExprMatch[1])
+              : '';
+            const damageExpr = baseDamageExpr && ewMod !== 0
+              ? `${baseDamageExpr}${ewMod >= 0 ? `+${ewMod}` : ewMod}`
+              : baseDamageExpr;
+            const rangeDisplay = atk.range != null ? `range ${atk.range} ft.` : undefined;
+            const damageLabel = `${atk.name} damage`;
+            return (
+              <AttackLine
+                key={i}
+                name={atk.name}
+                type={atk.type}
+                bonus={effBonus}
+                damage={atk.damage ?? ''}
+                damageExpr={damageExpr}
+                damageModified={ewMod !== 0}
+                traits={atk.traits ?? []}
+                rangeDisplay={rangeDisplay}
+                attackStyle={atkStyle}
+                damageStyle={atkStyle}
+                isAgile={isAgile}
+                onRollAttack={(mod, label, e) => rollAttack(mod, label, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}
+                onRollDamage={(expr, _label, e) => rollDamage(expr, damageLabel, atk.traits ?? [], e)}
+              />
+            );
+          });
+        })()}
 
         {/* Spellcasting — rendered the same way for both official and custom creatures */}
         {spellcastingEntries.map((entry, ei) => (
