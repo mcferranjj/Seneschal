@@ -6,7 +6,6 @@ import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '..
 import { DiceRoller } from '../dice/DiceRoller';
 import { cryptoD } from '../../utils/dice';
 import styles from './EncounterManager.module.css';
-import type { HpTier, AcTier, SaveTier } from '../../data/pf2eTables';
 import { eliteWeakLevel } from '../../utils/levelScaling';
 import { CONDITION_CATEGORIES, VALUED_CONDITIONS } from '../../data/conditions';
 import { QuickCreatureForm } from './QuickCreatureForm';

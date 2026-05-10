@@ -4,7 +4,6 @@ import {
   parseDice, cryptoD, rollDice, rollCrit,
 } from '../../utils/dice';
 import type { ParsedDice, RollResult, CritResult } from '../../utils/dice';
-import { useOutsideClick } from '../../hooks/useOutsideClick';
 import { useFloatingPanel } from '../../hooks/useFloatingPanel';
 import styles from './DiceRoller.module.css';
 
@@ -48,7 +47,7 @@ export function DiceRoller({
   const [atkAnimKey, setAtkAnimKey] = useState(0);
   const [dmgAnimKey, setDmgAnimKey] = useState(0);
   const {
-    ref, pos, panelLeft, panelTop, panelTransform,
+    ref, panelLeft, panelTop, panelTransform,
     onDragHandlePointerDown, onDragPointerMove, onDragPointerUp,
   } = useFloatingPanel(anchorX, anchorY, onClose);
   const onRollRef = useRef(onRoll);
@@ -270,7 +269,7 @@ export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClo
   );
   const [isCrit, setIsCrit] = useState(false);
   const {
-    ref, pos, panelLeft: mdrPanelLeft, panelTop: mdrPanelTop, panelTransform: mdrPanelTransform,
+    ref, panelLeft: mdrPanelLeft, panelTop: mdrPanelTop, panelTransform: mdrPanelTransform,
     onDragHandlePointerDown, onDragPointerMove, onDragPointerUp,
   } = useFloatingPanel(anchorX, anchorY, onClose);
   const onRollRef = useRef(onRoll);
@@ -406,7 +405,7 @@ export function DamageRoller({ expression, label, traits = [], anchorX, anchorY,
   const [critResult, setCritResult] = useState<CritResult | null>(null);
   const [animKey, setAnimKey] = useState(0);
   const {
-    ref, pos, panelLeft: drPanelLeft, panelTop: drPanelTop, panelTransform: drPanelTransform,
+    ref, panelLeft: drPanelLeft, panelTop: drPanelTop, panelTransform: drPanelTransform,
     onDragHandlePointerDown, onDragPointerMove, onDragPointerUp,
   } = useFloatingPanel(anchorX, anchorY, onClose);
   const onRollRef = useRef(onRoll);

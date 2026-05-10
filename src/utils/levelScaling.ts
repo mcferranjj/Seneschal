@@ -412,7 +412,7 @@ export function scaleAbilityHtml(rawHtml: string, baseLevel: number, targetLevel
     const hasFlatCheck = /\bflat\s+check\b/i.test(masked);
     if (!hasFlatCheck) {
       // Walk the masked text for "DC N" matches, apply at the same offset in `scaled`
-      scaled = applyMaskedReplacements(text, masked, /\bDC (\d+)\b/g, (m, dc) => {
+      scaled = applyMaskedReplacements(text, masked, /\bDC (\d+)\b/g, (_m, dc) => {
         const scaledDc = scaleNumericStat(parseInt(dc), baseLevel, targetLevel, SAVE_TABLE as Record<number, Record<string, number>>, SAVE_TIERS);
         return `DC ${scaledDc}`;
       });

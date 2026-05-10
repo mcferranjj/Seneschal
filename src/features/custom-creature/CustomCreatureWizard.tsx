@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   HP_TABLE, AC_TABLE, SAVE_TABLE, ATTACK_TABLE, DAMAGE_TABLE,
-  AREA_DAMAGE_TABLE, ABILITY_TABLE, PERCEPTION_TABLE, RES_WEAK_TABLE,
+  ABILITY_TABLE, PERCEPTION_TABLE, RES_WEAK_TABLE,
 } from '../../data/pf2eTables';
 import type { HpTier, AcTier, SaveTier, AbilityTier, ResWeakTier } from '../../data/pf2eTables';
 import { CREATURE_TYPES, SIZES, DAMAGE_TYPES } from '../../data/pf2eConstants';
