@@ -125,7 +125,10 @@ async function GetAONURL (search: {name: string, type: string}) {
       body: `{"query":{"bool":{"must":[{"match_phrase":{"name":"${search.name.toLowerCase()}"}},{"term":{"type":"${search.type}"}}]}},"_source":["name","url","id","type"],"size":3}`
       });
     const data = await response.json();
-    const url = data.hits.hits[0]._source.url;
+    let url: string | null = null;
+    if (data.hits.total.value !== 0) {
+      url = data.hits.hits[0]._source.url;
+    }
     return url;
   }
   catch (error) {
