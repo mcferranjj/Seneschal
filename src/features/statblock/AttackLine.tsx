@@ -7,7 +7,7 @@
  */
 
 import { formatMod } from '../../utils/formatters';
-import { linkKeywords } from './statblockHelpers';
+import { TraitChip } from './TraitChip';
 import styles from './StatblockDrawer.module.css';
 
 export interface AttackLineProps {
@@ -48,16 +48,12 @@ export function AttackLine({
   onRollDamage,
 }: AttackLineProps) {
   const typeLabel = type === 'ranged' ? 'Ranged' : 'Melee';
-  const damageLabel = `${name} damage`;
 
   const map2 = bonus != null ? bonus - (isAgile ? 4 : 5) : null;
   const map3 = bonus != null ? bonus - (isAgile ? 8 : 10) : null;
 
+  // Build the display traits list: named traits first, then range string
   const displayTraits = rangeDisplay ? [...traits, rangeDisplay] : traits;
-  const traitStr = displayTraits.length > 0 ? `(${displayTraits.join(', ')})` : '';
-  const traitHtml = traitStr
-    ? linkKeywords(`<span>${traitStr}</span>`).replace(/^<span>/, '').replace(/<\/span>$/, '')
-    : '';
 
   const displayDamage = (damageModified && damageExpr) ? damageExpr : damage;
 
@@ -103,15 +99,25 @@ export function AttackLine({
       ) : (
         <strong>{name}</strong>
       )}
-      {traitHtml && (
+
+      {/* Trait list — each known trait is an interactive chip; unknown/range
+          strings are plain text. All wrapped in the italic attackTraits span. */}
+      {displayTraits.length > 0 && (
         <>
           {' '}
-          <span
-            className={styles.attackTraits}
-            dangerouslySetInnerHTML={{ __html: traitHtml }}
-          />
+          <span className={styles.attackTraits}>
+            {'('}
+            {displayTraits.map((t, i) => (
+              <span key={t}>
+                <TraitChip trait={t} rarity="" variant="inline" />
+                {i < displayTraits.length - 1 && ', '}
+              </span>
+            ))}
+            {')'}
+          </span>
         </>
       )}
+
       {damage && (
         <>
           {', '}

@@ -26,18 +26,48 @@ interface Options {
 }
 
 /**
+ * Pure calculation: given an anchor element's bounding rect and sizing
+ * options, returns a viewport-safe PopupPosition.
+ *
+ * Exported so imperative callers (e.g. usePinnedTooltip) can call it
+ * directly without needing an effect-based open/close flag.
+ */
+export function calcPopupPosition(
+  anchor: HTMLElement,
+  {
+    popupWidth     = 320,
+    popupMaxHeight = 420,
+    margin         = 8,
+    gap            = 4,
+  }: Options = {},
+): PopupPosition {
+  const rect = anchor.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom - margin;
+  const spaceAbove = rect.top - margin;
+
+  let left = rect.left;
+  if (left + popupWidth > window.innerWidth - margin) {
+    left = window.innerWidth - popupWidth - margin;
+  }
+  left = Math.max(margin, left);
+
+  const openBelow = spaceBelow >= popupMaxHeight || spaceBelow >= spaceAbove;
+
+  if (openBelow) {
+    return { top: rect.bottom + gap, left, maxH: Math.min(popupMaxHeight, spaceBelow) };
+  } else {
+    return { bottom: window.innerHeight - rect.top + gap, left, maxH: Math.min(popupMaxHeight, spaceAbove) };
+  }
+}
+
+/**
  * Returns a `PopupPosition` (or `null` before the first calculation) based on
  * the bounding rect of `anchorRef`. Re-runs whenever `open` changes to `true`.
  */
 export function usePopupPosition(
   anchorRef: RefObject<HTMLElement | null>,
   open: boolean,
-  {
-    popupWidth    = 320,
-    popupMaxHeight = 420,
-    margin        = 8,
-    gap           = 4,
-  }: Options = {},
+  options: Options = {},
 ): PopupPosition | null {
   const [pos, setPos] = useState<PopupPosition | null>(null);
 
@@ -45,26 +75,11 @@ export function usePopupPosition(
     if (!open) return;
     const anchor = anchorRef.current;
     if (!anchor) return;
-
-    const rect = anchor.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom - margin;
-    const spaceAbove = rect.top - margin;
-
-    let left = rect.left;
-    if (left + popupWidth > window.innerWidth - margin) {
-      left = window.innerWidth - popupWidth - margin;
-    }
-    left = Math.max(margin, left);
-
-    const fitsBelow = spaceBelow >= popupMaxHeight;
-    const openBelow = fitsBelow || spaceBelow >= spaceAbove;
-
-    if (openBelow) {
-      setPos({ top: rect.bottom + gap, left, maxH: Math.min(popupMaxHeight, spaceBelow) });
-    } else {
-      setPos({ bottom: window.innerHeight - rect.top + gap, left, maxH: Math.min(popupMaxHeight, spaceAbove) });
-    }
-  }, [open, anchorRef, popupWidth, popupMaxHeight, margin, gap]);
+    setPos(calcPopupPosition(anchor, options));
+    // options is an inline object at call sites, so we intentionally omit it
+    // from deps to avoid infinite loops — callers should memoize if needed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, anchorRef]);
 
   return pos;
 }

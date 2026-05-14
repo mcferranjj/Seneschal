@@ -1,42 +1,89 @@
-import { useState, useRef, useCallback } from 'react';
-import { TRAIT_DESCRIPTIONS } from '../../data/traitDescriptions';
+import { createPortal } from 'react-dom';
+import { getTraitDescription } from '../../utils/traitHelpers';
 import { traitColor } from '../../utils/traitColors';
+import { usePinnedTooltip, type PopupPosition } from '../../hooks/usePinnedTooltip';
 import styles from './StatblockDrawer.module.css';
 
-const TOOLTIP_W   = 260;
-const TOOLTIP_MAX_H = 200; // max-height set in CSS; used here only for flip calculation
-const MARGIN      = 8;
-const GAP         = 4; // matches usePopupPosition default
+// ── Shared pinned-popup JSX ────────────────────────────────────────────────
+
+interface PinnedPopupProps {
+  trait: string;
+  desc: string;
+  pos: PopupPosition;
+  popupRef: React.RefObject<HTMLDivElement | null>;
+  onClose: (e?: React.MouseEvent) => void;
+}
+
+function TraitPinnedPopup({ trait, desc, pos, popupRef, onClose }: PinnedPopupProps) {
+  return createPortal(
+    <div
+      ref={popupRef}
+      className={styles.traitPinnedPopup}
+      style={{ top: pos.top, bottom: pos.bottom, left: pos.left, maxHeight: pos.maxH }}
+    >
+      <div className={styles.traitPinnedPopupHeader}>
+        <span className={styles.traitPinnedPopupName}>{trait}</span>
+        <button className={styles.traitPinnedPopupClose} onClick={onClose}>✕</button>
+      </div>
+      <div className={styles.traitPinnedPopupDesc}>{desc}</div>
+    </div>,
+    document.body,
+  );
+}
+
+// ── Shared hover-tooltip JSX ───────────────────────────────────────────────
+
+interface HoverTooltipProps {
+  trait: string;
+  desc: string;
+  pos: PopupPosition;
+}
+
+function TraitHoverTooltip({ trait, desc, pos, forceVisible }: HoverTooltipProps) {
+  return createPortal(
+    <span
+      className={styles.traitTooltip}
+      style={{
+        top: pos.top, bottom: pos.bottom, left: pos.left,
+        opacity: 1,
+      }}
+    >
+      <span className={styles.traitTooltipName}>{trait}</span>
+      {desc}
+    </span>,
+    document.body,
+  );
+}
+
+// ── TraitChip ─────────────────────────────────────────────────────────────
 
 interface TraitChipProps {
   trait: string;
   rarity: string;
+  /**
+   * 'badge'  (default) — colored pill used in the statblock header traits row.
+   * 'inline'           — unstyled span used inside italic attack-line trait lists.
+   */
+  variant?: 'badge' | 'inline';
 }
 
 /**
- * A single trait badge. Traits that have a description in TRAIT_DESCRIPTIONS
- * show a fixed-position hover tooltip; others render as a plain chip.
+ * A single trait element. Traits that have a description show a viewport-safe
+ * hover tooltip; clicking pins it open as a scrollable popup that dismisses
+ * via ✕ or an outside click.
+ *
+ * Use variant="badge"  for the colored header-row chips (default).
+ * Use variant="inline" for plain italic keywords inside attack lines.
  */
-export function TraitChip({ trait, rarity }: TraitChipProps) {
-  const desc = TRAIT_DESCRIPTIONS[trait.toLowerCase()];
-  const bgColor = traitColor(trait.toLowerCase(), rarity);
-  const chipRef = useRef<HTMLSpanElement>(null);
-  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
+export function TraitChip({ trait, rarity, variant = 'badge' }: TraitChipProps) {
+  const desc    = getTraitDescription(trait);
+  const bgColor = variant === 'badge' ? traitColor(trait.toLowerCase(), rarity) : undefined;
 
-  const handleMouseEnter = useCallback(() => {
-    if (!chipRef.current) return;
-    const rect = chipRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom - MARGIN;
-    const spaceAbove = rect.top - MARGIN;
-    const openBelow = spaceBelow >= TOOLTIP_MAX_H || spaceBelow >= spaceAbove;
-    const top = openBelow ? rect.bottom + GAP : rect.top - Math.min(TOOLTIP_MAX_H, spaceAbove) - GAP;
-    let left = rect.left;
-    if (left + TOOLTIP_W > window.innerWidth - MARGIN) left = window.innerWidth - TOOLTIP_W - MARGIN;
-    left = Math.max(MARGIN, left);
-    setTooltipPos({ top, left });
-  }, []);
+  const { anchorRef, popupRef, tooltipPos, pinned, handlers, handleClose } = usePinnedTooltip();
 
+  // ── No description: render non-interactive ──────────────────────────────
   if (!desc) {
+    if (variant === 'inline') return <span>{trait}</span>;
     return (
       <span className={styles.traitChip} style={{ background: bgColor }}>
         {trait}
@@ -44,20 +91,32 @@ export function TraitChip({ trait, rarity }: TraitChipProps) {
     );
   }
 
+  // ── Badge variant ───────────────────────────────────────────────────────
+  if (variant === 'badge') {
+    return (
+      <span
+        ref={anchorRef}
+        className={`${styles.traitChip} ${styles.traitChipHoverable} ${pinned ? styles.traitChipPinned : ''}`}
+        style={{ background: bgColor }}
+        {...handlers}
+      >
+        {trait}
+        {tooltipPos && !pinned && <TraitHoverTooltip trait={trait} desc={desc} pos={tooltipPos} />}
+        {pinned && tooltipPos && <TraitPinnedPopup trait={trait} desc={desc} pos={tooltipPos} popupRef={popupRef} onClose={handleClose} />}
+      </span>
+    );
+  }
+
+  // ── Inline variant ──────────────────────────────────────────────────────
   return (
     <span
-      ref={chipRef}
-      className={`${styles.traitChip} ${styles.traitChipHoverable}`}
-      style={{ background: bgColor }}
-      onMouseEnter={handleMouseEnter}
+      ref={anchorRef}
+      className={`${styles.attackTraitKw} ${pinned ? styles.attackTraitKwPinned : ''}`}
+      {...handlers}
     >
       {trait}
-      {tooltipPos && (
-        <span className={styles.traitTooltip} style={{ top: tooltipPos.top, left: tooltipPos.left }}>
-          <span className={styles.traitTooltipName}>{trait}</span>
-          {desc}
-        </span>
-      )}
+      {tooltipPos && !pinned && <TraitHoverTooltip trait={trait} desc={desc} pos={tooltipPos} />}
+      {pinned && tooltipPos && <TraitPinnedPopup trait={trait} desc={desc} pos={tooltipPos} popupRef={popupRef} onClose={handleClose} />}
     </span>
   );
 }
