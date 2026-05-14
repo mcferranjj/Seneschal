@@ -640,6 +640,7 @@ function StatblockContent({
             item={item}
             onRollAttack={rollAttack}
             onRollDamage={rollDamage}
+            onRollAllDamage={rollAllDamage}
             conditions={activeConditionList}
             strMod={str}
             dexMod={dex}
@@ -821,8 +822,7 @@ function StatblockContent({
         <DiceRoller
           expression={diceRoll.expr}
           label={diceRoll.label}
-          damageExpr={diceRoll.damageExpr}
-          damageLabel={diceRoll.damageLabel}
+          damageGroups={diceRoll.damageGroups}
           damageTraits={diceRoll.damageTraits}
           anchorX={diceRoll.x}
           anchorY={diceRoll.y}

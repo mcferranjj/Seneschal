@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import {
   parseDice, cryptoD, rollDice, rollCrit,
@@ -13,6 +13,11 @@ export { parseDice, cryptoD, rollCrit };
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+interface DmgGroupState {
+  normal: RollResult | null;
+  crit: CritResult | null;
+}
+
 interface DiceRollerProps {
   expression: string;
   label?: string;
@@ -20,10 +25,8 @@ interface DiceRollerProps {
   anchorY: number;
   onClose: () => void;
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
-  // If provided, automatically shows a damage sub-panel
-  damageExpr?: string;
-  damageLabel?: string;
-  damageTraits?: string[]; // for crit calculation
+  damageGroups?: DamageGroupInput[];
+  damageTraits?: string[];
 }
 
 export function DiceRoller({
@@ -33,16 +36,22 @@ export function DiceRoller({
   anchorY,
   onClose,
   onRoll,
-  damageExpr,
-  damageLabel,
+  damageGroups,
   damageTraits = [],
 }: DiceRollerProps) {
   const parsed = parseDice(expression);
-  const damageParsed = damageExpr ? parseDice(damageExpr) : null;
+
+  const parsedGroups = useMemo(
+    () => (damageGroups ?? [])
+      .map(g => ({ ...g, parsed: parseDice(g.expr) }))
+      .filter((g): g is DamageGroupInput & { parsed: ParsedDice } => g.parsed != null),
+    [damageGroups],
+  );
+  const hasDamage = parsedGroups.length > 0;
 
   const [atkResult, setAtkResult] = useState<RollResult | null>(null);
-  const [dmgResult, setDmgResult] = useState<RollResult | null>(null);
-  const [critResult, setCritResult] = useState<CritResult | null>(null);
+  const [dmgStates, setDmgStates] = useState<DmgGroupState[]>([]);
+  const [isCrit, setIsCrit] = useState(false);
   // Animation keys bump on each roll to retrigger CSS animation
   const [atkAnimKey, setAtkAnimKey] = useState(0);
   const [dmgAnimKey, setDmgAnimKey] = useState(0);
@@ -70,56 +79,47 @@ export function DiceRoller({
     setAtkResult(r);
     setAtkAnimKey(k => k + 1);
     recordRoll(parsed.raw, label, r);
-    // Auto-roll damage alongside; if nat 20 on a d20, auto-crit
-    if (damageParsed) {
+    if (parsedGroups.length > 0) {
       const isNat20 = parsed.sides === 20 && r.rolls.length === 1 && r.rolls[0] === 20;
-      if (isNat20) {
-        const cr = rollCrit(damageParsed, damageTraits);
-        setCritResult(cr);
-        setDmgResult(null);
-        setDmgAnimKey(k => k + 1);
-        onRollRef.current?.({
-          expression: `CRIT ${damageParsed.raw}`,
-          label: `${damageLabel ?? 'Damage'} (Crit)`,
-          rolls: [...cr.baseDice, ...cr.extraDice],
-          modifier: cr.baseModifier,
-          total: cr.grandTotal,
-          timestamp: Date.now(),
-        });
-      } else {
-        const dr = rollDice(damageParsed);
-        setDmgResult(dr);
-        setCritResult(null);
-        setDmgAnimKey(k => k + 1);
-        recordRoll(damageParsed.raw, damageLabel, dr);
-      }
+      setIsCrit(isNat20);
+      setDmgStates(parsedGroups.map((g, i) => {
+        const traits = i === 0 ? damageTraits : [];
+        if (isNat20) {
+          const cr = rollCrit(g.parsed, traits);
+          onRollRef.current?.({ expression: `CRIT ${g.parsed.raw}`, label: `${g.label} (Crit)`, rolls: [...cr.baseDice, ...cr.extraDice], modifier: cr.baseModifier, total: cr.grandTotal, timestamp: Date.now() });
+          return { normal: null, crit: cr };
+        } else {
+          const dr = rollDice(g.parsed);
+          recordRoll(g.parsed.raw, g.label, dr);
+          return { normal: dr, crit: null };
+        }
+      }));
+      setDmgAnimKey(k => k + 1);
     }
-  }, [parsed, damageParsed, label, damageLabel, damageTraits, recordRoll]);
+  }, [parsed, parsedGroups, label, damageTraits, recordRoll]);
 
   const performDmgRoll = useCallback(() => {
-    if (!damageParsed) return;
-    const dr = rollDice(damageParsed);
-    setDmgResult(dr);
-    setCritResult(null);
+    if (parsedGroups.length === 0) return;
+    setIsCrit(false);
+    setDmgStates(parsedGroups.map(g => {
+      const dr = rollDice(g.parsed);
+      recordRoll(g.parsed.raw, g.label, dr);
+      return { normal: dr, crit: null };
+    }));
     setDmgAnimKey(k => k + 1);
-    recordRoll(damageParsed.raw, damageLabel, dr);
-  }, [damageParsed, damageLabel, recordRoll]);
+  }, [parsedGroups, recordRoll]);
 
   const performCrit = useCallback(() => {
-    if (!damageParsed) return;
-    const cr = rollCrit(damageParsed, damageTraits);
-    setCritResult(cr);
+    if (parsedGroups.length === 0) return;
+    setIsCrit(true);
+    setDmgStates(parsedGroups.map((g, i) => {
+      const traits = i === 0 ? damageTraits : [];
+      const cr = rollCrit(g.parsed, traits);
+      onRollRef.current?.({ expression: `CRIT ${g.parsed.raw}`, label: `${g.label} (Crit)`, rolls: [...cr.baseDice, ...cr.extraDice], modifier: cr.baseModifier, total: cr.grandTotal, timestamp: Date.now() });
+      return { normal: null, crit: cr };
+    }));
     setDmgAnimKey(k => k + 1);
-    // Record crit as a history entry
-    onRollRef.current?.({
-      expression: `CRIT ${damageParsed.raw}`,
-      label: `${damageLabel ?? 'Damage'} (Crit)`,
-      rolls: [...cr.baseDice, ...cr.extraDice],
-      modifier: cr.baseModifier,
-      total: cr.grandTotal,
-      timestamp: Date.now(),
-    });
-  }, [damageParsed, damageTraits, damageLabel]);
+  }, [parsedGroups, damageTraits]);
 
   // Roll on mount
   useEffect(() => {
@@ -170,62 +170,81 @@ export function DiceRoller({
       </button>
 
       {/* ── Damage section ── */}
-      {damageParsed && (() => {
-        const fatalT  = damageTraits.find(t => /^fatal-\d*d\d+$/i.test(t));
-        const deadlyT = damageTraits.find(t => /^deadly-\d*d\d+$/i.test(t));
+      {hasDamage && (() => {
+        const single = parsedGroups.length === 1;
+        const fatalT  = single ? damageTraits.find(t => /^fatal-\d*d\d+$/i.test(t)) : undefined;
+        const deadlyT = single ? damageTraits.find(t => /^deadly-\d*d\d+$/i.test(t)) : undefined;
         function traitDieLbl(t: string, prefix: string) {
           const m = t.replace(new RegExp(`^${prefix}-`, 'i'), '').match(/^(\d+)?d(\d+)$/i);
           if (!m) return t;
           return m[1] ? `${m[1]}d${m[2]}` : `d${m[2]}`;
         }
+        const grandTotal = dmgStates.reduce((sum, st) => sum + (st?.crit?.grandTotal ?? st?.normal?.total ?? 0), 0);
         return (
         <div className={styles.damageSection}>
           <div className={styles.damageSectionHeader}>
-            <span className={styles.damageSectionLabel}>{damageLabel ?? 'Damage'}</span>
-            <span className={styles.damageSectionExprRow}>
-              <span className={styles.damageSectionExpr}>{damageParsed.raw}</span>
-              {fatalT && (
-                <span className={styles.traitTag} title="On a crit: all dice become this size + one extra die added">
-                  Fatal {traitDieLbl(fatalT, 'fatal')}
-                </span>
-              )}
-              {deadlyT && (
-                <span className={styles.traitTag} title="On a crit: add extra dice of this size">
-                  Deadly {traitDieLbl(deadlyT, 'deadly')}
-                </span>
-              )}
-            </span>
-            {critResult && <span className={styles.critBanner}>✦ Critical Hit</span>}
+            <span className={styles.damageSectionLabel}>{label ? `${label} damage` : 'Damage'}</span>
+            {single && (
+              <span className={styles.damageSectionExprRow}>
+                <span className={styles.damageSectionExpr}>{parsedGroups[0].parsed.raw}</span>
+                {fatalT && (
+                  <span className={styles.traitTag} title="On a crit: all dice become this size + one extra die added">
+                    Fatal {traitDieLbl(fatalT, 'fatal')}
+                  </span>
+                )}
+                {deadlyT && (
+                  <span className={styles.traitTag} title="On a crit: add extra dice of this size">
+                    Deadly {traitDieLbl(deadlyT, 'deadly')}
+                  </span>
+                )}
+              </span>
+            )}
+            {isCrit && <span className={styles.critBanner}>✦ Critical Hit</span>}
           </div>
 
-          {critResult ? (
-            <>
-              <div key={dmgAnimKey} className={`${styles.total} ${styles.totalCrit} ${styles.totalDmgAnimated}`}>{critResult.grandTotal}</div>
-              <div className={styles.breakdown}>
-                [{critResult.baseDice.join(', ')}]
-                {critResult.baseModifier !== 0 ? ` ${critResult.baseModifier >= 0 ? '+' : ''}${critResult.baseModifier}` : ''}
-                {' '}× 2 = {critResult.doubledTotal}
-                {critResult.extraDice.length > 0 && (
-                  <> + [{critResult.extraDice.join(', ')}] ({critResult.extraLabel})</>
-                )}
+          {parsedGroups.map((g, i) => {
+            const st = dmgStates[i];
+            if (!st) return null;
+            const cr = st.crit;
+            const dr = st.normal;
+            return (
+              <div key={i} className={single ? undefined : styles.multiGroup}>
+                {!single && <div className={styles.multiGroupLabel}>{g.label}</div>}
+                {cr ? (
+                  <>
+                    <div key={`${dmgAnimKey}-${i}`} className={`${single ? styles.total : styles.multiGroupTotal} ${styles.totalCrit} ${styles.totalDmgAnimated}`}>{cr.grandTotal}</div>
+                    <div className={styles.breakdown}>
+                      [{cr.baseDice.join(', ')}]
+                      {cr.baseModifier !== 0 ? ` ${cr.baseModifier >= 0 ? '+' : ''}${cr.baseModifier}` : ''}
+                      {' '}× 2 = {cr.doubledTotal}
+                      {cr.extraDice.length > 0 && <> + [{cr.extraDice.join(', ')}] ({cr.extraLabel})</>}
+                    </div>
+                  </>
+                ) : dr ? (
+                  <>
+                    <div key={`${dmgAnimKey}-${i}`} className={`${single ? styles.total : styles.multiGroupTotal} ${styles.totalNormal} ${styles.totalDmgAnimated}`}>{dr.total}</div>
+                    <div className={styles.breakdown}>
+                      [{dr.rolls.join(', ')}]
+                      {dr.modifier !== 0 ? ` ${dr.modifier >= 0 ? '+' : ''}${dr.modifier}` : ''}
+                    </div>
+                  </>
+                ) : null}
               </div>
-            </>
-          ) : dmgResult ? (
-            <>
-              <div key={dmgAnimKey} className={`${styles.total} ${styles.totalNormal} ${styles.totalDmgAnimated}`}>{dmgResult.total}</div>
-              <div className={styles.breakdown}>
-                [{dmgResult.rolls.join(', ')}]
-                {dmgResult.modifier !== 0 ? ` ${dmgResult.modifier >= 0 ? '+' : ''}${dmgResult.modifier}` : ''}
-              </div>
-            </>
-          ) : null}
+            );
+          })}
+
+          {!single && grandTotal > 0 && (
+            <div className={styles.multiGroupTotal} style={{ borderTop: '1px solid var(--border)', paddingTop: 4, marginTop: 4 }}>
+              Total: {grandTotal}
+            </div>
+          )}
 
           <div className={styles.damageActions}>
             <button className={styles.rerollBtn} onClick={performDmgRoll}>
               ↺ Reroll dmg
             </button>
             <button
-              className={`${styles.critBtn} ${critResult ? styles.critBtnActive : ''}`}
+              className={`${styles.critBtn} ${isCrit ? styles.critBtnActive : ''}`}
               onClick={performCrit}
             >
               ✦ Crit
