@@ -221,7 +221,7 @@ function StatblockContent({
 
   const [diceRoll, setDiceRoll] = useState<{
     expr: string; label?: string;
-    damageExpr?: string; damageLabel?: string; damageTraits?: string[];
+    damageGroups?: DamageGroupInput[]; damageTraits?: string[];
     x: number; y: number;
   } | null>(null);
   const [damageRoll, setDamageRoll] = useState<{
@@ -244,12 +244,12 @@ function StatblockContent({
 
   const rollAttack = useCallback((
     mod: number, label: string,
-    damageExpr: string, damageLabel: string, damageTraits: string[],
+    damageGroups: DamageGroupInput[], damageTraits: string[],
     e: React.MouseEvent,
   ) => {
     e.stopPropagation();
     const expr = `1d20${mod >= 0 ? `+${mod}` : mod}`;
-    setDiceRoll({ expr, label, damageExpr, damageLabel, damageTraits, x: e.clientX, y: e.clientY - 160 });
+    setDiceRoll({ expr, label, damageGroups, damageTraits, x: e.clientX, y: e.clientY - 160 });
     setDamageRoll(null);
     setMultiDamageRoll(null);
   }, []);
@@ -759,6 +759,7 @@ function StatblockContent({
             item={item}
             onRollAttack={rollAttack}
             onRollDamage={rollDamage}
+            onRollAllDamage={rollAllDamage}
             conditions={activeConditionList}
             strMod={str}
             dexMod={dex}
@@ -854,17 +855,17 @@ function StatblockContent({
               {' ◆ '}
               <span className={styles.rollMod} title="Roll attack (1st action)"
                 style={ewMod !== 0 ? ewStyle : undefined}
-                onClick={e => rollAttack(bonus, atk.name, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
+                onClick={e => rollAttack(bonus, atk.name, damageExpr ? [{ expr: damageExpr, label: atk.damage ?? damageExpr }] : [], atk.traits ?? [], e)}>
                 <strong>{atk.name}</strong> {formatMod(bonus)}
               </span>
               {' ['}
               <span className={styles.mapRoll} title="Roll attack (2nd action, MAP)"
-                onClick={e => rollAttack(map2, `${atk.name} (MAP 2)`, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
+                onClick={e => rollAttack(map2, `${atk.name} (MAP 2)`, damageExpr ? [{ expr: damageExpr, label: atk.damage ?? damageExpr }] : [], atk.traits ?? [], e)}>
                 {formatMod(map2)}
               </span>
               {'/'}
               <span className={styles.mapRoll} title="Roll attack (3rd action, MAP)"
-                onClick={e => rollAttack(map3, `${atk.name} (MAP 3)`, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}>
+                onClick={e => rollAttack(map3, `${atk.name} (MAP 3)`, damageExpr ? [{ expr: damageExpr, label: atk.damage ?? damageExpr }] : [], atk.traits ?? [], e)}>
                 {formatMod(map3)}
               </span>
               {']'}
@@ -1015,8 +1016,7 @@ function StatblockContent({
         <DiceRoller
           expression={diceRoll.expr}
           label={diceRoll.label}
-          damageExpr={diceRoll.damageExpr}
-          damageLabel={diceRoll.damageLabel}
+          damageGroups={diceRoll.damageGroups}
           damageTraits={diceRoll.damageTraits}
           anchorX={diceRoll.x}
           anchorY={diceRoll.y}
@@ -1049,10 +1049,11 @@ function StatblockContent({
   );
 }
 
-function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod, dexMod, ewMod = 0, ewStyle }: {
+function AttackBlock({ item, onRollAttack, onRollDamage, onRollAllDamage, conditions = [], strMod, dexMod, ewMod = 0, ewStyle }: {
   item: PF2EItem;
-  onRollAttack: (mod: number, label: string, damageExpr: string, damageLabel: string, damageTraits: string[], e: React.MouseEvent) => void;
+  onRollAttack: (mod: number, label: string, damageGroups: DamageGroupInput[], damageTraits: string[], e: React.MouseEvent) => void;
   onRollDamage: (expr: string, label: string, traits: string[], e: React.MouseEvent) => void;
+  onRollAllDamage: (groups: DamageGroupInput[], name: string, e: React.MouseEvent) => void;
   conditions?: Condition[];
   strMod?: number;
   dexMod?: number;
@@ -1100,27 +1101,35 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
   // Traits get keyword tooltips only — no dice linking (trait names like "deadly-2d10" or "reload-0" are not rollable)
   const traitHtml = traitStr ? linkKeywords(`<span>${traitStr}</span>`).replace(/^<span>/, '').replace(/<\/span>$/, '') : '';
   const fullDamage = [damage, ...effects].filter(Boolean).join(' plus ');
-
-  // Extract the first dice+modifier from fullDamage, tolerating spaces
-  const damageExprMatch = fullDamage.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
-  const baseDamageExpr = damageExprMatch
-    ? (damageExprMatch[2]
-        ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}`
-        : damageExprMatch[1])
-    : '';
-  // Combine condition damage penalty and elite/weak damage modifier
   const totalDmgMod = dmgPen + ewDmgMod;
-  const damageExpr = baseDamageExpr && totalDmgMod !== 0
-    ? `${baseDamageExpr}${totalDmgMod >= 0 ? `+${totalDmgMod}` : totalDmgMod}`
-    : baseDamageExpr;
+
+  // Build one group per damage type directly from structured data; apply mod to first group only
+  const atkDamageGroups: DamageGroupInput[] = Object.values(item.system?.damageRolls ?? {})
+    .filter(d => d.damage)
+    .map((d, i) => {
+      let expr = d.damage;
+      if (i === 0 && totalDmgMod !== 0) {
+        const m = expr.match(/^(\d+d\d+)([+-]\d+)?$/);
+        if (m) {
+          const existing = m[2] ? parseInt(m[2]) : 0;
+          const combined = existing + totalDmgMod;
+          expr = `${m[1]}${combined !== 0 ? (combined > 0 ? `+${combined}` : `${combined}`) : ''}`;
+        } else {
+          expr = `${expr}${totalDmgMod > 0 ? `+${totalDmgMod}` : totalDmgMod}`;
+        }
+      }
+      return { expr, label: d.damageType ? `${expr} ${d.damageType}` : expr };
+    });
+
+  const primaryDamageExpr = atkDamageGroups[0]?.expr ?? '';
   const damageLabel = `${item.name} damage`;
 
   function fireAttack(mod: number, mapLabel: string, e: React.MouseEvent) {
-    onRollAttack(mod, `${item.name}${mapLabel}`, damageExpr, damageLabel, traits, e);
+    onRollAttack(mod, `${item.name}${mapLabel}`, atkDamageGroups, traits, e);
   }
 
   // Display damage string: show adjusted expression if debuffed or elite/weak adjusted, otherwise raw text
-  const displayDamage = (isDebuffedDmg || ewDmgMod !== 0) && damageExpr ? damageExpr : fullDamage;
+  const displayDamage = (isDebuffedDmg || ewDmgMod !== 0) && primaryDamageExpr ? primaryDamageExpr : fullDamage;
 
   return (
     <p className={styles.attackLine}>
@@ -1175,12 +1184,14 @@ function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod
       {fullDamage && (
         <>
           {', '}
-          {damageExpr ? (
+          {primaryDamageExpr ? (
             <span
               className={styles.rollMod}
               title="Roll damage"
               style={isDebuffedDmg ? debuffStyle : ewDmgMod !== 0 ? ewStyle : undefined}
-              onClick={e => onRollDamage(damageExpr, damageLabel, traits, e)}
+              onClick={e => atkDamageGroups.length > 1
+                ? onRollAllDamage(atkDamageGroups, item.name, e)
+                : onRollDamage(primaryDamageExpr, damageLabel, traits, e)}
             >
               <strong>Damage</strong> {displayDamage}
             </span>
