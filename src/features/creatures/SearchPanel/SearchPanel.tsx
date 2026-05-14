@@ -4,6 +4,7 @@ import { getAllTraits, getAllPackSourcesWithMeta } from '../../../search/search'
 import type { PackEra, PackCategory } from '../../../sync/packList';
 import { CREATURE_TYPES, SIZES, RARITIES, HAZARD_TYPES } from '../../../data/pf2eConstants';
 import styles from './SearchPanel.module.css';
+import { rankSuggestions } from '../../../utils/suggestions';
 
 const BESTIARY_EXCEPTIONS = new Set([
   'pathfinder-bestiary',
@@ -222,8 +223,8 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
   const groups = groupPacks(allPacksWithMeta);
 
   const allActiveTraits = [...filters.traits, ...filters.excludeTraits];
-  const filteredTraits = allTraits
-    .filter(t => t.includes(traitInput.toLowerCase()) && !allActiveTraits.includes(t))
+  const filteredTraits = rankSuggestions(allTraits, traitInput)
+    .filter(t => !allActiveTraits.includes(t))
     .slice(0, 12);
 
   return (
@@ -325,6 +326,10 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
             onChange={e => setTraitInput(e.target.value)}
             onKeyDown={e => {
               if (e.key === 'Enter') addTrait(traitInput, 'include');
+              if (e.key === 'Tab' && filteredTraits.length > 0 && traitInput.length > 0) {
+                e.preventDefault();
+                addTrait(filteredTraits[0], 'include');
+              }
             }}
             onBlur={() => setTraitInput('')}
             disabled={disabled}
@@ -401,22 +406,24 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
         </div>
       )}
 
-      <div className={styles.section}>
-        <span className={styles.label}>Creature Type</span>
-        <div className={styles.checkGroup}>
-          {CREATURE_TYPES.map(t => (
-            <label key={t} className={styles.checkLabel}>
-              <input
-                type="checkbox"
-                checked={filters.creatureTypes.includes(t.toLowerCase())}
-                onChange={e => toggleCreatureType(t, e.target.checked)}
-                disabled={disabled}
-              />
-              {t}
-            </label>
-          ))}
+      {!(filters.entityTypes.includes('hazard') && !filters.entityTypes.includes('npc')) && (
+        <div className={styles.section}>
+          <span className={styles.label}>Creature Type</span>
+          <div className={styles.checkGroup}>
+            {CREATURE_TYPES.map(t => (
+              <label key={t} className={styles.checkLabel}>
+                <input
+                  type="checkbox"
+                  checked={filters.creatureTypes.includes(t.toLowerCase())}
+                  onChange={e => toggleCreatureType(t, e.target.checked)}
+                  disabled={disabled}
+                />
+                {t}
+              </label>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className={styles.section}>
         <span className={styles.label}>Size</span>

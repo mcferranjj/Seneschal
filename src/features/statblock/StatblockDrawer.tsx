@@ -165,6 +165,7 @@ function StatblockContent({
     diceRoll, multiDamageRoll,
     clearRolls,
     roll, rollAttack, rollDamage, rollExpr,
+    setCreatureName,
   } = useRollState();
 
   const handleBodyClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -203,6 +204,12 @@ function StatblockContent({
       : undefined;
 
   const c = creature.data as PF2ECreature;
+
+  // Keep the roll state hook aware of which creature's statblock is open
+  useEffect(() => {
+    setCreatureName(c.name);
+  }, [c.name, setCreatureName]);
+
   const level = getLevel(c);
 
   // Compute scaled stats when a custom level is active. Always derived from original data.
@@ -821,6 +828,7 @@ function StatblockContent({
         <DiceRoller
           expression={diceRoll.expr}
           label={diceRoll.label}
+          creatureName={diceRoll.creatureName}
           damageGroups={diceRoll.damageGroups}
           damageTraits={diceRoll.damageTraits}
           anchorX={diceRoll.x}
@@ -833,6 +841,7 @@ function StatblockContent({
         <MultiDamageRoller
           groups={multiDamageRoll.groups}
           abilityName={multiDamageRoll.abilityName}
+          creatureName={multiDamageRoll.creatureName}
           traits={multiDamageRoll.traits}
           anchorX={multiDamageRoll.x}
           anchorY={multiDamageRoll.y}

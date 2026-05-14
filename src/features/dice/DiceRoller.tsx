@@ -21,6 +21,7 @@ interface DmgGroupState {
 interface DiceRollerProps {
   expression: string;
   label?: string;
+  creatureName?: string;
   anchorX: number;
   anchorY: number;
   onClose: () => void;
@@ -32,6 +33,7 @@ interface DiceRollerProps {
 export function DiceRoller({
   expression,
   label,
+  creatureName,
   anchorX,
   anchorY,
   onClose,
@@ -55,6 +57,7 @@ export function DiceRoller({
   // Animation keys bump on each roll to retrigger CSS animation
   const [atkAnimKey, setAtkAnimKey] = useState(0);
   const [dmgAnimKey, setDmgAnimKey] = useState(0);
+  const mountedRef = useRef(false);
   const {
     ref, panelLeft, panelTop, panelTransform,
     onDragHandlePointerDown, onDragPointerMove, onDragPointerUp,
@@ -66,63 +69,83 @@ export function DiceRoller({
     onRollRef.current?.({
       expression: expr,
       label: lbl,
+      creatureName,
       rolls: r.rolls,
       modifier: r.modifier,
       total: r.total,
       timestamp: Date.now(),
     });
-  }, []);
+  }, [creatureName]);
 
   const performAtkRoll = useCallback(() => {
     if (!parsed) return;
     const r = rollDice(parsed);
+    recordRoll(parsed.raw, label, r);
     setAtkResult(r);
     setAtkAnimKey(k => k + 1);
-    recordRoll(parsed.raw, label, r);
     if (parsedGroups.length > 0) {
       const isNat20 = parsed.sides === 20 && r.rolls.length === 1 && r.rolls[0] === 20;
-      setIsCrit(isNat20);
-      setDmgStates(parsedGroups.map((g, i) => {
+      // Compute results and record history outside of setState to avoid
+      // Strict Mode's double-invocation of updater functions firing side effects twice.
+      const newDmgStates = parsedGroups.map((g, i) => {
         const traits = i === 0 ? damageTraits : [];
         if (isNat20) {
           const cr = rollCrit(g.parsed, traits);
-          onRollRef.current?.({ expression: `CRIT ${g.parsed.raw}`, label: `${g.label} (Crit)`, rolls: [...cr.baseDice, ...cr.extraDice], modifier: cr.baseModifier, total: cr.grandTotal, timestamp: Date.now() });
           return { normal: null, crit: cr };
         } else {
           const dr = rollDice(g.parsed);
-          recordRoll(g.parsed.raw, g.label, dr);
           return { normal: dr, crit: null };
         }
-      }));
+      });
+      newDmgStates.forEach((st, i) => {
+        const g = parsedGroups[i];
+        if (st.crit) {
+          onRollRef.current?.({ expression: `CRIT ${g.parsed.raw}`, label: `${g.label} (Crit)`, creatureName, rolls: [...st.crit.baseDice, ...st.crit.extraDice], modifier: st.crit.baseModifier, total: st.crit.grandTotal, timestamp: Date.now() });
+        } else if (st.normal) {
+          recordRoll(g.parsed.raw, g.label, st.normal);
+        }
+      });
+      setIsCrit(isNat20);
+      setDmgStates(newDmgStates);
       setDmgAnimKey(k => k + 1);
     }
-  }, [parsed, parsedGroups, label, damageTraits, recordRoll]);
+  }, [parsed, parsedGroups, label, damageTraits, recordRoll, creatureName]);
 
   const performDmgRoll = useCallback(() => {
     if (parsedGroups.length === 0) return;
-    setIsCrit(false);
-    setDmgStates(parsedGroups.map(g => {
+    const newDmgStates = parsedGroups.map(g => {
       const dr = rollDice(g.parsed);
-      recordRoll(g.parsed.raw, g.label, dr);
       return { normal: dr, crit: null };
-    }));
+    });
+    newDmgStates.forEach((st, i) => {
+      if (st.normal) recordRoll(parsedGroups[i].parsed.raw, parsedGroups[i].label, st.normal);
+    });
+    setIsCrit(false);
+    setDmgStates(newDmgStates);
     setDmgAnimKey(k => k + 1);
   }, [parsedGroups, recordRoll]);
 
   const performCrit = useCallback(() => {
     if (parsedGroups.length === 0) return;
-    setIsCrit(true);
-    setDmgStates(parsedGroups.map((g, i) => {
+    const newDmgStates = parsedGroups.map((g, i) => {
       const traits = i === 0 ? damageTraits : [];
       const cr = rollCrit(g.parsed, traits);
-      onRollRef.current?.({ expression: `CRIT ${g.parsed.raw}`, label: `${g.label} (Crit)`, rolls: [...cr.baseDice, ...cr.extraDice], modifier: cr.baseModifier, total: cr.grandTotal, timestamp: Date.now() });
       return { normal: null, crit: cr };
-    }));
+    });
+    newDmgStates.forEach((st, i) => {
+      const g = parsedGroups[i];
+      if (st.crit) onRollRef.current?.({ expression: `CRIT ${g.parsed.raw}`, label: `${g.label} (Crit)`, creatureName, rolls: [...st.crit.baseDice, ...st.crit.extraDice], modifier: st.crit.baseModifier, total: st.crit.grandTotal, timestamp: Date.now() });
+    });
+    setIsCrit(true);
+    setDmgStates(newDmgStates);
     setDmgAnimKey(k => k + 1);
-  }, [parsedGroups, damageTraits]);
+  }, [parsedGroups, damageTraits, creatureName]);
 
-  // Roll on mount
+  // Roll on mount — guard with a ref so React Strict Mode's double-invocation
+  // of effects doesn't fire two history entries for the initial roll.
   useEffect(() => {
+    if (mountedRef.current) return;
+    mountedRef.current = true;
     performAtkRoll();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -267,6 +290,7 @@ export interface DamageGroupInput {
 interface MultiDamageRollerProps {
   groups: DamageGroupInput[];
   abilityName: string;
+  creatureName?: string;
   /** Weapon traits (e.g. fatal-d12, deadly-d6) applied to the first damage group on crits */
   traits?: string[];
   anchorX: number;
@@ -288,13 +312,19 @@ function traitDieLabel(t: string, prefix: string): string {
   return m[1] ? `${m[1]}d${m[2]}` : `d${m[2]}`;
 }
 
-export function MultiDamageRoller({ groups, abilityName, traits = [], anchorX, anchorY, onClose, onRoll }: MultiDamageRollerProps) {
-  const parsedGroups = groups.map(g => ({ ...g, parsed: parseDice(g.expr) })).filter(g => g.parsed != null) as (DamageGroupInput & { parsed: ParsedDice })[];
+export function MultiDamageRoller({ groups, abilityName, creatureName, traits = [], anchorX, anchorY, onClose, onRoll }: MultiDamageRollerProps) {
+  const parsedGroups = useMemo(
+    () => groups.map(g => ({ ...g, parsed: parseDice(g.expr) })).filter(g => g.parsed != null) as (DamageGroupInput & { parsed: ParsedDice })[],
+    // groups identity is stable per open — recompute only if the exprs change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [groups.map(g => g.expr).join('|')],
+  );
 
   const [results, setResults] = useState<GroupResult[]>(() =>
     parsedGroups.map(g => ({ parsed: g.parsed, normal: null, crit: null, animKey: 0 }))
   );
   const [isCrit, setIsCrit] = useState(false);
+  const mountedRef = useRef(false);
   const {
     ref, panelLeft: mdrPanelLeft, panelTop: mdrPanelTop, panelTransform: mdrPanelTransform,
     onDragHandlePointerDown, onDragPointerMove, onDragPointerUp,
@@ -303,39 +333,61 @@ export function MultiDamageRoller({ groups, abilityName, traits = [], anchorX, a
   onRollRef.current = onRoll;
 
   const rollAll = useCallback((asCrit: boolean) => {
-    setIsCrit(asCrit);
-    setResults(prev => prev.map((gr, i) => {
-      const g = parsedGroups[i];
-      // Weapon traits (fatal/deadly) only apply to the first group
+    // Compute all results first (pure), then record to history (side-effect),
+    // then commit to state. This keeps side-effects out of the setState updater,
+    // which React Strict Mode calls twice to detect impure updaters.
+    const newResults = parsedGroups.map((g, i) => {
       const groupTraits = i === 0 ? traits : [];
       if (asCrit) {
-        const cr = rollCrit(gr.parsed, groupTraits);
+        const cr = rollCrit(g.parsed, groupTraits);
+        return { parsed: g.parsed, crit: cr, normal: null, animKey: 0 };
+      } else {
+        const r = rollDice(g.parsed);
+        return { parsed: g.parsed, normal: r, crit: null, animKey: 0 };
+      }
+    });
+
+    // Record history entries exactly once, outside any updater
+    newResults.forEach((gr, i) => {
+      const g = parsedGroups[i];
+      if (gr.crit) {
         onRollRef.current?.({
           expression: `CRIT ${gr.parsed.raw}`,
           label: `${g.label} (Crit)`,
-          rolls: [...cr.baseDice, ...cr.extraDice],
-          modifier: cr.baseModifier,
-          total: cr.grandTotal,
+          creatureName,
+          rolls: [...gr.crit.baseDice, ...gr.crit.extraDice],
+          modifier: gr.crit.baseModifier,
+          total: gr.crit.grandTotal,
           timestamp: Date.now(),
         });
-        return { ...gr, crit: cr, normal: null, animKey: gr.animKey + 1 };
-      } else {
-        const r = rollDice(gr.parsed);
+      } else if (gr.normal) {
         onRollRef.current?.({
           expression: gr.parsed.raw,
           label: g.label,
-          rolls: r.rolls,
-          modifier: r.modifier,
-          total: r.total,
+          creatureName,
+          rolls: gr.normal.rolls,
+          modifier: gr.normal.modifier,
+          total: gr.normal.total,
           timestamp: Date.now(),
         });
-        return { ...gr, normal: r, crit: null, animKey: gr.animKey + 1 };
       }
-    }));
-  }, [parsedGroups, traits]);
+    });
 
-  // Roll on mount
-  useEffect(() => { rollAll(false); }, []); // eslint-disable-line
+    setIsCrit(asCrit);
+    setResults(prev => prev.map((gr, i) => ({
+      ...gr,
+      ...newResults[i],
+      animKey: gr.animKey + 1,
+    })));
+  }, [parsedGroups, traits, creatureName]);
+
+  // Roll on mount — guard with a ref so React Strict Mode's double-invocation
+  // of effects doesn't fire two history entries for the initial roll.
+  useEffect(() => {
+    if (mountedRef.current) return;
+    mountedRef.current = true;
+    rollAll(false);
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

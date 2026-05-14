@@ -27,7 +27,8 @@
   width: 0;
   flex-shrink: 0;
   overflow: hidden;
-  transition: width 0.3s ease;
+  transition: width 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
   border-right: 1px solid var(--border);
   background: var(--parchment);
   display: flex;
@@ -36,24 +37,25 @@
 
 .filterColOpen {
   width: var(--filters-width);
-  transition: none; /* once opened, no transition so resize is smooth */
+  opacity: 1;
 }
 
 .resultsCol {
   flex: 0 0 0px;
   width: 0;
+  opacity: 0;
   display: flex;
   flex-direction: column;
   background: var(--parchment);
   overflow: hidden;
-  transition: flex-basis 0.3s ease, width 0.3s ease;
+  transition: flex-basis 0.3s ease, width 0.3s ease, opacity 0.3s ease;
   border-right: 1px solid var(--border);
 }
 
 .resultsColOpen {
   flex: 0 0 var(--results-width);
   width: var(--results-width);
-  transition: none;
+  opacity: 1;
 }
 
 .encounterCol {

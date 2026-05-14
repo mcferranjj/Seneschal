@@ -10,11 +10,13 @@ import type { CustomAttack, CustomAbility, AbilityActionType, CustomSpeed, Custo
 import { creatureRepository } from '../../db/repositories/CreatureRepository';
 import { getAllTraits } from '../../search/search';
 import { stripFoundryMacros, linkKeywords, linkRolls } from '../../utils/foundryMacros';
+import { rankSuggestions } from '../../utils/suggestions';
 import styles from './CustomCreatureWizard.module.css';
 
 function processHtml(raw: string): string {
   return linkRolls(linkKeywords(stripFoundryMacros(raw)));
 }
+
 
 
 const WEAPON_TRAITS = [
@@ -76,11 +78,16 @@ interface AttackDraft {
 const HP_TIERS:       HpTier[]      = ['low', 'moderate', 'high'];
 const AC_TIERS:       AcTier[]      = ['low', 'moderate', 'high', 'extreme'];
 const SAVE_TIERS:     SaveTier[]    = ['terrible', 'low', 'moderate', 'high', 'extreme'];
-const ABILITY_TIERS:  AbilityTier[] = ['low', 'moderate', 'high', 'extreme'];
+const ABILITY_TIERS:  AbilityTier[] = ['terrible', 'low', 'moderate', 'high', 'extreme'];
 const RES_WEAK_TIERS: ResWeakTier[] = ['low', 'moderate', 'high'];
 
 const TIER_ABBREV: Record<HpTier | AcTier | SaveTier, string> = {
   terrible: 'T', low: 'L', moderate: 'M', high: 'H', extreme: 'E',
+};
+
+/** Fixed grid-column position for each tier (1-based, out of 5 columns: T L M H E) */
+const TIER_COL: Record<HpTier | AcTier | SaveTier, number> = {
+  terrible: 1, low: 2, moderate: 3, high: 4, extreme: 5,
 };
 
 
@@ -116,6 +123,22 @@ function lookupAttack(level: number, tier: AcTier): number {
 function lookupDamage(level: number, tier: AcTier): string {
   const l = Math.max(-1, Math.min(25, level));
   return (DAMAGE_TABLE[l] ?? DAMAGE_TABLE[0])[tier];
+}
+
+/** Return whichever tier in `tiers` produces a value numerically closest to `value`. */
+function closestTier<T extends string>(
+  tiers: readonly T[],
+  lookup: (tier: T) => number,
+  value: number,
+  fallback: T,
+): T {
+  let best = fallback;
+  let bestDist = Infinity;
+  for (const t of tiers) {
+    const dist = Math.abs(lookup(t) - value);
+    if (dist < bestDist) { bestDist = dist; best = t; }
+  }
+  return best;
 }
 
 function defaultAttack(level: number): AttackDraft {
@@ -158,10 +181,17 @@ function ResWeakRow({
             onChange={e => { setTypeInput(e.target.value); onChange({ type: e.target.value.trim().toLowerCase() }); }}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
+            onKeyDown={e => {
+              if (e.key === 'Tab' && typeInput.length > 0) {
+                const q = typeInput.toLowerCase();
+                const sugg = rankSuggestions(DAMAGE_TYPES, q).filter(d => d !== typeInput.toLowerCase()).slice(0, 6);
+                if (sugg.length > 0) { e.preventDefault(); setTypeInput(sugg[0]); onChange({ type: sugg[0] }); }
+              }
+            }}
           />
           {focused && typeInput.length > 0 && (() => {
             const q = typeInput.toLowerCase();
-            const sugg = DAMAGE_TYPES.filter(d => d.includes(q) && d !== typeInput.toLowerCase()).slice(0, 6);
+            const sugg = rankSuggestions(DAMAGE_TYPES, q).filter(d => d !== typeInput.toLowerCase()).slice(0, 6);
             return sugg.length > 0 ? (
               <ul className={styles.suggestions}>
                 {sugg.map(d => (
@@ -177,6 +207,7 @@ function ResWeakRow({
           {RES_WEAK_TIERS.map(t => (
             <button key={t} title={t === 'high' ? 'High (max)' : t === 'low' ? 'Low (min)' : 'Moderate'}
               className={`${styles.tierBtn} ${tier === t ? styles.tierBtnActive : ''}`}
+              style={{ gridColumn: TIER_COL[t] }}
               onClick={() => { setTier(t); onChange({ value: lookupResWeak(level, t) }); }}
             >{TIER_ABBREV[t]}</button>
           ))}
@@ -226,7 +257,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
         name: a.name,
         type: a.type,
         bonus: a.bonus,
-        bonusTier: 'moderate' as AcTier,
+        bonusTier: closestTier(AC_TIERS, t => lookupAttack(editCreature!.level, t), a.bonus, 'moderate'),
         damage: a.damage,
         damageTier: 'moderate' as AcTier,
         range: a.range,
@@ -257,11 +288,31 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
   const [will, setWill] = useState(() =>
     isEditing ? (editData?.system?.saves?.will?.value ?? lookupSave(partyLevel, 'moderate')) : lookupSave(partyLevel, 'moderate')
   );
-  const [hpTier, setHpTier] = useState<HpTier>('moderate');
-  const [acTier, setAcTier] = useState<AcTier>('moderate');
-  const [fortTier, setFortTier] = useState<SaveTier>('moderate');
-  const [refTier, setRefTier] = useState<SaveTier>('moderate');
-  const [willTier, setWillTier] = useState<SaveTier>('moderate');
+  const [hpTier, setHpTier] = useState<HpTier>(() =>
+    isEditing
+      ? closestTier(HP_TIERS, t => lookupHp(editCreature!.level, t), editData?.system?.attributes?.hp?.max ?? lookupHp(partyLevel, 'moderate'), 'moderate')
+      : 'moderate'
+  );
+  const [acTier, setAcTier] = useState<AcTier>(() =>
+    isEditing
+      ? closestTier(AC_TIERS, t => lookupAc(editCreature!.level, t), editData?.system?.attributes?.ac?.value ?? lookupAc(partyLevel, 'moderate'), 'moderate')
+      : 'moderate'
+  );
+  const [fortTier, setFortTier] = useState<SaveTier>(() =>
+    isEditing
+      ? closestTier(SAVE_TIERS, t => lookupSave(editCreature!.level, t), editData?.system?.saves?.fortitude?.value ?? lookupSave(partyLevel, 'moderate'), 'moderate')
+      : 'moderate'
+  );
+  const [refTier, setRefTier] = useState<SaveTier>(() =>
+    isEditing
+      ? closestTier(SAVE_TIERS, t => lookupSave(editCreature!.level, t), editData?.system?.saves?.reflex?.value ?? lookupSave(partyLevel, 'moderate'), 'moderate')
+      : 'moderate'
+  );
+  const [willTier, setWillTier] = useState<SaveTier>(() =>
+    isEditing
+      ? closestTier(SAVE_TIERS, t => lookupSave(editCreature!.level, t), editData?.system?.saves?.will?.value ?? lookupSave(partyLevel, 'moderate'), 'moderate')
+      : 'moderate'
+  );
   const [attacks, setAttacks] = useState<AttackDraft[]>(() =>
     isEditing && editAttacks.length > 0 ? editAttacks : [defaultAttack(partyLevel)]
   );
@@ -284,19 +335,35 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
   const [intMod, setIntMod] = useState<number>(initFromEdit(editAbils?.system?.abilities?.int?.mod ?? 0, 0));
   const [wisMod, setWisMod] = useState<number>(initFromEdit(editAbils?.system?.abilities?.wis?.mod ?? 0, 0));
   const [chaMod, setChaMod] = useState<number>(initFromEdit(editAbils?.system?.abilities?.cha?.mod ?? 0, 0));
-  const [strTier, setStrTier] = useState<AbilityTier>('moderate');
-  const [dexTier, setDexTier] = useState<AbilityTier>('moderate');
-  const [conTier, setConTier] = useState<AbilityTier>('moderate');
-  const [intTier, setIntTier] = useState<AbilityTier>('moderate');
-  const [wisTier, setWisTier] = useState<AbilityTier>('moderate');
-  const [chaTier, setChaTier] = useState<AbilityTier>('moderate');
+  const [strTier, setStrTier] = useState<AbilityTier>(() =>
+    isEditing ? closestTier(ABILITY_TIERS, t => lookupAbility(editCreature!.level, t), editAbils?.system?.abilities?.str?.mod ?? 0, 'moderate') : 'moderate'
+  );
+  const [dexTier, setDexTier] = useState<AbilityTier>(() =>
+    isEditing ? closestTier(ABILITY_TIERS, t => lookupAbility(editCreature!.level, t), editAbils?.system?.abilities?.dex?.mod ?? 0, 'moderate') : 'moderate'
+  );
+  const [conTier, setConTier] = useState<AbilityTier>(() =>
+    isEditing ? closestTier(ABILITY_TIERS, t => lookupAbility(editCreature!.level, t), editAbils?.system?.abilities?.con?.mod ?? 0, 'moderate') : 'moderate'
+  );
+  const [intTier, setIntTier] = useState<AbilityTier>(() =>
+    isEditing ? closestTier(ABILITY_TIERS, t => lookupAbility(editCreature!.level, t), editAbils?.system?.abilities?.int?.mod ?? 0, 'moderate') : 'moderate'
+  );
+  const [wisTier, setWisTier] = useState<AbilityTier>(() =>
+    isEditing ? closestTier(ABILITY_TIERS, t => lookupAbility(editCreature!.level, t), editAbils?.system?.abilities?.wis?.mod ?? 0, 'moderate') : 'moderate'
+  );
+  const [chaTier, setChaTier] = useState<AbilityTier>(() =>
+    isEditing ? closestTier(ABILITY_TIERS, t => lookupAbility(editCreature!.level, t), editAbils?.system?.abilities?.cha?.mod ?? 0, 'moderate') : 'moderate'
+  );
 
   // Perception
   const [perception, setPerception] = useState<number>(() => {
     if (isEditing) return editAbils?.system?.perception?.mod ?? editAbils?.system?.perception?.value ?? lookupPerception(partyLevel, 'moderate');
     return lookupPerception(partyLevel, 'moderate');
   });
-  const [perceptionTier, setPerceptionTier] = useState<SaveTier>('moderate');
+  const [perceptionTier, setPerceptionTier] = useState<SaveTier>(() => {
+    if (!isEditing) return 'moderate';
+    const val = editAbils?.system?.perception?.mod ?? editAbils?.system?.perception?.value ?? lookupPerception(partyLevel, 'moderate');
+    return closestTier(SAVE_TIERS, t => lookupPerception(editCreature!.level, t), val, 'moderate');
+  });
 
   // Speed
   const editSpeeds: CustomSpeed[] = isEditing && editCreature!.customData?.speeds
@@ -324,10 +391,17 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
     initFromEdit(editCreature?.customData?.spellcasting ?? [], [])
   );
 
-  // Skills
-  const [skills, setSkills] = useState<CustomSkill[]>(
-    initFromEdit(editCreature?.customData?.skills ?? [], [])
-  );
+  // Skills — each skill tracks its active tier so the buttons highlight correctly.
+  // When editing, initialise each skill's tier to whichever SAVE_TIERS value is
+  // numerically closest to the stored mod (at the creature's level).
+  type SkillWithTier = CustomSkill & { tier: SaveTier };
+  const [skills, setSkills] = useState<SkillWithTier[]>(() => {
+    const raw: CustomSkill[] = isEditing ? (editCreature!.customData?.skills ?? []) : [];
+    return raw.map(sk => ({
+      ...sk,
+      tier: closestTier(SAVE_TIERS, t => lookupSave(editCreature!.level, t), sk.mod, 'moderate'),
+    }));
+  });
   const [focusedSkillInput, setFocusedSkillInput] = useState(false);
   const [focusedSkillIdx, setFocusedSkillIdx] = useState<number | null>(null);
 
@@ -471,7 +545,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
         resistances: resistances.length ? resistances : undefined,
         weaknesses: weaknesses.length ? weaknesses : undefined,
         spellcasting: spellcasting.length ? spellcasting : undefined,
-        skills: skills.length ? skills : undefined,
+        skills: skills.length ? skills.map(({ tier: _tier, ...sk }) => sk) : undefined,
         languages: languages.length ? languages : undefined,
         allSavesNote: allSavesNote.trim() || undefined,
       },
@@ -566,12 +640,18 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
               onChange={e => setTraitInput(e.target.value)}
               onKeyDown={e => {
                 if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addExtraTrait(traitInput); }
+                if (e.key === 'Tab' && traitInput.length > 0) {
+                  const suggestions = rankSuggestions(allTraits, traitInput)
+                    .filter(t => !extraTraits.includes(t) && t !== creatureType.toLowerCase())
+                    .slice(0, 10);
+                  if (suggestions.length > 0) { e.preventDefault(); addExtraTrait(suggestions[0]); }
+                }
               }}
               placeholder="Add trait… (Enter to add)"
             />
             {traitInput.length > 0 && (() => {
-              const suggestions = allTraits
-                .filter(t => t.includes(traitInput.toLowerCase()) && !extraTraits.includes(t) && t !== creatureType.toLowerCase())
+              const suggestions = rankSuggestions(allTraits, traitInput)
+                .filter(t => !extraTraits.includes(t) && t !== creatureType.toLowerCase())
                 .slice(0, 10);
               return suggestions.length > 0 ? (
                 <ul className={styles.suggestions}>
@@ -602,6 +682,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
                   key={t}
                   title={t.charAt(0).toUpperCase() + t.slice(1)}
                   className={`${styles.tierBtn} ${tier === t ? styles.tierBtnActive : ''}`}
+                  style={{ gridColumn: TIER_COL[t as keyof typeof TIER_COL] }}
                   onClick={() => (setTier as (t: string) => void)(t)}
                 >{TIER_ABBREV[t as keyof typeof TIER_ABBREV]}</button>
               ))}
@@ -632,6 +713,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
             {SAVE_TIERS.map(t => (
               <button key={t} title={t}
                 className={`${styles.tierBtn} ${perceptionTier === t ? styles.tierBtnActive : ''}`}
+                style={{ gridColumn: TIER_COL[t] }}
                 onClick={() => { setPerceptionTier(t); setPerception(lookupPerception(level, t)); }}
               >{TIER_ABBREV[t]}</button>
             ))}
@@ -643,7 +725,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
         {/* Skills */}
         <div className={styles.sectionHead}>
           Skills
-          <button className={styles.addBtn} onClick={() => setSkills(prev => [...prev, { name: '', mod: lookupSave(level, 'moderate') }])}>+ Add Skill</button>
+          <button className={styles.addBtn} onClick={() => setSkills(prev => [...prev, { name: '', mod: lookupSave(level, 'moderate'), tier: 'moderate' }])}>+ Add Skill</button>
         </div>
         {skills.map((sk, i) => (
           <div key={i} className={styles.statRow}>
@@ -655,10 +737,17 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
                 onChange={e => setSkills(prev => prev.map((s, idx) => idx === i ? { ...s, name: e.target.value } : s))}
                 onFocus={() => { setFocusedSkillInput(true); setFocusedSkillIdx(i); }}
                 onBlur={() => { setFocusedSkillInput(false); setFocusedSkillIdx(null); }}
+                onKeyDown={e => {
+                  if (e.key === 'Tab' && sk.name.length > 0) {
+                    const q = sk.name.toLowerCase();
+                    const sugg = rankSuggestions(OFFICIAL_SKILLS, q).filter(s => s.toLowerCase() !== sk.name.toLowerCase()).slice(0, 8);
+                    if (sugg.length > 0) { e.preventDefault(); setSkills(prev => prev.map((s, idx) => idx === i ? { ...s, name: sugg[0] } : s)); }
+                  }
+                }}
               />
               {focusedSkillInput && focusedSkillIdx === i && sk.name.length > 0 && (() => {
                 const q = sk.name.toLowerCase();
-                const sugg = OFFICIAL_SKILLS.filter(s => s.toLowerCase().includes(q) && s.toLowerCase() !== sk.name.toLowerCase()).slice(0, 8);
+                const sugg = rankSuggestions(OFFICIAL_SKILLS, q).filter(s => s.toLowerCase() !== sk.name.toLowerCase()).slice(0, 8);
                 return sugg.length > 0 ? (
                   <ul className={styles.suggestions}>
                     {sugg.map(s => (
@@ -674,8 +763,9 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
             <div className={styles.tierBtns}>
               {SAVE_TIERS.map(t => (
                 <button key={t} title={t}
-                  className={styles.tierBtn}
-                  onClick={() => setSkills(prev => prev.map((s, idx) => idx === i ? { ...s, mod: lookupSave(level, t) } : s))}
+                  className={`${styles.tierBtn} ${sk.tier === t ? styles.tierBtnActive : ''}`}
+                  style={{ gridColumn: TIER_COL[t] }}
+                  onClick={() => setSkills(prev => prev.map((s, idx) => idx === i ? { ...s, tier: t, mod: lookupSave(level, t) } : s))}
                 >{TIER_ABBREV[t]}</button>
               ))}
             </div>
@@ -711,12 +801,17 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
                   if (t && !languages.includes(t)) setLanguages(prev => [...prev, t]);
                   setLangInput('');
                 }
+                if (e.key === 'Tab' && langInput.length > 0) {
+                  const q = langInput.toLowerCase();
+                  const sugg = rankSuggestions(LANGUAGE_SUGGESTIONS, q).filter(l => !languages.includes(l)).slice(0, 8);
+                  if (sugg.length > 0) { e.preventDefault(); if (!languages.includes(sugg[0])) setLanguages(prev => [...prev, sugg[0]]); setLangInput(''); }
+                }
               }}
               placeholder="Add language… (Enter to add)"
             />
             {focusedLangInput && langInput.length > 0 && (() => {
               const q = langInput.toLowerCase();
-              const sugg = LANGUAGE_SUGGESTIONS.filter(l => l.toLowerCase().includes(q) && !languages.includes(l)).slice(0, 8);
+              const sugg = rankSuggestions(LANGUAGE_SUGGESTIONS, q).filter(l => !languages.includes(l)).slice(0, 8);
               return sugg.length > 0 ? (
                 <ul className={styles.suggestions}>
                   {sugg.map(l => (
@@ -765,11 +860,16 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
                   setSenses(prev => [...prev, { name: n, range }]);
                   setSenseNameInput(''); setSenseRangeInput('');
                 }
+                if (e.key === 'Tab' && senseNameInput.length > 0) {
+                  const q = senseNameInput.toLowerCase();
+                  const sugg = rankSuggestions(COMMON_SENSES, q).filter(s => !senses.some(x => x.name === s));
+                  if (sugg.length > 0) { e.preventDefault(); setSenseNameInput(sugg[0]); }
+                }
               }}
             />
             {focusedSenseInput && senseNameInput.length > 0 && (() => {
               const q = senseNameInput.toLowerCase();
-              const sugg = COMMON_SENSES.filter(s => s.includes(q) && !senses.some(x => x.name === s));
+              const sugg = rankSuggestions(COMMON_SENSES, q).filter(s => !senses.some(x => x.name === s));
               return sugg.length > 0 ? (
                 <ul className={styles.suggestions}>
                   {sugg.map(s => (
@@ -813,6 +913,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
                 return isHidden ? null : (
                   <button key={t} title={t}
                     className={`${styles.tierBtn} ${tier === t ? styles.tierBtnActive : ''}`}
+                    style={{ gridColumn: TIER_COL[t] }}
                     onClick={() => (setTier as (t: AbilityTier) => void)(t)}
                   >{TIER_ABBREV[t]}</button>
                 );
@@ -877,12 +978,17 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
                   if (t && !immunities.some(i => i.type === t)) setImmunities(prev => [...prev, { type: t }]);
                   setImmunityInput('');
                 }
+                if (e.key === 'Tab' && immunityInput.length > 0) {
+                  const q = immunityInput.toLowerCase();
+                  const sugg = rankSuggestions(DAMAGE_TYPES, q).filter(d => !immunities.some(i => i.type === d)).slice(0, 8);
+                  if (sugg.length > 0) { e.preventDefault(); if (!immunities.some(i => i.type === sugg[0])) setImmunities(prev => [...prev, { type: sugg[0] }]); setImmunityInput(''); }
+                }
               }}
               placeholder="Add immunity… (Enter to add)"
             />
             {immunityInput.length > 0 && (() => {
               const q = immunityInput.toLowerCase();
-              const sugg = DAMAGE_TYPES.filter(d => d.includes(q) && !immunities.some(i => i.type === d)).slice(0, 8);
+              const sugg = rankSuggestions(DAMAGE_TYPES, q).filter(d => !immunities.some(i => i.type === d)).slice(0, 8);
               return sugg.length > 0 ? (
                 <ul className={styles.suggestions}>
                   {sugg.map(d => (
@@ -953,6 +1059,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
               <div className={styles.tierBtns}>
                 {AC_TIERS.map(t => (
                   <button key={t} title={t} className={`${styles.tierBtn} ${atk.bonusTier === t ? styles.tierBtnActive : ''}`}
+                    style={{ gridColumn: TIER_COL[t] }}
                     onClick={() => updateAttack(i, { bonusTier: t, bonus: lookupAttack(level, t) })}
                   >{TIER_ABBREV[t]}</button>
                 ))}
@@ -963,6 +1070,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
               <div className={styles.tierBtns}>
                 {AC_TIERS.map(t => (
                   <button key={t} title={t} className={`${styles.tierBtn} ${atk.damageTier === t ? styles.tierBtnActive : ''}`}
+                    style={{ gridColumn: TIER_COL[t] }}
                     onClick={() => updateAttack(i, { damageTier: t, damage: lookupDamage(level, t) })}
                   >{TIER_ABBREV[t]}</button>
                 ))}
@@ -1000,6 +1108,13 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
                       const t = atk.traitInput.trim().toLowerCase();
                       if (t && !atk.traits.includes(t)) updateAttack(i, { traits: [...atk.traits, t], traitInput: '' });
                       else if (t) updateAttack(i, { traitInput: '' });
+                    }
+                    if (e.key === 'Tab' && atk.traitInput.length > 0) {
+                      const q = atk.traitInput.toLowerCase();
+                      const weapon = rankSuggestions(WEAPON_TRAITS, q).filter(t => !atk.traits.includes(t));
+                      const monster = rankSuggestions(MONSTER_ATTACK_TRAITS, q).filter(t => !atk.traits.includes(t));
+                      const topSugg = weapon.length > 0 ? weapon[0] : monster.length > 0 ? monster[0] : null;
+                      if (topSugg) { e.preventDefault(); updateAttack(i, { traits: [...atk.traits, topSugg], traitInput: '' }); }
                     }
                   }}
                   placeholder="Add trait…"
@@ -1076,11 +1191,18 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
                     onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, name: e.target.value } : a))}
                     onFocus={() => setFocusedAbilityIdx(i)}
                     onBlur={() => setFocusedAbilityIdx(null)}
+                    onKeyDown={e => {
+                      if (e.key === 'Tab' && ab.name.length > 0) {
+                        const q = ab.name.toLowerCase();
+                        const suggestions = rankSuggestions(MONSTER_ABILITY_SUGGESTIONS, q).filter(s => s.toLowerCase() !== ab.name.toLowerCase());
+                        if (suggestions.length > 0) { e.preventDefault(); setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, name: suggestions[0] } : a)); }
+                      }
+                    }}
                     placeholder="Ability name…"
                   />
                   {focusedAbilityIdx === i && ab.name.length > 0 && (() => {
                     const q = ab.name.toLowerCase();
-                    const suggestions = MONSTER_ABILITY_SUGGESTIONS.filter(s => s.toLowerCase().includes(q) && s.toLowerCase() !== ab.name.toLowerCase());
+                    const suggestions = rankSuggestions(MONSTER_ABILITY_SUGGESTIONS, q).filter(s => s.toLowerCase() !== ab.name.toLowerCase());
                     return suggestions.length > 0 ? (
                       <ul className={styles.suggestions}>
                         {suggestions.map(s => (
@@ -1255,6 +1377,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
                   {SAVE_TIERS.map(t => (
                     <button key={t} title={t}
                       className={`${styles.tierBtn}`}
+                      style={{ gridColumn: TIER_COL[t] }}
                       onClick={() => updateEntry({ dc: lookupSave(level, t) })}
                     >{TIER_ABBREV[t]}</button>
                   ))}
@@ -1267,6 +1390,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
                   {AC_TIERS.map(t => (
                     <button key={t} title={t}
                       className={`${styles.tierBtn}`}
+                      style={{ gridColumn: TIER_COL[t] }}
                       onClick={() => updateEntry({ attackMod: lookupAttack(level, t) })}
                     >{TIER_ABBREV[t]}</button>
                   ))}

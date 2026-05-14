@@ -12,7 +12,7 @@
 export type HpTier       = 'low' | 'moderate' | 'high';
 export type AcTier       = 'low' | 'moderate' | 'high' | 'extreme';
 export type SaveTier     = 'terrible' | 'low' | 'moderate' | 'high' | 'extreme';
-export type AbilityTier  = 'low' | 'moderate' | 'high' | 'extreme';
+export type AbilityTier  = 'terrible' | 'low' | 'moderate' | 'high' | 'extreme';
 export type ResWeakTier  = 'low' | 'moderate' | 'high';
 export type AreaDamageTier = 'unlimited' | 'limited';
 
@@ -212,33 +212,33 @@ export const AREA_DAMAGE_TABLE: Record<number, Record<AreaDamageTier, string>> =
 // level -1 and 0 have no extreme in the table; 99 is used as a sentinel (hide tier button)
 
 export const ABILITY_TABLE: Record<number, Record<AbilityTier, number>> = {
-  [-1]: { extreme: 99, high: 3, moderate: 2, low: 0 },
-  [0]:  { extreme: 99, high: 3, moderate: 2, low: 0 },
-  [1]:  { extreme: 5,  high: 4, moderate: 3, low: 1 },
-  [2]:  { extreme: 5,  high: 4, moderate: 3, low: 1 },
-  [3]:  { extreme: 5,  high: 4, moderate: 3, low: 1 },
-  [4]:  { extreme: 6,  high: 5, moderate: 3, low: 2 },
-  [5]:  { extreme: 6,  high: 5, moderate: 4, low: 2 },
-  [6]:  { extreme: 7,  high: 5, moderate: 4, low: 2 },
-  [7]:  { extreme: 7,  high: 6, moderate: 4, low: 2 },
-  [8]:  { extreme: 7,  high: 6, moderate: 4, low: 3 },
-  [9]:  { extreme: 7,  high: 6, moderate: 4, low: 3 },
-  [10]: { extreme: 8,  high: 7, moderate: 5, low: 3 },
-  [11]: { extreme: 8,  high: 7, moderate: 5, low: 3 },
-  [12]: { extreme: 8,  high: 7, moderate: 5, low: 4 },
-  [13]: { extreme: 9,  high: 8, moderate: 5, low: 4 },
-  [14]: { extreme: 9,  high: 8, moderate: 5, low: 4 },
-  [15]: { extreme: 9,  high: 8, moderate: 6, low: 4 },
-  [16]: { extreme: 10, high: 9, moderate: 6, low: 5 },
-  [17]: { extreme: 10, high: 9, moderate: 6, low: 5 },
-  [18]: { extreme: 10, high: 9, moderate: 6, low: 5 },
-  [19]: { extreme: 11, high: 10, moderate: 6, low: 5 },
-  [20]: { extreme: 11, high: 10, moderate: 7, low: 6 },
-  [21]: { extreme: 11, high: 10, moderate: 7, low: 6 },
-  [22]: { extreme: 11, high: 10, moderate: 8, low: 6 },
-  [23]: { extreme: 11, high: 10, moderate: 8, low: 6 },
-  [24]: { extreme: 13, high: 12, moderate: 9, low: 7 },
-  [25]: { extreme: 13, high: 12, moderate: 9, low: 7 },
+  [-1]: { extreme: 99, high: 3,  moderate: 2, low: 0, terrible: -2 },
+  [0]:  { extreme: 99, high: 3,  moderate: 2, low: 0, terrible: -2 },
+  [1]:  { extreme: 5,  high: 4,  moderate: 3, low: 1, terrible: -2 },
+  [2]:  { extreme: 5,  high: 4,  moderate: 3, low: 1, terrible: -2 },
+  [3]:  { extreme: 5,  high: 4,  moderate: 3, low: 1, terrible: -2 },
+  [4]:  { extreme: 6,  high: 5,  moderate: 3, low: 2, terrible: -2 },
+  [5]:  { extreme: 6,  high: 5,  moderate: 4, low: 2, terrible: -2 },
+  [6]:  { extreme: 7,  high: 5,  moderate: 4, low: 2, terrible: -2 },
+  [7]:  { extreme: 7,  high: 6,  moderate: 4, low: 2, terrible: -2 },
+  [8]:  { extreme: 7,  high: 6,  moderate: 4, low: 3, terrible: -2 },
+  [9]:  { extreme: 7,  high: 6,  moderate: 4, low: 3, terrible: -2 },
+  [10]: { extreme: 8,  high: 7,  moderate: 5, low: 3, terrible: -2 },
+  [11]: { extreme: 8,  high: 7,  moderate: 5, low: 3, terrible: -2 },
+  [12]: { extreme: 8,  high: 7,  moderate: 5, low: 4, terrible: -2 },
+  [13]: { extreme: 9,  high: 8,  moderate: 5, low: 4, terrible: -2 },
+  [14]: { extreme: 9,  high: 8,  moderate: 5, low: 4, terrible: -2 },
+  [15]: { extreme: 9,  high: 8,  moderate: 6, low: 4, terrible: -2 },
+  [16]: { extreme: 10, high: 9,  moderate: 6, low: 5, terrible: -2 },
+  [17]: { extreme: 10, high: 9,  moderate: 6, low: 5, terrible: -2 },
+  [18]: { extreme: 10, high: 9,  moderate: 6, low: 5, terrible: -2 },
+  [19]: { extreme: 11, high: 10, moderate: 6, low: 5, terrible: -2 },
+  [20]: { extreme: 11, high: 10, moderate: 7, low: 6, terrible: -2 },
+  [21]: { extreme: 11, high: 10, moderate: 7, low: 6, terrible: -2 },
+  [22]: { extreme: 11, high: 10, moderate: 8, low: 6, terrible: -2 },
+  [23]: { extreme: 11, high: 10, moderate: 8, low: 6, terrible: -2 },
+  [24]: { extreme: 13, high: 12, moderate: 9, low: 7, terrible: -2 },
+  [25]: { extreme: 13, high: 12, moderate: 9, low: 7, terrible: -2 },
 };
 
 // ── Table 9-9: Perception ─────────────────────────────────────────────────────

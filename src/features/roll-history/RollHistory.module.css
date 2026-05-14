@@ -110,11 +110,20 @@
 }
 
 .entryLabel {
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--text-mid);
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--text-mute);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entryCreature {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

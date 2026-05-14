@@ -330,7 +330,8 @@
 }
 
 .tierBtns {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(5, 20px);
   gap: 2px;
 }
 
