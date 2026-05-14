@@ -29,13 +29,20 @@ export class CreatureRepository implements ICreatureRepository {
     const hasSizeFilter = sizes.length > 0;
     const hasRarityFilter = rarities.length > 0;
     const hasPackFilter = packSources.length > 0;
-    const hasTraitFilter = traits.length > 0;
     const hasExcludeTraitFilter = excludeTraits.length > 0;
     const hasEntityTypeFilter = entityTypes.length > 0;
 
+    // 'complex' is a synthetic trait derived from system.details.isComplex rather than
+    // stored in the traits array on older records. Filter it separately in the .filter()
+    // pass so it works correctly regardless of whether the DB has been re-synced.
+    const filterComplex = traits.includes('complex');
+    const filterExcludeComplex = excludeTraits.includes('complex');
+    const indexableTraits = traits.filter(t => t !== 'complex');
+    const hasTraitFilter = indexableTraits.length > 0;
+
     let collection;
     if (hasTraitFilter) {
-      collection = db.creatures.where('traits').equals(traits[0]);
+      collection = db.creatures.where('traits').equals(indexableTraits[0]);
     } else if (hasLevelFilter) {
       collection = db.creatures.where('level').between(levelMin, levelMax, true, true);
     } else if (hasRarityFilter) {
@@ -52,17 +59,21 @@ export class CreatureRepository implements ICreatureRepository {
       .filter(c => {
         if (hasNameFilter && !c.nameLower.includes(nameLower)) return false;
         if (hasTraitFilter) {
-          for (const t of traits.slice(1)) {
+          for (const t of indexableTraits.slice(1)) {
             if (!c.traits.includes(t)) return false;
           }
         }
+        // 'complex' is checked against the raw data blob so it works on un-resynced records
+        const isComplex = c.entityType === 'hazard' && c.data.system?.details?.isComplex === true;
+        if (filterComplex && !isComplex) return false;
+        if (filterExcludeComplex && isComplex) return false;
         if (hasLevelFilter && (c.level < levelMin || c.level > levelMax)) return false;
         if (hasCreatureTypeFilter && !creatureTypes.some(t => c.traits.includes(t))) return false;
         if (hasHazardTypeFilter && !hazardTypes.some(t => c.traits.includes(t))) return false;
         if (hasSizeFilter && !sizes.includes(c.size)) return false;
         if (hasRarityFilter && !rarities.includes(c.rarity)) return false;
         if (hasPackFilter && !packSources.includes(c.packSource)) return false;
-        if (hasExcludeTraitFilter && excludeTraits.some(t => c.traits.includes(t))) return false;
+        if (hasExcludeTraitFilter && excludeTraits.filter(t => t !== 'complex').some(t => c.traits.includes(t))) return false;
         if (hasEntityTypeFilter && !entityTypes.includes(c.entityType)) return false;
         return true;
       })

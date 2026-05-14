@@ -25,13 +25,18 @@ export type ProgressCallback = (progress: SyncProgress) => void;
 export { runInBatches };
 
 export function toRecord(creature: PF2ECreature, packSource: string, blobSha: string): CreatureRecord {
+  const baseTraits = creature.system?.traits?.value ?? [];
+  // Inject synthetic 'complex' trait for hazards so it is indexable and filterable
+  const isComplexHazard = creature.type === 'hazard' && creature.system?.details?.isComplex === true;
+  const traits = isComplexHazard ? [...baseTraits, 'complex'] : baseTraits;
+
   return {
     id: creature._id,
     entityType: creature.type ?? 'npc',
     name: creature.name,
     nameLower: creature.name.toLowerCase(),
     level: getLevel(creature),
-    traits: creature.system?.traits?.value ?? [],
+    traits,
     size: getSize(creature),
     rarity: creature.system?.traits?.rarity ?? 'common',
     packSource,

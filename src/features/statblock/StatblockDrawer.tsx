@@ -19,6 +19,7 @@ import {
   getAttacks,
   getActions,
   getPassives,
+  getHazardDetails,
   extractDamageGroups,
   applyEliteWeakToHtml,
   processFoundryHtml,
@@ -217,10 +218,14 @@ function StatblockContent({
   const size = getSize(c);
   const rarity = c.system?.traits?.rarity ?? 'common';
   const traits = c.system?.traits?.value ?? [];
+  const isHazard = creature.entityType === 'hazard';
+  const hazard = isHazard ? getHazardDetails(c) : null;
   const allTraits = [
     ...(rarity !== 'common' ? [rarity] : []),
-    size,
+    ...(!isHazard ? [size] : []),
     ...traits,
+    // Inject synthetic 'complex' trait so it displays in the traits row and is filterable
+    ...(hazard?.isComplex && !traits.includes('complex') ? ['complex'] : []),
   ];
 
   // Get URL
@@ -460,38 +465,59 @@ function StatblockContent({
           </p>
         )}
 
-        {/* Perception / Senses */}
-        <p className={styles.infoLine}>
-          {(() => {
-            const percMod = scaledStats ? scaledStats.perception : (c.system?.perception?.mod ?? c.system?.perception?.value);
-            const effPercMod = percMod != null ? percMod + pen.perception + ewMod : percMod;
-            const rest = senses.replace(/^Perception [+-]?\d+;?\s*/, '').replace(/^Perception [+-]?\d+$/, '');
-            const percStyle = pen.perception !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
-            return (
-              <>
-                <span
-                  className={styles.rollMod}
-                  title="Roll Perception"
-                  onClick={e => roll(effPercMod, 'Perception', e)}
-                  style={percStyle}
-                >
-                  <strong>Perception</strong> {formatMod(effPercMod)}
-                </span>
-                {rest ? `; ${rest}` : ''}
-              </>
-            );
-          })()}
-        </p>
+        {/* Hazard description — shown before defenses for hazards */}
+        {isHazard && hazard!.description && (
+          <div
+            className={styles.itemDesc}
+            style={{ marginBottom: 6 }}
+            dangerouslySetInnerHTML={{ __html: processFoundryHtml(hazard!.description) }}
+          />
+        )}
 
-        {/* Languages — unified for both custom and official creatures */}
-        {langs && (
+        {/* Stealth (hazards) or Perception / Senses (creatures) */}
+        {isHazard ? (
+          hazard!.stealth != null && (
+            <p className={styles.infoLine}>
+              <strong>Stealth</strong>{' '}
+              {hazard!.stealth.value != null ? `+${hazard!.stealth.value}` : '—'}
+              {hazard!.stealth.details
+                ? <> <span dangerouslySetInnerHTML={{ __html: processFoundryHtml(hazard!.stealth.details) }} /></>
+                : null}
+            </p>
+          )
+        ) : (
+          <p className={styles.infoLine}>
+            {(() => {
+              const percMod = scaledStats ? scaledStats.perception : (c.system?.perception?.mod ?? c.system?.perception?.value);
+              const effPercMod = percMod != null ? percMod + pen.perception + ewMod : percMod;
+              const rest = senses.replace(/^Perception [+-]?\d+;?\s*/, '').replace(/^Perception [+-]?\d+$/, '');
+              const percStyle = pen.perception !== 0 ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
+              return (
+                <>
+                  <span
+                    className={styles.rollMod}
+                    title="Roll Perception"
+                    onClick={e => roll(effPercMod, 'Perception', e)}
+                    style={percStyle}
+                  >
+                    <strong>Perception</strong> {formatMod(effPercMod)}
+                  </span>
+                  {rest ? `; ${rest}` : ''}
+                </>
+              );
+            })()}
+          </p>
+        )}
+
+        {/* Languages — creatures only */}
+        {!isHazard && langs && (
           <p className={styles.infoLine}>
             <strong>Languages</strong> {langs}
           </p>
         )}
 
-        {/* Skills — unified for both custom and official creatures */}
-        {rawSkills.length > 0 && (
+        {/* Skills — creatures only */}
+        {!isHazard && rawSkills.length > 0 && (
           <p className={styles.infoLine}>
             <strong>Skills</strong>{' '}
             {rawSkills.map((s, i) => {
@@ -514,33 +540,35 @@ function StatblockContent({
           </p>
         )}
 
-        {/* Ability scores */}
-        <p className={styles.abilityLine}>
-          {([
-            { label: 'Str', mod: str },
-            { label: 'Dex', mod: dex },
-            { label: 'Con', mod: con },
-            { label: 'Int', mod: int_ },
-            { label: 'Wis', mod: wis },
-            { label: 'Cha', mod: cha },
-          ] as const).map(({ label, mod }, i) => (
-            <span key={label}>
-              {i > 0 && ', '}
-              <span
-                className={styles.rollMod}
-                title={`Roll ${label} check`}
-                onClick={e => roll(mod, label, e)}
-              >
-                <strong>{label}</strong> {formatMod(mod)}
+        {/* Ability scores — creatures only */}
+        {!isHazard && (
+          <p className={styles.abilityLine}>
+            {([
+              { label: 'Str', mod: str },
+              { label: 'Dex', mod: dex },
+              { label: 'Con', mod: con },
+              { label: 'Int', mod: int_ },
+              { label: 'Wis', mod: wis },
+              { label: 'Cha', mod: cha },
+            ] as const).map(({ label, mod }, i) => (
+              <span key={label}>
+                {i > 0 && ', '}
+                <span
+                  className={styles.rollMod}
+                  title={`Roll ${label} check`}
+                  onClick={e => roll(mod, label, e)}
+                >
+                  <strong>{label}</strong> {formatMod(mod)}
+                </span>
               </span>
-            </span>
-          ))}
-        </p>
+            ))}
+          </p>
+        )}
 
         <hr className={styles.divider} />
 
-        {/* AC + Saves */}
-        {(() => {
+        {/* AC + Saves — suppressed for hazards with no physical component */}
+        {(!isHazard || hazard!.hasHealth) && (() => {
           const effAc   = typeof ac === 'number'   ? ac   + pen.ac   + ewMod : ac;
           const effFort = fort != null ? fort + pen.fort + ewMod : fort;
           const effRef  = ref  != null ? ref  + pen.ref  + ewMod : ref;
@@ -590,15 +618,20 @@ function StatblockContent({
           );
         })()}
 
-
-        {/* HP */}
-        {(() => {
+        {/* HP — suppressed for hazards with no physical component */}
+        {(!isHazard || hazard!.hasHealth) && (() => {
           const hpDelta = activeEliteWeak && typeof hp === 'number' ? eliteWeakHpDelta(level, activeEliteWeak) : 0;
           const effHp = typeof hp === 'number' ? Math.max(1, hp + hpDelta) : hp;
           return (
             <p className={styles.defenseLine}>
+              {isHazard && hazard!.hardness > 0 && (
+                <><strong>Hardness</strong> {hazard!.hardness};{' '}</>
+              )}
               <strong>HP</strong>{' '}
               <span style={hpDelta !== 0 ? ewStyle : undefined}>{effHp}</span>
+              {isHazard && typeof effHp === 'number' && (
+                <span style={{ color: 'var(--text-mute)' }}> (BT {Math.floor((typeof hp === 'number' ? Math.max(1, hp + hpDelta) : 0) / 2)})</span>
+              )}
               {hpDelta !== 0 && typeof hp === 'number' && (
                 <span style={{ color: 'var(--text-mute)', fontSize: '0.78em' }}> (base {hp})</span>
               )}
@@ -622,6 +655,15 @@ function StatblockContent({
           );
         })()}
 
+        {/* Immunities/Resistances/Weaknesses for hazards with no physical component */}
+        {isHazard && !hazard!.hasHealth && (immunities || resistances || weaknesses) && (
+          <p className={styles.defenseLine}>
+            {immunities && <><strong>Immunities</strong> {immunities}</>}
+            {resistances && <>{immunities ? '; ' : ''}<strong>Resistances</strong> {resistances}</>}
+            {weaknesses && <>{(immunities || resistances) ? '; ' : ''}<strong>Weaknesses</strong> {weaknesses}</>}
+          </p>
+        )}
+
         {passives.map(item => (
           <ItemBlock key={item._id} item={item} onRollAll={rollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
         ))}
@@ -631,9 +673,25 @@ function StatblockContent({
 
         <hr className={styles.divider} />
 
-        <p className={styles.infoLine}>
-          <strong>Speed</strong> {speed}
-        </p>
+        {/* Disable — hazards only, shown before attacks/actions */}
+        {isHazard && hazard!.disable && (
+          <div className={styles.itemBlock}>
+            <p className={styles.itemHeader}>
+              <strong className={styles.itemName}>Disable</strong>
+            </p>
+            <div
+              className={styles.itemDesc}
+              dangerouslySetInnerHTML={{ __html: processFoundryHtml(hazard!.disable) }}
+            />
+          </div>
+        )}
+
+        {/* Speed — creatures only */}
+        {!isHazard && (
+          <p className={styles.infoLine}>
+            <strong>Speed</strong> {speed}
+          </p>
+        )}
 
         {attacks.map(item => (
           <AttackBlock
@@ -709,6 +767,32 @@ function StatblockContent({
           <ItemBlock key={item._id} item={item} onRollAll={rollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
         ))}
 
+        {/* Routine — complex hazards only */}
+        {isHazard && hazard!.routine && (
+          <div className={styles.itemBlock}>
+            <p className={styles.itemHeader}>
+              <strong className={styles.itemName}>Routine</strong>
+            </p>
+            <div
+              className={styles.itemDesc}
+              dangerouslySetInnerHTML={{ __html: processFoundryHtml(hazard!.routine) }}
+            />
+          </div>
+        )}
+
+        {/* Reset — hazards only */}
+        {isHazard && hazard!.reset && (
+          <div className={styles.itemBlock}>
+            <p className={styles.itemHeader}>
+              <strong className={styles.itemName}>Reset</strong>
+            </p>
+            <div
+              className={styles.itemDesc}
+              dangerouslySetInnerHTML={{ __html: processFoundryHtml(hazard!.reset) }}
+            />
+          </div>
+        )}
+
         {/* Elite/Weak ability note — shown for all creature types */}
         {activeEliteWeak && (
           <p className={styles.eliteWeakAbilityNote} style={ewMod > 0 ? { color: '#8a6a18' } : { color: '#2a5a8a' }}>
@@ -768,7 +852,7 @@ function StatblockContent({
           );
         })}
 
-        {publicNotes && !hasSpellcasting && (
+        {!isHazard && publicNotes && !hasSpellcasting && (
           <>
             <hr className={styles.divider} />
             <div className={styles.flavorBox}>

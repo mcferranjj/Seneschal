@@ -10,6 +10,7 @@ Backend Cleanup/Improvements:
     - consolidate custom creature and official creature storage formats, and consolidate their display
 
 Bug Fixes:
+    - GM Core and Core Rulebook need to be added in their relevant legacy/remastered sections as togglable filters
     - fix AoN link bug - works the first time, but then never again
 
 Unanswered Questions:

@@ -402,6 +402,22 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
                 {h.label}
               </label>
             ))}
+            <label className={styles.checkLabel}>
+              <input
+                type="checkbox"
+                checked={filters.traits.includes('complex')}
+                onChange={e => {
+                  if (e.target.checked) {
+                    if (!filters.traits.includes('complex'))
+                      set({ traits: [...filters.traits, 'complex'], excludeTraits: filters.excludeTraits.filter(x => x !== 'complex') });
+                  } else {
+                    set({ traits: filters.traits.filter(t => t !== 'complex') });
+                  }
+                }}
+                disabled={disabled}
+              />
+              Complex
+            </label>
           </div>
         </div>
       )}
