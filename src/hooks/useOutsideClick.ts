@@ -5,7 +5,7 @@
  * An optional excludeRef can be supplied for a second element that should also
  * be treated as "inside" (e.g. an anchor that toggles the panel).
  *
- * Previously duplicated in DiceRoller, MultiDamageRoller, DamageRoller,
+ * Previously duplicated in DiceRoller, MultiDamageRoller,
  * TopBar, RollHistory, and SpellPopup.
  */
 

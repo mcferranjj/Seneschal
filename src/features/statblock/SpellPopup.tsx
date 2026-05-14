@@ -15,7 +15,7 @@ interface SpellPopupProps {
   traits?: string[];
   ewMod: number;
   ewStyle?: React.CSSProperties;
-  onRollAll?: (groups: DamageGroup[], name: string, e: React.MouseEvent) => void;
+  onRollAll?: (groups: DamageGroup[], name: string, traits: string[], e: React.MouseEvent) => void;
   anchorRef: React.RefObject<HTMLElement | null>;
   onClose: () => void;
 }
@@ -89,7 +89,7 @@ export function SpellPopup({ name, description, traits, ewMod, ewStyle, onRollAl
         <button
           className={styles.rollAllDmgBtn}
           style={dmgMod !== 0 ? { borderColor: ewStyle?.color, color: ewStyle?.color } : undefined}
-          onClick={e => { onRollAll!(damageGroups, name, e); onClose(); }}
+          onClick={e => { onRollAll!(damageGroups, name, [], e); onClose(); }}
         >
           🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
         </button>

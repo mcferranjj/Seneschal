@@ -7,6 +7,10 @@
 
 import { loadTraitDescriptions } from '../sync/sync';
 import type { PF2EItem } from '../types/pf2e';
+import type { DamageGroupInput } from '../features/dice/DiceRoller';
+
+/** Alias so existing callers importing DamageGroup from here continue to work. */
+export type DamageGroup = DamageGroupInput;
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -170,12 +174,6 @@ export function applyEliteWeakToHtml(rawHtml: string, dmgMod: number, dcMod: num
   return result;
 }
 
-/** Represents a single damage group extracted from a @Damage macro. */
-export interface DamageGroup {
-  expr: string;
-  label: string;
-}
-
 /**
  * Extract all @Damage macros from raw Foundry HTML, returned as { expr, label } pairs
  * suitable for the multi-damage roller.
@@ -202,7 +200,7 @@ export function extractDamageGroups(rawHtml: string): DamageGroup[] {
         label = labelParts[i]?.trim() ?? labelText;
       } else {
         const type = parseDamageType(trimmed);
-        label = type ? `${expr} ${type} damage` : `${expr} damage`;
+        label = type ? `${type} damage` : 'damage';
       }
       groups.push({ expr, label });
     });

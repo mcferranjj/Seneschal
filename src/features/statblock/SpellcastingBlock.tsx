@@ -11,7 +11,7 @@ interface SpellcastingBlockProps {
   entry: CustomSpellcastingEntry;
   ewMod?: number;
   ewStyle?: React.CSSProperties;
-  onRollAll?: (groups: DamageGroup[], name: string, e: React.MouseEvent) => void;
+  onRollAll?: (groups: DamageGroup[], name: string, traits: string[], e: React.MouseEvent) => void;
 }
 
 export function SpellcastingBlock({ entry, ewMod = 0, ewStyle, onRollAll }: SpellcastingBlockProps) {

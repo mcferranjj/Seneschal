@@ -267,6 +267,8 @@ export interface DamageGroupInput {
 interface MultiDamageRollerProps {
   groups: DamageGroupInput[];
   abilityName: string;
+  /** Weapon traits (e.g. fatal-d12, deadly-d6) applied to the first damage group on crits */
+  traits?: string[];
   anchorX: number;
   anchorY: number;
   onClose: () => void;
@@ -280,7 +282,13 @@ interface GroupResult {
   animKey: number;
 }
 
-export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClose, onRoll }: MultiDamageRollerProps) {
+function traitDieLabel(t: string, prefix: string): string {
+  const m = t.replace(new RegExp(`^${prefix}-`, 'i'), '').match(/^(\d+)?d(\d+)$/i);
+  if (!m) return t;
+  return m[1] ? `${m[1]}d${m[2]}` : `d${m[2]}`;
+}
+
+export function MultiDamageRoller({ groups, abilityName, traits = [], anchorX, anchorY, onClose, onRoll }: MultiDamageRollerProps) {
   const parsedGroups = groups.map(g => ({ ...g, parsed: parseDice(g.expr) })).filter(g => g.parsed != null) as (DamageGroupInput & { parsed: ParsedDice })[];
 
   const [results, setResults] = useState<GroupResult[]>(() =>
@@ -298,8 +306,10 @@ export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClo
     setIsCrit(asCrit);
     setResults(prev => prev.map((gr, i) => {
       const g = parsedGroups[i];
+      // Weapon traits (fatal/deadly) only apply to the first group
+      const groupTraits = i === 0 ? traits : [];
       if (asCrit) {
-        const cr = rollCrit(gr.parsed, []);
+        const cr = rollCrit(gr.parsed, groupTraits);
         onRollRef.current?.({
           expression: `CRIT ${gr.parsed.raw}`,
           label: `${g.label} (Crit)`,
@@ -322,7 +332,7 @@ export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClo
         return { ...gr, normal: r, crit: null, animKey: gr.animKey + 1 };
       }
     }));
-  }, [parsedGroups]);
+  }, [parsedGroups, traits]);
 
   // Roll on mount
   useEffect(() => { rollAll(false); }, []); // eslint-disable-line
@@ -338,6 +348,13 @@ export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClo
 
   if (parsedGroups.length === 0) return null;
 
+  const isSingle = parsedGroups.length === 1;
+  const fatalTrait  = isSingle ? traits.find(t => /^fatal-\d*d\d+$/i.test(t))  : undefined;
+  const deadlyTrait = isSingle ? traits.find(t => /^deadly-\d*d\d+$/i.test(t)) : undefined;
+
+  // Grand total across all groups (shown for multi-group rolls)
+  const grandTotal = results.reduce((sum, gr) => sum + (gr.crit?.grandTotal ?? gr.normal?.total ?? 0), 0);
+
   return (
     <div
       ref={ref}
@@ -349,6 +366,20 @@ export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClo
       <div className={`${styles.header} ${styles.rollerDragHandle}`} onPointerDown={onDragHandlePointerDown}>
         <div className={styles.headerLeft}>
           <span className={styles.label}>{abilityName}</span>
+          {isSingle && (fatalTrait || deadlyTrait) && (
+            <span className={styles.damageSectionExprRow}>
+              {fatalTrait && (
+                <span className={styles.traitTag} title="On a crit: all dice become this size + one extra die added">
+                  Fatal {traitDieLabel(fatalTrait, 'fatal')}
+                </span>
+              )}
+              {deadlyTrait && (
+                <span className={styles.traitTag} title="On a crit: add extra dice of this size">
+                  Deadly {traitDieLabel(deadlyTrait, 'deadly')}
+                </span>
+              )}
+            </span>
+          )}
           {isCrit && <span className={styles.critBanner}>✦ Critical Hit</span>}
         </div>
         <button className={styles.closeBtn} onClick={onClose} aria-label="Close">✕</button>
@@ -360,14 +391,14 @@ export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClo
         const res = gr.crit ?? gr.normal;
         const total = gr.crit ? gr.crit.grandTotal : gr.normal?.total ?? null;
         return (
-          <div key={i} className={styles.multiGroup}>
-            <div className={styles.multiGroupLabel}>{g.label}</div>
+          <div key={i} className={isSingle ? undefined : styles.multiGroup}>
+            {!isSingle && <div className={styles.multiGroupLabel}>{g.label}</div>}
             <div className={styles.multiGroupExpr}>{g.parsed.raw}</div>
             {total != null && (
               <>
                 <div
                   key={gr.animKey}
-                  className={`${styles.multiGroupTotal} ${isCrit ? styles.totalCrit : styles.totalNormal} ${styles.totalDmgAnimated}`}
+                  className={`${isSingle ? styles.total : styles.multiGroupTotal} ${isCrit ? styles.totalCrit : styles.totalNormal} ${styles.totalDmgAnimated}`}
                 >
                   {total}
                 </div>
@@ -377,6 +408,9 @@ export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClo
                       [{gr.crit.baseDice.join(', ')}]
                       {gr.crit.baseModifier !== 0 ? ` ${gr.crit.baseModifier >= 0 ? '+' : ''}${gr.crit.baseModifier}` : ''}
                       {' '}× 2 = {gr.crit.doubledTotal}
+                      {gr.crit.extraDice.length > 0 && (
+                        <> + [{gr.crit.extraDice.join(', ')}] ({gr.crit.extraLabel})</>
+                      )}
                     </>
                   ) : res && 'rolls' in res ? (
                     <>
@@ -391,6 +425,12 @@ export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClo
         );
       })}
 
+      {!isSingle && grandTotal > 0 && (
+        <div className={styles.multiGroupTotal} style={{ borderTop: '1px solid var(--border)', paddingTop: 4, marginTop: 4 }}>
+          Total: {grandTotal}
+        </div>
+      )}
+
       <div className={styles.damageActions}>
         <button className={styles.rerollBtn} onClick={() => rollAll(isCrit)}>
           ↺ Reroll <span className={styles.hint}>(R)</span>
@@ -398,152 +438,6 @@ export function MultiDamageRoller({ groups, abilityName, anchorX, anchorY, onClo
         <button
           className={`${styles.critBtn} ${isCrit ? styles.critBtnActive : ''}`}
           onClick={() => rollAll(!isCrit)}
-        >
-          ✦ Crit
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Standalone damage-only roller (used from combat tracker / direct damage clicks) ──
-
-interface DamageRollerProps {
-  expression: string;
-  label?: string;
-  traits?: string[];
-  anchorX: number;
-  anchorY: number;
-  onClose: () => void;
-  onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
-}
-
-export function DamageRoller({ expression, label, traits = [], anchorX, anchorY, onClose, onRoll }: DamageRollerProps) {
-  const parsed = parseDice(expression);
-  const [dmgResult, setDmgResult] = useState<RollResult | null>(null);
-  const [critResult, setCritResult] = useState<CritResult | null>(null);
-  const [animKey, setAnimKey] = useState(0);
-  const {
-    ref, panelLeft: drPanelLeft, panelTop: drPanelTop, panelTransform: drPanelTransform,
-    onDragHandlePointerDown, onDragPointerMove, onDragPointerUp,
-  } = useFloatingPanel(anchorX, anchorY, onClose);
-  const onRollRef = useRef(onRoll);
-  onRollRef.current = onRoll;
-
-  const recordRoll = useCallback((r: RollResult) => {
-    if (!parsed) return;
-    onRollRef.current?.({
-      expression: parsed.raw,
-      label,
-      rolls: r.rolls,
-      modifier: r.modifier,
-      total: r.total,
-      timestamp: Date.now(),
-    });
-  }, [parsed, label]);
-
-  const performDmgRoll = useCallback(() => {
-    if (!parsed) return;
-    const r = rollDice(parsed);
-    setDmgResult(r);
-    setCritResult(null);
-    setAnimKey(k => k + 1);
-    recordRoll(r);
-  }, [parsed, recordRoll]);
-
-  const performCrit = useCallback(() => {
-    if (!parsed) return;
-    const cr = rollCrit(parsed, traits);
-    setCritResult(cr);
-    setAnimKey(k => k + 1);
-    onRollRef.current?.({
-      expression: `CRIT ${parsed.raw}`,
-      label: `${label ?? 'Damage'} (Crit)`,
-      rolls: [...cr.baseDice, ...cr.extraDice],
-      modifier: cr.baseModifier,
-      total: cr.grandTotal,
-      timestamp: Date.now(),
-    });
-  }, [parsed, traits, label]);
-
-  useEffect(() => { performDmgRoll(); }, []); // eslint-disable-line
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'r' || e.key === 'R') performDmgRoll();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [performDmgRoll, onClose]);
-
-  if (!dmgResult || !parsed) return null;
-
-  // Detect deadly / fatal traits for display
-  const fatalTrait  = traits.find(t => /^fatal-\d*d\d+$/i.test(t));
-  const deadlyTrait = traits.find(t => /^deadly-\d*d\d+$/i.test(t));
-  function traitDieLabel(t: string, prefix: string) {
-    const m = t.replace(new RegExp(`^${prefix}-`, 'i'), '').match(/^(\d+)?d(\d+)$/i);
-    if (!m) return t;
-    return m[1] ? `${m[1]}d${m[2]}` : `d${m[2]}`;
-  }
-
-  return (
-    <div
-      ref={ref}
-      className={styles.roller}
-      style={{ left: drPanelLeft, top: drPanelTop, transform: drPanelTransform }}
-      onPointerMove={onDragPointerMove}
-      onPointerUp={onDragPointerUp}
-    >
-      <div className={`${styles.header} ${styles.rollerDragHandle}`} onPointerDown={onDragHandlePointerDown}>
-        <div className={styles.headerLeft}>
-          {label && <span className={styles.label}>{label}</span>}
-          <span className={styles.damageSectionExprRow}>
-            <span className={styles.expr}>{parsed.raw}</span>
-            {fatalTrait && (
-              <span className={styles.traitTag} title="On a crit: all dice become this size + one extra die added">
-                Fatal {traitDieLabel(fatalTrait, 'fatal')}
-              </span>
-            )}
-            {deadlyTrait && (
-              <span className={styles.traitTag} title="On a crit: add extra dice of this size">
-                Deadly {traitDieLabel(deadlyTrait, 'deadly')}
-              </span>
-            )}
-          </span>
-          {critResult && <span className={styles.critBanner}>✦ Critical Hit</span>}
-        </div>
-        <button className={styles.closeBtn} onClick={onClose} aria-label="Close">✕</button>
-      </div>
-
-      {critResult ? (
-        <>
-          <div key={animKey} className={`${styles.total} ${styles.totalCrit} ${styles.totalAnimated}`}>{critResult.grandTotal}</div>
-          <div className={styles.breakdown}>
-            [{critResult.baseDice.join(', ')}]
-            {critResult.baseModifier !== 0 ? ` ${critResult.baseModifier >= 0 ? '+' : ''}${critResult.baseModifier}` : ''}
-            {' '}× 2 = {critResult.doubledTotal}
-            {critResult.extraDice.length > 0 && (
-              <> + [{critResult.extraDice.join(', ')}] ({critResult.extraLabel})</>
-            )}
-          </div>
-        </>
-      ) : (
-        <>
-          <div key={animKey} className={`${styles.total} ${styles.totalNormal} ${styles.totalAnimated}`}>{dmgResult.total}</div>
-          <div className={styles.breakdown}>
-            [{dmgResult.rolls.join(', ')}]
-            {dmgResult.modifier !== 0 ? ` ${dmgResult.modifier >= 0 ? '+' : ''}${dmgResult.modifier}` : ''}
-          </div>
-        </>
-      )}
-
-      <div className={styles.damageActions}>
-        <button className={styles.rerollBtn} onClick={performDmgRoll}>↺ Reroll <span className={styles.hint}>(R)</span></button>
-        <button
-          className={`${styles.critBtn} ${critResult ? styles.critBtnActive : ''}`}
-          onClick={performCrit}
         >
           ✦ Crit
         </button>

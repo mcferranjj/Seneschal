@@ -5,7 +5,7 @@ import type { PF2ECreature } from '../../types/pf2e';
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import type { Condition, CustomSpellcastingEntry } from '../../types/encounter';
 import { computePenalties } from '../../types/conditionEffects';
-import { DiceRoller, DamageRoller, MultiDamageRoller } from '../dice/DiceRoller';
+import { DiceRoller, MultiDamageRoller } from '../dice/DiceRoller';
 import { CustomCreatureWizard } from '../custom-creature/CustomCreatureWizard';
 import {
   getLevel,
@@ -162,9 +162,9 @@ function StatblockContent({
   const [scaleDropdownOpen, setScaleDropdownOpen] = useState(false);
 
   const {
-    diceRoll, damageRoll, multiDamageRoll,
+    diceRoll, multiDamageRoll,
     clearRolls,
-    roll, rollAttack, rollDamage, rollAllDamage, rollExpr,
+    roll, rollAttack, rollDamage, rollExpr,
   } = useRollState();
 
   const handleBodyClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -622,10 +622,10 @@ function StatblockContent({
         })()}
 
         {passives.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
         ))}
         {reactions.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
         ))}
 
         <hr className={styles.divider} />
@@ -640,7 +640,6 @@ function StatblockContent({
             item={item}
             onRollAttack={rollAttack}
             onRollDamage={rollDamage}
-            onRollAllDamage={rollAllDamage}
             conditions={activeConditionList}
             strMod={str}
             dexMod={dex}
@@ -687,8 +686,8 @@ function StatblockContent({
                 attackStyle={atkStyle}
                 damageStyle={atkStyle}
                 isAgile={isAgile}
-                onRollAttack={(mod, label, e) => rollAttack(mod, label, damageExpr ?? '', damageLabel, atk.traits ?? [], e)}
-                onRollDamage={(expr, _label, e) => rollDamage(expr, damageLabel, atk.traits ?? [], e)}
+                onRollAttack={(mod, label, e) => rollAttack(mod, label, damageExpr ? [{ expr: damageExpr, label: 'damage' }] : [], damageLabel, atk.traits ?? [], e)}
+                onRollDamage={e => rollDamage(damageExpr ? [{ expr: damageExpr, label: 'damage' }] : [], damageLabel, atk.traits ?? [], e)}
               />
             );
           });
@@ -701,12 +700,12 @@ function StatblockContent({
             entry={entry}
             ewMod={ewMod}
             ewStyle={ewStyle}
-            onRollAll={rollAllDamage}
+            onRollAll={rollDamage}
           />
         ))}
 
         {offenseActions.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollAllDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
         ))}
 
         {/* Elite/Weak ability note — shown for all creature types */}
@@ -759,7 +758,7 @@ function StatblockContent({
                 <button
                   className={styles.rollAllDmgBtn}
                   style={dmgMod !== 0 ? { borderColor: ewStyle?.color, color: ewStyle?.color } : undefined}
-                  onClick={e => rollAllDamage(damageGroups, ab.name, e)}
+                  onClick={e => rollDamage(damageGroups, ab.name, [], e)}
                 >
                   🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
                 </button>
@@ -830,21 +829,11 @@ function StatblockContent({
           onRoll={onRoll}
         />
       )}
-      {damageRoll && (
-        <DamageRoller
-          expression={damageRoll.expr}
-          label={damageRoll.label}
-          traits={damageRoll.traits}
-          anchorX={damageRoll.x}
-          anchorY={damageRoll.y}
-          onClose={clearRolls}
-          onRoll={onRoll}
-        />
-      )}
       {multiDamageRoll && (
         <MultiDamageRoller
           groups={multiDamageRoll.groups}
           abilityName={multiDamageRoll.abilityName}
+          traits={multiDamageRoll.traits}
           anchorX={multiDamageRoll.x}
           anchorY={multiDamageRoll.y}
           onClose={clearRolls}

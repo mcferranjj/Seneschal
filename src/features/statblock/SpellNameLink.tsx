@@ -7,7 +7,7 @@ interface SpellNameLinkProps {
   spell: { name: string; description: string; traits?: string[] };
   ewMod: number;
   ewStyle?: React.CSSProperties;
-  onRollAll?: (groups: DamageGroup[], name: string, e: React.MouseEvent) => void;
+  onRollAll?: (groups: DamageGroup[], name: string, traits: string[], e: React.MouseEvent) => void;
 }
 
 export function SpellNameLink({ spell, ewMod, ewStyle, onRollAll }: SpellNameLinkProps) {

@@ -29,7 +29,7 @@ export interface AttackLineProps {
   /** Whether MAP brackets should show on the attack (omit when bonus is null) */
   isAgile?: boolean;
   onRollAttack: (mod: number, label: string, e: React.MouseEvent) => void;
-  onRollDamage: (expr: string, label: string, e: React.MouseEvent) => void;
+  onRollDamage: (e: React.MouseEvent) => void;
 }
 
 export function AttackLine({
@@ -120,7 +120,7 @@ export function AttackLine({
               className={styles.rollMod}
               title="Roll damage"
               style={damageStyle}
-              onClick={e => onRollDamage(damageExpr, damageLabel, e)}
+              onClick={e => onRollDamage(e)}
             >
               <strong>Damage</strong> {displayDamage}
             </span>

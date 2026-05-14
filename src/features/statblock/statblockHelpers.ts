@@ -114,3 +114,25 @@ export function getDamageString(damageRolls: Record<string, { damage: string; da
     .join(' + ');
 }
 
+/**
+ * Returns one DamageGroupInput per damage roll entry so that the DiceRoller
+ * can display (and roll) each damage type separately.
+ * e.g. { a: { damage: "2d6+3", damageType: "slashing" }, b: { damage: "1d4", damageType: "fire" } }
+ * → [{ expr: "2d6+3", label: "slashing" }, { expr: "1d4", label: "fire" }]
+ */
+export function getDamageGroups(
+  damageRolls: Record<string, { damage: string; damageType: string }> | undefined,
+  modOffset = 0,
+): { expr: string; label: string }[] {
+  if (!damageRolls) return [];
+  const entries = Object.values(damageRolls);
+  return entries.map((d, i) => {
+    let expr = d.damage.trim();
+    // Apply modifier offset only to the first group (consistent with existing behaviour)
+    if (i === 0 && modOffset !== 0) {
+      expr = `${expr}${modOffset >= 0 ? `+${modOffset}` : modOffset}`;
+    }
+    return { expr, label: d.damageType };
+  });
+}
+

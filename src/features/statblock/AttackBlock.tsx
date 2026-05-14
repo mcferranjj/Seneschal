@@ -1,13 +1,14 @@
 import type { PF2EItem } from '../../types/pf2e';
 import type { Condition } from '../../types/encounter';
 import { computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
-import { getDamageString } from './statblockHelpers';
+import { getDamageString, getDamageGroups } from './statblockHelpers';
+import type { DamageGroupInput } from '../dice/DiceRoller';
 import { AttackLine } from './AttackLine';
 
 interface AttackBlockProps {
   item: PF2EItem;
-  onRollAttack: (mod: number, label: string, damageExpr: string, damageLabel: string, damageTraits: string[], e: React.MouseEvent) => void;
-  onRollDamage: (expr: string, label: string, traits: string[], e: React.MouseEvent) => void;
+  onRollAttack: (mod: number, label: string, damageGroups: DamageGroupInput[], damageLabel: string, damageTraits: string[], e: React.MouseEvent) => void;
+  onRollDamage: (groups: DamageGroupInput[], label: string, traits: string[], e: React.MouseEvent) => void;
   conditions?: Condition[];
   strMod?: number;
   dexMod?: number;
@@ -48,18 +49,24 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
 
   const fullDamage = [damage, ...effects].filter(Boolean).join(' plus ');
 
-  // Extract the first dice+modifier from fullDamage, tolerating spaces
-  const damageExprMatch = fullDamage.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
-  const baseDamageExpr = damageExprMatch
-    ? (damageExprMatch[2]
-        ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}`
-        : damageExprMatch[1])
-    : '';
   // Combine condition damage penalty and elite/weak damage modifier
   const totalDmgMod = dmgPen + ewMod;
-  const damageExpr = baseDamageExpr && totalDmgMod !== 0
-    ? `${baseDamageExpr}${totalDmgMod >= 0 ? `+${totalDmgMod}` : totalDmgMod}`
-    : baseDamageExpr;
+
+  // Build one group per damage type so multi-type attacks (e.g. slashing + fire) all roll
+  const baseDamageGroups = getDamageGroups(item.system?.damageRolls, totalDmgMod);
+  // If there are no structured rolls but fullDamage has a dice expression, fall back
+  const damageGroups: DamageGroupInput[] = baseDamageGroups.length > 0
+    ? baseDamageGroups
+    : (() => {
+        const m = fullDamage.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
+        if (!m) return [];
+        const expr = m[2] ? `${m[1]}${m[2].replace(/\s/g, '')}` : m[1];
+        const modifiedExpr = totalDmgMod !== 0 ? `${expr}${totalDmgMod >= 0 ? `+${totalDmgMod}` : totalDmgMod}` : expr;
+        return [{ expr: modifiedExpr, label: 'damage' }];
+      })();
+
+  // The primary damage expression used for standalone "click damage" rolls (first group)
+  const damageExpr = damageGroups[0]?.expr ?? '';
 
   const attackStyle = isDebuffedAtk ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
   const damageStyle = isDebuffedDmg ? debuffStyle : ewMod !== 0 && ewMod !== dmgPen ? ewStyle : undefined;
@@ -78,9 +85,9 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
       damageStyle={damageStyle}
       isAgile={isAgile}
       onRollAttack={(mod, label, e) => {
-        onRollAttack(mod, label, damageExpr, `${item.name} damage`, traits, e);
+        onRollAttack(mod, label, damageGroups, `${item.name} damage`, traits, e);
       }}
-      onRollDamage={(expr, _label, e) => onRollDamage(expr, `${item.name} damage`, traits, e)}
+      onRollDamage={e => onRollDamage(damageGroups, `${item.name} damage`, traits, e)}
     />
   );
 }
