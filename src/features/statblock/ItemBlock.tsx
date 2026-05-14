@@ -1,3 +1,4 @@
+import { useState, useRef } from 'react';
 import type { PF2EItem } from '../../types/pf2e';
 import {
   applyEliteWeakToHtml,
@@ -7,6 +8,9 @@ import {
 } from '../../utils/foundryMacros';
 import type { DamageGroup } from '../../utils/foundryMacros';
 import { scaleAbilityHtml, eliteWeakDmgMod, eliteWeakDcMod } from '../../utils/levelScaling';
+import { ABILITY_GLOSSARY } from '../../data/abilityGlossary';
+import { useOutsideClick } from '../../hooks/useOutsideClick';
+import { usePopupPosition } from '../../hooks/usePopupPosition';
 import styles from './StatblockDrawer.module.css';
 
 function actionSymbol(item: PF2EItem): string {
@@ -54,10 +58,26 @@ export function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle, baseLevel, targ
   const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];
   const hasDamage = damageGroups.length > 0 && onRollAll != null;
 
+  // Ability glossary popup
+  const glossaryDesc = ABILITY_GLOSSARY[item.name];
+  const [popupOpen, setPopupOpen] = useState(false);
+  const nameRef = useRef<HTMLElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  const pos = usePopupPosition(nameRef, popupOpen, { popupWidth: 300, popupMaxHeight: 380 });
+  useOutsideClick(popupRef, () => setPopupOpen(false), nameRef);
+
   return (
     <div className={styles.itemBlock}>
       <p className={styles.itemHeader}>
-        <strong className={styles.itemName}>{item.name}</strong>
+        <strong
+          ref={nameRef}
+          className={`${styles.itemName} ${glossaryDesc ? styles.abilityNameClickable : ''}`}
+          onClick={glossaryDesc ? () => setPopupOpen(o => !o) : undefined}
+          title={glossaryDesc ? 'Click for rules summary' : undefined}
+        >
+          {item.name}
+        </strong>
         {symbol && <span className={styles.actionSymbol}>{symbol}</span>}
         {traitStr && <span className={styles.itemTraits}> {traitStr}</span>}
         {trigger && (
@@ -81,6 +101,22 @@ export function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle, baseLevel, targ
         >
           🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
         </button>
+      )}
+
+      {/* Ability glossary popup */}
+      {popupOpen && glossaryDesc && pos && (
+        <div
+          ref={popupRef}
+          className={styles.abilityPopup}
+          style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, maxHeight: pos.maxH }}
+        >
+          <div className={styles.abilityPopupHeader}>
+            <span className={styles.abilityPopupName}>{item.name}</span>
+            <span className={styles.abilityPopupSource}>Monster Core</span>
+            <button className={styles.abilityPopupClose} onClick={() => setPopupOpen(false)}>✕</button>
+          </div>
+          <div className={styles.abilityPopupDesc}>{glossaryDesc}</div>
+        </div>
       )}
     </div>
   );

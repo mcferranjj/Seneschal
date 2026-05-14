@@ -353,6 +353,126 @@
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 3px;
   padding: 2px 7px;
+  position: relative;
+}
+
+/* Trait tooltip */
+.traitChipHoverable {
+  cursor: help;
+}
+
+.traitChipHoverable:hover .traitTooltip {
+  opacity: 1;
+  pointer-events: none;
+}
+
+.traitTooltip {
+  opacity: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: 400;
+  width: 260px;
+  max-height: 200px; /* matches TOOLTIP_MAX_H in TraitChip.tsx */
+  overflow-y: auto;
+  background: #2a1a0a;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 5px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+  padding: 7px 10px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #e8d8b8;
+  line-height: 1.5;
+  white-space: normal;
+  transition: opacity 0.1s;
+  /* top/left set via JS on mouseEnter */
+}
+
+.traitTooltipName {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #f0e0c0;
+  display: block;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Ability glossary popup */
+.abilityPopup {
+  position: fixed;
+  z-index: 300;
+  width: 300px;
+  max-height: 380px;
+  overflow-y: auto;
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  padding: 8px 10px 10px;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.abilityPopupHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border-l);
+  padding-bottom: 5px;
+}
+
+.abilityPopupName {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.abilityPopupSource {
+  font-size: 0.66rem;
+  color: var(--text-mute);
+  font-style: italic;
+  flex-shrink: 0;
+}
+
+.abilityPopupClose {
+  background: none;
+  border: none;
+  color: var(--text-mute);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.abilityPopupClose:hover {
+  background: rgba(0,0,0,0.08);
+  color: var(--text);
+}
+
+.abilityPopupDesc {
+  font-size: 0.78rem;
+  color: var(--text-mid);
+  line-height: 1.55;
+}
+
+/* Clickable ability name (has glossary entry) */
+.abilityNameClickable {
+  cursor: pointer;
+  border-bottom: 1px dotted var(--text-mid);
+  transition: color 0.1s, border-color 0.1s;
+}
+
+.abilityNameClickable:hover {
+  color: var(--crimson);
+  border-bottom-color: var(--crimson);
 }
 
 /* Body */

@@ -26,12 +26,12 @@ import {
 import { getRecallKnowledge } from '../encounter/EncounterManager';
 import { importSpellcasting } from '../../utils/importCreature';
 import { buildScaledCreature, scaleAbilityHtml, eliteWeakHpDelta, eliteWeakLevel } from '../../utils/levelScaling';
-import { traitColor } from '../../utils/traitColors';
 import { useRollState } from '../../hooks/useRollState';
 import { AttackBlock } from './AttackBlock';
 import { AttackLine } from './AttackLine';
 import { ItemBlock } from './ItemBlock';
 import { SpellcastingBlock } from './SpellcastingBlock';
+import { TraitChip } from './TraitChip';
 import styles from './StatblockDrawer.module.css';
 
 function skillDisplayName(raw: string): string {
@@ -389,13 +389,7 @@ function StatblockContent({
       {/* Traits */}
       <div className={styles.traitsRow}>
         {allTraits.map(t => (
-          <span
-            key={t}
-            className={styles.traitChip}
-            style={{ background: traitColor(t.toLowerCase(), rarity) }}
-          >
-            {t}
-          </span>
+          <TraitChip key={t} trait={t} rarity={rarity} />
         ))}
       </div>
 
