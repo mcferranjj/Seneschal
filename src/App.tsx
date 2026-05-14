@@ -1,41 +1,64 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 import type { CreatureRecord } from './db/schema';
-import { searchCreatures, DEFAULT_FILTERS } from './search/search';
-import type { SearchFilters } from './search/search';
-import { runSync, getLastSynced, getCreatureCount, resetDatabase } from './sync/sync';
-import { initTraitDescriptions } from './components/StatblockDrawer/statblockHelpers';
-import type { SyncProgress } from './sync/sync';
-import type { PF2ECreature } from './types/pf2e';
-import type { Section, Encounter, EncounterCreature, Condition } from './types/encounter';
-import type { RollHistoryEntry } from './types/diceHistory';
-import { db, loadEncounterState, saveEncounterState } from './db/db';
+import { creatureRepository } from './db/repositories/CreatureRepository';
 import { importCreatureAsCustom } from './utils/importCreature';
-import { buildScaledCreature, adjustedMaxHp } from './utils/levelScaling';
-import { TopBar } from './components/TopBar/TopBar';
-import { SearchPanel } from './components/SearchPanel/SearchPanel';
-import { ResultsList } from './components/ResultsList/ResultsList';
-import { StatblockDrawer } from './components/StatblockDrawer/StatblockDrawer';
-import { EncounterManager } from './components/EncounterManager/EncounterManager';
-import { RulesSection } from './components/RulesSection/RulesSection';
-import { CharactersSection } from './components/CharactersSection/CharactersSection';
-import { RollHistory } from './components/RollHistory/RollHistory';
-import styles from './App.module.css';
-
-const SEARCH_DEBOUNCE_MS = 200;
+import type { Section } from './types/encounter';
+import type { RollHistoryEntry } from './types/diceHistory';
+import type { SyncProgress } from './sync/sync';
+import { useEncounter } from './hooks/useEncounter';
+import { useSearch } from './hooks/useSearch';
+import { TopBar } from './features/shell/TopBar';
+import { SearchPanel } from './features/creatures/SearchPanel/SearchPanel';
+import { ResultsList } from './features/creatures/ResultsList/ResultsList';
+import { StatblockDrawer } from './features/statblock/StatblockDrawer';
+import { EncounterManager } from './features/encounter/EncounterManager';
+import { RulesSection } from './features/rules/RulesSection';
+import { CharactersSection } from './features/characters/CharactersSection';
+import { RollHistory } from './features/roll-history/RollHistory';
+import styles from './features/shell/App.module.css';
 
 export default function App() {
   // Section navigation
   const [activeSection, setActiveSection] = useState<Section>('gm');
 
-  // Search state
-  const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
-  const [results, setResults] = useState<CreatureRecord[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [selected, setSelected] = useState<CreatureRecord | null>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [creatureCount, setCreatureCount] = useState(0);
-  const [lastSynced, setLastSynced] = useState<number | null>(null);
-  const [syncProgress, setSyncProgress] = useState<SyncProgress>({ phase: 'idle' });
+  // Search + sync state
+  const {
+    filters,
+    setFilters,
+    results,
+    totalCount,
+    searchLoading,
+    creatureCount,
+    syncProgress,
+    isSyncing,
+    handleResetDatabase,
+    handleDeleteCreature,
+    handleWizardSave,
+  } = useSearch();
+
+  // Encounter state + callbacks
+  const {
+    encounters,
+    activeEnc,
+    partySize,
+    partyLevel,
+    setActiveEnc,
+    setPartySize,
+    setPartyLevel,
+    addToEncounter,
+    addEncounter,
+    renameEncounter,
+    reorderEncounters,
+    deleteEncounter,
+    removeCreature,
+    updateHP,
+    setHPDirect,
+    updateConditions,
+    setEliteWeak,
+    setScaledLevel,
+    duplicateCreature,
+    addCustomCreature,
+  } = useEncounter();
 
   // Filter + results sidebars
   const [filtersOpen, setFiltersOpen] = useState(true);
@@ -43,7 +66,7 @@ export default function App() {
 
   // Custom creature wizard
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardEditCreature, setWizardEditCreature] = useState<import('./db/schema').CreatureRecord | undefined>(undefined);
+  const [wizardEditCreature, setWizardEditCreature] = useState<CreatureRecord | undefined>(undefined);
 
   // Roll history
   const [rollHistory, setRollHistory] = useState<RollHistoryEntry[]>([]);
@@ -54,14 +77,9 @@ export default function App() {
     setRollHistory(prev => [{ ...entry, id: ++rollIdRef.current }, ...prev]);
   }, []);
 
-  // Encounter state
-  const [encounters, setEncounters] = useState<Encounter[]>([
-    { id: 1, name: 'Encounter 1', creatures: [] },
-  ]);
-  const [activeEnc, setActiveEnc] = useState(0);
-  const [partySize, setPartySize] = useState(4);
-  const [partyLevel, setPartyLevel] = useState(3);
-  const encounterStateLoaded = useRef(false);
+  // Selected creature (statblock drawer)
+  const [selected, setSelected] = useState<CreatureRecord | null>(null);
+  const [selectedEncounterUid, setSelectedEncounterUid] = useState<string | null>(null);
 
   // Column widths (px) — React state is the source of truth at rest.
   // During a drag we write directly to the CSS custom property on the layout
@@ -97,7 +115,7 @@ export default function App() {
       const startW = widthsRef.current[`${col}Width` as keyof typeof widthsRef.current];
       dragRef.current = { col, startX: e.clientX, startW };
     },
-    [], // no dependencies — always stable
+    [],
   );
 
   // Stable forever — all mutable data accessed through refs
@@ -107,7 +125,6 @@ export default function App() {
     const { prop, min, max } = COL_META[drag.col];
     const raw = drag.startW + (e.clientX - drag.startX);
     const newW = Math.min(max, Math.max(min, raw));
-    // Write straight to DOM — zero React renders during the drag
     gmLayoutRef.current.style.setProperty(prop, `${newW}px`);
   }, []);
 
@@ -124,346 +141,25 @@ export default function App() {
     else setEncounterWidth(px);
   }, []);
 
-  const syncingRef = useRef(false);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const filtersRef = useRef<SearchFilters>(DEFAULT_FILTERS);
-  filtersRef.current = filters;
-
-  const isSyncing =
-    syncProgress.phase === 'checking' ||
-    syncProgress.phase === 'listing' ||
-    syncProgress.phase === 'fetching' ||
-    syncProgress.phase === 'saving';
-
-  // Run search when filters change (debounced)
+  // Keep CSS custom properties in sync with React state (initial mount + any
+  // programmatic changes). During a drag this effect does NOT run — we write
+  // directly to the DOM — so there are zero extra renders on pointermove.
   useEffect(() => {
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    setSearchLoading(true);
-    searchTimerRef.current = setTimeout(async () => {
-      try {
-        const { results: r, totalCount: tc } = await searchCreatures(filters);
-        setResults(r);
-        setTotalCount(tc);
-      } catch {
-        setResults([]);
-        setTotalCount(0);
-      } finally {
-        setSearchLoading(false);
-      }
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    };
-  }, [filters]);
-
-  const refreshCount = useCallback(async () => {
-    const [count, synced] = await Promise.all([getCreatureCount(), getLastSynced()]);
-    setCreatureCount(count);
-    setLastSynced(synced);
-  }, []);
-
-  const triggerSync = useCallback(async () => {
-    if (syncingRef.current) return;
-    syncingRef.current = true;
-    try {
-      await runSync(progress => {
-        setSyncProgress(progress);
-        if (progress.phase === 'done' || progress.phase === 'error') {
-          syncingRef.current = false;
-        }
-      });
-      await refreshCount();
-      const { results: r, totalCount: tc } = await searchCreatures(filtersRef.current);
-      setResults(r);
-      setTotalCount(tc);
-    } catch {
-      syncingRef.current = false;
-    }
-  }, [refreshCount]);
-
-  useEffect(() => {
-    refreshCount();
-    triggerSync().then(() => initTraitDescriptions()).catch(() => {});
-    loadEncounterState().then(saved => {
-      if (saved) {
-        setEncounters(saved.encounters);
-        setActiveEnc(saved.activeEnc);
-        setPartySize(saved.partySize);
-        setPartyLevel(saved.partyLevel);
-      }
-      encounterStateLoaded.current = true;
-    }).catch(() => { encounterStateLoaded.current = true; });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!encounterStateLoaded.current) return;
-    saveEncounterState({ encounters, activeEnc, partySize, partyLevel }).catch(() => {});
-  }, [encounters, activeEnc, partySize, partyLevel]);
-
-  // ── Encounter management ──
-  const addToEncounter = useCallback(
-    (c: CreatureRecord) => {
-      const pf2e = c.data as PF2ECreature;
-      const level = pf2e.system?.details?.level?.value ?? 0;
-      const maxHp = pf2e.system?.attributes?.hp?.max ?? 10;
-      const ac = pf2e.system?.attributes?.ac?.value ?? 10;
-      const fort = pf2e.system?.saves?.fortitude?.value;
-      const ref = pf2e.system?.saves?.reflex?.value;
-      const will = pf2e.system?.saves?.will?.value;
-      const strMod = pf2e.system?.abilities?.str?.mod;
-      const dexMod = pf2e.system?.abilities?.dex?.mod;
-      const entry: EncounterCreature = {
-        uid: `${c.id}-${Date.now()}-${Math.random()}`,
-        creatureId: c.id,
-        name: c.name,
-        level,
-        hp: maxHp,
-        maxHp,
-        ac,
-        fort,
-        ref,
-        will,
-        strMod,
-        dexMod,
-        traits: c.traits,
-        rarity: c.rarity,
-        init: 0,
-        conditions: [],
-      };
-      setEncounters(prev =>
-        prev.map((enc, i) =>
-          i === activeEnc ? { ...enc, creatures: [...enc.creatures, entry] } : enc
-        )
-      );
-    },
-    [activeEnc]
-  );
-
-  const addEncounter = useCallback(() => {
-    const newIdx = encounters.length;
-    setEncounters(prev => [
-      ...prev,
-      { id: newIdx + 1, name: `Encounter ${newIdx + 1}`, creatures: [] },
-    ]);
-    setActiveEnc(newIdx);
-  }, [encounters.length]);
-
-  const renameEncounter = useCallback((idx: number, name: string) => {
-    setEncounters(prev => prev.map((enc, i) => i === idx ? { ...enc, name } : enc));
-  }, []);
-
-  const reorderEncounters = useCallback((fromIdx: number, toIdx: number) => {
-    setEncounters(prev => {
-      const next = [...prev];
-      const [moved] = next.splice(fromIdx, 1);
-      next.splice(toIdx, 0, moved);
-      return next;
-    });
-    setActiveEnc(prev => {
-      if (prev === fromIdx) return toIdx;
-      if (fromIdx < toIdx) {
-        if (prev > fromIdx && prev <= toIdx) return prev - 1;
-      } else {
-        if (prev >= toIdx && prev < fromIdx) return prev + 1;
-      }
-      return prev;
-    });
-  }, []);
-
-  const deleteEncounter = useCallback((idx: number) => {
-    setEncounters(prev => {
-      if (prev.length <= 1) return prev; // never delete the last encounter
-      return prev.filter((_, i) => i !== idx);
-    });
-    setActiveEnc(prev => {
-      if (idx < prev) return prev - 1;
-      if (idx === prev) return Math.max(0, idx - 1);
-      return prev;
-    });
-  }, []);
-
-  const removeCreature = useCallback(
-    (uid: string) => {
-      setEncounters(prev =>
-        prev.map((enc, i) =>
-          i === activeEnc
-            ? { ...enc, creatures: enc.creatures.filter(c => c.uid !== uid) }
-            : enc
-        )
-      );
-    },
-    [activeEnc]
-  );
-
-  const updateHP = useCallback(
-    (uid: string, delta: number) => {
-      setEncounters(prev =>
-        prev.map((enc, i) =>
-          i === activeEnc
-            ? {
-                ...enc,
-                creatures: enc.creatures.map(c => {
-                  if (c.uid !== uid) return c;
-                  const newHp = Math.max(0, Math.min(c.maxHp, c.hp + delta));
-                  return { ...c, hp: newHp };
-                }),
-              }
-            : enc
-        )
-      );
-    },
-    [activeEnc]
-  );
-
-  const setHPDirect = useCallback(
-    (uid: string, newHp: number) => {
-      setEncounters(prev =>
-        prev.map((enc, i) =>
-          i === activeEnc
-            ? {
-                ...enc,
-                creatures: enc.creatures.map(c => {
-                  if (c.uid !== uid) return c;
-                  // Placeholder creature: expand maxHp if new value exceeds it
-                  if (c.custom && newHp > c.maxHp) {
-                    return { ...c, hp: newHp, maxHp: newHp };
-                  }
-                  return { ...c, hp: Math.max(0, Math.min(c.maxHp, newHp)) };
-                }),
-              }
-            : enc
-        )
-      );
-    },
-    [activeEnc]
-  );
-
-  const updateConditions = useCallback(
-    (uid: string, conditions: Condition[]) => {
-      setEncounters(prev =>
-        prev.map((enc, i) =>
-          i === activeEnc
-            ? { ...enc, creatures: enc.creatures.map(c => c.uid === uid ? { ...c, conditions } : c) }
-            : enc
-        )
-      );
-    },
-    [activeEnc]
-  );
-
-  const setEliteWeak = useCallback(
-    (uid: string, adjustment: 'elite' | 'weak' | undefined) => {
-      setEncounters(prev =>
-        prev.map((enc, i) => {
-          if (i !== activeEnc) return enc;
-          return {
-            ...enc,
-            creatures: enc.creatures.map(c => {
-              if (c.uid !== uid) return c;
-              // Preserve the raw base HP so toggling elite/weak multiple times doesn't stack
-              const baseMaxHp = c.baseMaxHp ?? c.maxHp;
-              const updated = { ...c, eliteWeak: adjustment, baseMaxHp };
-              const newMax = adjustedMaxHp(updated);
-              return { ...updated, maxHp: newMax, hp: newMax };
-            }),
-          };
-        })
-      );
-    },
-    [activeEnc]
-  );
-
-  const setScaledLevel = useCallback(
-    async (uid: string, level: number | undefined) => {
-      // Look up the CreatureRecord so we can compute (or restore) scaled stats for the card
-      const enc = encounters.find((_, i) => i === activeEnc);
-      const creature = enc?.creatures.find(c => c.uid === uid);
-      const creatureId = creature?.creatureId;
-      const record = creatureId ? await db.creatures.get(creatureId) : undefined;
-
-      setEncounters(prev =>
-        prev.map((enc, i) => {
-          if (i !== activeEnc) return enc;
-          return {
-            ...enc,
-            creatures: enc.creatures.map(c => {
-              if (c.uid !== uid) return c;
-              if (level == null || !record) {
-                // Remove scaling — restore original stats from DB record
-                const pf2e = record?.data as import('./types/pf2e').PF2ECreature | undefined;
-                const restoredBase = pf2e?.system?.attributes?.hp?.max ?? (c.baseMaxHp ?? c.maxHp);
-                return {
-                  ...c,
-                  scaledLevel: undefined,
-                  baseMaxHp: undefined, // reset; elite/weak will recompute from restored maxHp
-                  ac:    pf2e?.system?.attributes?.ac?.value ?? c.ac,
-                  maxHp: restoredBase,
-                  hp:    restoredBase,
-                  fort:  pf2e?.system?.saves?.fortitude?.value ?? c.fort,
-                  ref:   pf2e?.system?.saves?.reflex?.value ?? c.ref,
-                  will:  pf2e?.system?.saves?.will?.value ?? c.will,
-                };
-              }
-              // Apply scaling — use buildScaledCreature to get new card values
-              const scaled = buildScaledCreature(record, level);
-              return {
-                ...c,
-                scaledLevel: level,
-                baseMaxHp: undefined, // reset so elite/weak recomputes from new scaled base
-                ac:    scaled.ac,
-                maxHp: scaled.hp,
-                hp:    Math.min(c.hp, scaled.hp), // keep current HP if it's lower than new max
-                fort:  scaled.fort,
-                ref:   scaled.ref,
-                will:  scaled.will,
-              };
-            }),
-          };
-        })
-      );
-    },
-    [activeEnc, encounters]
-  );
-
-  const duplicateCreature = useCallback(
-    (uid: string) => {
-      setEncounters(prev =>
-        prev.map((enc, i) => {
-          if (i !== activeEnc) return enc;
-          const original = enc.creatures.find(c => c.uid === uid);
-          if (!original) return enc;
-          const duplicate: EncounterCreature = {
-            ...original,
-            uid: `${original.custom ? 'custom' : original.creatureId ?? 'creature'}-${Date.now()}-${Math.random()}`,
-            hp: original.maxHp,
-            conditions: [],
-          };
-          return { ...enc, creatures: [...enc.creatures, duplicate] };
-        })
-      );
-    },
-    [activeEnc]
-  );
-
-  // uid of the specific encounter creature instance whose statblock is shown
-  const [selectedEncounterUid, setSelectedEncounterUid] = useState<string | null>(null);
+    if (!gmLayoutRef.current) return;
+    gmLayoutRef.current.style.setProperty('--filters-width', `${filtersWidth}px`);
+    gmLayoutRef.current.style.setProperty('--results-width', `${resultsWidth}px`);
+    gmLayoutRef.current.style.setProperty('--encounter-width', `${encounterWidth}px`);
+  }, [filtersWidth, resultsWidth, encounterWidth]);
 
   const selectCreatureById = useCallback(async (id: string, encounterUid?: string) => {
-    const creature = await db.creatures.get(id);
+    const creature = await creatureRepository.get(id);
     if (creature) {
       setSelected(creature);
       setSelectedEncounterUid(encounterUid ?? null);
     }
   }, []);
 
-  // Select a custom/placeholder creature by its encounter uid (no DB record)
-  const selectEncounterCreature = useCallback((_uid: string) => {
-    // Custom creatures don't have a statblock in the DB — nothing to show in the drawer.
-    // This hook exists so future expansion can open a custom creature view.
-  }, []);
-
-  const handleCopyCreature = useCallback((creature: import('./db/schema').CreatureRecord) => {
+  const handleCopyCreature = useCallback((creature: CreatureRecord) => {
     const draft = importCreatureAsCustom(creature);
     setWizardEditCreature(draft);
     setSelected(null);
@@ -476,83 +172,22 @@ export default function App() {
     setWizardOpen(true);
   }, []);
 
-  const openEditWizard = useCallback((creature: import('./db/schema').CreatureRecord) => {
+  const openEditWizard = useCallback((creature: CreatureRecord) => {
     setWizardEditCreature(creature);
     setWizardOpen(true);
   }, []);
 
-  const handleWizardSave = useCallback(async (creature: import('./db/schema').CreatureRecord) => {
-    setWizardOpen(false);
-    setWizardEditCreature(undefined);
-    setSelected(creature);
-    // Refresh search so the new creature appears in results
-    const { results: r, totalCount: tc } = await searchCreatures(filtersRef.current);
-    setResults(r);
-    setTotalCount(tc);
-    await refreshCount();
-  }, [refreshCount]);
+  const onWizardSave = useCallback(async (creature: CreatureRecord) => {
+    await handleWizardSave(creature, saved => {
+      setWizardOpen(false);
+      setWizardEditCreature(undefined);
+      setSelected(saved);
+    });
+  }, [handleWizardSave]);
 
-  const handleResetDatabase = useCallback(async () => {
-    await resetDatabase();
-    setCreatureCount(0);
-    setResults([]);
-    setTotalCount(0);
-    setLastSynced(null);
-    // Kick off a fresh sync immediately
-    triggerSync().then(() => initTraitDescriptions()).catch(() => {});
-  }, [triggerSync]);
-
-  const handleDeleteCreature = useCallback(async (id: string) => {
-    await db.creatures.delete(id);
-    setSelected(null);
-    const { results: r, totalCount: tc } = await searchCreatures(filtersRef.current);
-    setResults(r);
-    setTotalCount(tc);
-    await refreshCount();
-  }, [refreshCount]);
-
-  const addCustomCreature = useCallback(
-    (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: import('./types/encounter').CustomAttack[], abilities?: import('./types/encounter').CustomAbility[], isEnemy?: boolean) => {
-      const isPlaceholder = hp == null && ac == null;
-      const maxHp = hp ?? 0;
-      const entry: EncounterCreature = {
-        uid: `custom-${Date.now()}`,
-        name,
-        level,
-        hp: maxHp,
-        maxHp,
-        ac: ac ?? 0,
-        fort,
-        ref,
-        will,
-        attacks,
-        abilities,
-        init: 0,
-        conditions: [],
-        custom: true,
-        isEnemy: isEnemy ?? !isPlaceholder,
-      };
-      setEncounters(prev =>
-        prev.map((enc, i) =>
-          i === activeEnc ? { ...enc, creatures: [...enc.creatures, entry] } : enc
-        )
-      );
-    },
-    [activeEnc]
-  );
-
-  // Keep CSS custom properties in sync with React state (initial mount + any
-  // programmatic changes). During a drag this effect does NOT run — we write
-  // directly to the DOM — so there are zero extra renders on pointermove.
-  useEffect(() => {
-    if (!gmLayoutRef.current) return;
-    gmLayoutRef.current.style.setProperty('--filters-width', `${filtersWidth}px`);
-    gmLayoutRef.current.style.setProperty('--results-width', `${resultsWidth}px`);
-    gmLayoutRef.current.style.setProperty('--encounter-width', `${encounterWidth}px`);
-  }, [filtersWidth, resultsWidth, encounterWidth]);
-
-  // Suppress unused warning — lastSynced retained for future use
-  void lastSynced;
+  const onDeleteCreature = useCallback(async (id: string) => {
+    await handleDeleteCreature(id, () => setSelected(null));
+  }, [handleDeleteCreature]);
 
   return (
     <div className={styles.app}>
@@ -601,8 +236,8 @@ export default function App() {
                 creatureCount={creatureCount}
                 sortBy={filters.sortBy}
                 sortDir={filters.sortDir}
-                onSortChange={s => setFilters(f => ({ ...f, sortBy: s }))}
-                onSortDirChange={s => setFilters(f => ({ ...f, sortDir: s }))}
+                onSortChange={s => setFilters({ ...filters, sortBy: s })}
+                onSortDirChange={s => setFilters({ ...filters, sortDir: s })}
                 filtersOpen={filtersOpen}
                 onToggleFilters={() => setFiltersOpen(o => !o)}
                 onOpenWizard={openWizard}
@@ -633,7 +268,9 @@ export default function App() {
                 onSetHP={setHPDirect}
                 onAddCustomCreature={addCustomCreature}
                 onSelectCreature={(id, uid) => selectCreatureById(id, uid)}
-                onSelectEncounterCreature={selectEncounterCreature}
+                onSelectEncounterCreature={() => {
+                  // Custom creatures don't have a statblock in the DB — nothing to show.
+                }}
                 onUpdateConditions={updateConditions}
                 onSetEliteWeak={setEliteWeak}
                 onSetScaledLevel={setScaledLevel}
@@ -663,9 +300,9 @@ export default function App() {
                 wizardOpen={wizardOpen}
                 wizardEditCreature={wizardEditCreature}
                 partyLevel={partyLevel}
-                onWizardSave={handleWizardSave}
+                onWizardSave={onWizardSave}
                 onWizardCancel={() => { setWizardOpen(false); setWizardEditCreature(undefined); }}
-                onDeleteCreature={handleDeleteCreature}
+                onDeleteCreature={onDeleteCreature}
                 onEditCreature={openEditWizard}
                 onRoll={addRollEntry}
                 onCopyAsCustom={handleCopyCreature}

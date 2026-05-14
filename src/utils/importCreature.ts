@@ -4,7 +4,7 @@ import type {
   CustomImmunity, CustomResistance, CustomSkill, AbilityActionType, SpeedType,
   CustomSpellcastingEntry, CustomSpell, SpellTradition, SpellcastingType, SpellFrequency,
 } from '../types/encounter';
-import { getDamageString, getAttacks, getActions, getPassives, stripFoundryMacros } from '../components/StatblockDrawer/statblockHelpers';
+import { getDamageString, getAttacks, getActions, getPassives, stripFoundryMacros } from '../features/statblock/statblockHelpers';
 
 function mapActionCost(raw: string | number | null | undefined): AbilityActionType | undefined {
   if (raw == null) return undefined;

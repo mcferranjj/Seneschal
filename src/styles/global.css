@@ -1,0 +1,86 @@
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--border-l);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold);
+}
+
+/* PF2E roll spans — injected via dangerouslySetInnerHTML */
+.pf2roll {
+  font-family: 'DM Mono', monospace;
+  cursor: pointer;
+  color: var(--crimson);
+  font-weight: 600;
+  border-bottom: 1px dotted var(--crimson);
+  border-radius: 2px;
+  padding: 0 1px;
+  transition: background 0.1s;
+}
+
+.pf2roll:hover {
+  background: rgba(92, 20, 20, 0.1);
+}
+
+/* PF2E keyword tooltips — injected via dangerouslySetInnerHTML */
+.pf2kw {
+  border-bottom: 1px dashed var(--gold);
+  cursor: help;
+  position: relative;
+  display: inline;
+}
+
+.pf2kw::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2a1a0e;
+  color: #f4ead6;
+  font-size: 0.72rem;
+  font-style: normal;
+  line-height: 1.45;
+  padding: 6px 9px;
+  border-radius: 5px;
+  width: 240px;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  z-index: 200;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+}
+
+.pf2kw:hover::after {
+  opacity: 1;
+}

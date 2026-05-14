@@ -1,0 +1,114 @@
+/**
+ * CreatureRepository — Dexie implementation of ICreatureRepository
+ *
+ * Wraps the Dexie `creatures` table. All creature reads and writes should
+ * go through this class rather than touching `db.creatures` directly.
+ */
+
+import { db } from '../db';
+import type { CreatureRecord } from '../schema';
+import type { SearchFilters, SearchResult } from '../../search/search';
+import type { ICreatureRepository } from './ICreatureRepository';
+
+export class CreatureRepository implements ICreatureRepository {
+  async get(id: string): Promise<CreatureRecord | undefined> {
+    return db.creatures.get(id);
+  }
+
+  async search(filters: SearchFilters): Promise<SearchResult> {
+    const {
+      name, traits, excludeTraits, levelMin, levelMax,
+      creatureTypes, hazardTypes, sizes, rarities, packSources, entityTypes,
+    } = filters;
+
+    const nameLower = name.trim().toLowerCase();
+    const hasNameFilter = nameLower.length > 0;
+    const hasLevelFilter = levelMin !== -1 || levelMax !== 25;
+    const hasCreatureTypeFilter = creatureTypes.length > 0;
+    const hasHazardTypeFilter = hazardTypes.length > 0;
+    const hasSizeFilter = sizes.length > 0;
+    const hasRarityFilter = rarities.length > 0;
+    const hasPackFilter = packSources.length > 0;
+    const hasTraitFilter = traits.length > 0;
+    const hasExcludeTraitFilter = excludeTraits.length > 0;
+    const hasEntityTypeFilter = entityTypes.length > 0;
+
+    let collection;
+    if (hasTraitFilter) {
+      collection = db.creatures.where('traits').equals(traits[0]);
+    } else if (hasLevelFilter) {
+      collection = db.creatures.where('level').between(levelMin, levelMax, true, true);
+    } else if (hasRarityFilter) {
+      collection = db.creatures.where('rarity').anyOf(rarities);
+    } else if (hasSizeFilter) {
+      collection = db.creatures.where('size').anyOf(sizes);
+    } else if (hasPackFilter) {
+      collection = db.creatures.where('packSource').anyOf(packSources);
+    } else {
+      collection = db.creatures.toCollection();
+    }
+
+    const raw = await collection
+      .filter(c => {
+        if (hasNameFilter && !c.nameLower.includes(nameLower)) return false;
+        if (hasTraitFilter) {
+          for (const t of traits.slice(1)) {
+            if (!c.traits.includes(t)) return false;
+          }
+        }
+        if (hasLevelFilter && (c.level < levelMin || c.level > levelMax)) return false;
+        if (hasCreatureTypeFilter && !creatureTypes.some(t => c.traits.includes(t))) return false;
+        if (hasHazardTypeFilter && !hazardTypes.some(t => c.traits.includes(t))) return false;
+        if (hasSizeFilter && !sizes.includes(c.size)) return false;
+        if (hasRarityFilter && !rarities.includes(c.rarity)) return false;
+        if (hasPackFilter && !packSources.includes(c.packSource)) return false;
+        if (hasExcludeTraitFilter && excludeTraits.some(t => c.traits.includes(t))) return false;
+        if (hasEntityTypeFilter && !entityTypes.includes(c.entityType)) return false;
+        return true;
+      })
+      .toArray();
+
+    const all = filters.sortBy === 'level'
+      ? filters.sortDir === 'asc'
+        ? raw.sort((a, b) => a.level - b.level || a.nameLower.localeCompare(b.nameLower))
+        : raw.sort((a, b) => b.level - a.level || a.nameLower.localeCompare(b.nameLower))
+      : filters.sortDir === 'asc'
+        ? raw.sort((a, b) => a.nameLower.localeCompare(b.nameLower))
+        : raw.sort((a, b) => b.nameLower.localeCompare(a.nameLower));
+
+    return { results: all, totalCount: all.length };
+  }
+
+  async getAllTraits(): Promise<string[]> {
+    const keys = await db.creatures.orderBy('traits').uniqueKeys();
+    return keys as string[];
+  }
+
+  async getAllPackSources(): Promise<string[]> {
+    const keys = await db.creatures.orderBy('packSource').uniqueKeys();
+    return keys as string[];
+  }
+
+  async bulkPut(records: CreatureRecord[]): Promise<void> {
+    await db.creatures.bulkPut(records);
+  }
+
+  async put(record: CreatureRecord): Promise<void> {
+    await db.creatures.put(record);
+  }
+
+  async delete(id: string): Promise<void> {
+    await db.creatures.delete(id);
+  }
+
+  async count(): Promise<number> {
+    return db.creatures.count();
+  }
+
+  async clear(): Promise<void> {
+    await db.creatures.clear();
+  }
+}
+
+/** Singleton Dexie-backed creature repository. */
+export const creatureRepository = new CreatureRepository();

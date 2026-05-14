@@ -1,30 +1,8 @@
 import Dexie, { type Table } from 'dexie';
-import type { CreatureRecord, MetaRecord, TraitDescriptionsRecord } from './schema';
-import type { Encounter } from '../types/encounter';
+import type { CreatureRecord, MetaRecord, TraitDescriptionsRecord, CharacterRecord, EncounterStateRecord } from './schema';
 
-export interface CharacterRecord {
-  id: string;
-  name: string;
-  playerName: string;
-  ancestry: string;
-  class: string;
-  level: number;
-  hp: number;
-  maxHp: number;
-  ac: number;
-  fort: number;
-  ref: number;
-  will: number;
-  perception: number;
-}
-
-export interface EncounterStateRecord {
-  key: string;
-  encounters: Encounter[];
-  activeEnc: number;
-  partySize: number;
-  partyLevel: number;
-}
+// Re-export so existing callers that import from db.ts continue to work
+export type { CharacterRecord, EncounterStateRecord };
 
 class SeneschalDatabase extends Dexie {
   creatures!: Table<CreatureRecord, string>;

@@ -1,0 +1,124 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+/* ── GM Section 4-column layout ── */
+.gmLayout {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  /* CSS custom properties driven directly by DOM writes during drag */
+  --filters-width: 220px;
+  --results-width: 260px;
+  --encounter-width: 280px;
+}
+
+.filterCol {
+  width: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: width 0.3s ease;
+  border-right: 1px solid var(--border);
+  background: var(--parchment);
+  display: flex;
+  flex-direction: column;
+}
+
+.filterColOpen {
+  width: var(--filters-width);
+  transition: none; /* once opened, no transition so resize is smooth */
+}
+
+.resultsCol {
+  flex: 0 0 0px;
+  width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--parchment);
+  overflow: hidden;
+  transition: flex-basis 0.3s ease, width 0.3s ease;
+  border-right: 1px solid var(--border);
+}
+
+.resultsColOpen {
+  flex: 0 0 var(--results-width);
+  width: var(--results-width);
+  transition: none;
+}
+
+.encounterCol {
+  flex: 0 0 var(--encounter-width);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.resizeHandle {
+  flex: 0 0 4px;
+  background: var(--border);
+  cursor: col-resize;
+  transition: background 0.15s;
+  position: relative;
+  z-index: 10;
+}
+
+.resizeHandle:hover,
+.resizeHandle:active {
+  background: var(--crimson);
+}
+
+.resizeHandleHidden {
+  flex-basis: 0;
+  pointer-events: none;
+  background: transparent;
+}
+
+.statblockCol {
+  flex: 1 1 0;
+  min-width: 0;
+  transition: flex 0.4s ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+
+/* ── Sync progress banner ── */
+.progressBar {
+  background: #fdf3dc;
+  border-bottom: 1px solid #d4b870;
+  padding: 7px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.progressLabel {
+  font-size: 0.72rem;
+  color: var(--text-mid);
+}
+
+.progressTrack {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--crimson);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
