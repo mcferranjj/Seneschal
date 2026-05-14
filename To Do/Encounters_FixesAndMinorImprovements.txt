@@ -7,14 +7,11 @@ Minor Improvements:
     - look into why some descriptions are missing (e.g. Tooth Fairy)
     
 Backend Cleanup/Improvements:
-    - add "fatal dX" and "deadly dX" to be tracked the same as "fatal-dX" and "deadly-dX" currently are for the dice roller
-    - consolidate all dice rollers to use the same window - currently there is a different dice roller version for different types of rolls
     - consolidate custom creature and official creature storage formats, and consolidate their display
 
 Bug Fixes:
     - make sure the new encounter + button is visible even when several encounter already exist (currently gets hidden behind third encounter)
     - fix AoN link bug - works the first time, but then never again
-    - fix the build error (seems to be referencing removed tests)
 
 Unanswered Questions:
     - is it legal to include pics plus the flavor descriptions in a public product if I make someone prove they own the pdf first?

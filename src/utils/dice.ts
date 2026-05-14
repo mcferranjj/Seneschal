@@ -4,6 +4,24 @@
  * Pure dice math — no React, no DB. Uses the Web Crypto API for entropy.
  */
 
+// ── Weapon Trait Helpers ──────────────────────────────────────────────────────
+
+/** Matches "fatal-dX", "fatal dX", "fatal-2dX", "fatal 2dX", etc. (case-insensitive) */
+export const FATAL_TRAIT_REGEX  = /^fatal[-\s]\d*d\d+$/i;
+/** Matches "deadly-dX", "deadly dX", "deadly-2dX", "deadly 2dX", etc. (case-insensitive) */
+export const DEADLY_TRAIT_REGEX = /^deadly[-\s]\d*d\d+$/i;
+
+/**
+ * Extracts the die count and sides from a fatal/deadly trait string.
+ * Works with both hyphen and space separators.
+ * e.g. "fatal-d12" or "fatal d12" → { count: 1, sides: 12 }
+ */
+export function parseTraitDice(trait: string, prefix: string): { count: number; sides: number } | null {
+  const m = trait.replace(new RegExp(`^${prefix}[-\\s]`, 'i'), '').match(/^(\d+)?d(\d+)$/i);
+  if (!m) return null;
+  return { count: m[1] ? parseInt(m[1]) : 1, sides: parseInt(m[2]) };
+}
+
 // ── Parsing ───────────────────────────────────────────────────────────────────
 
 export interface ParsedDice {
@@ -85,14 +103,8 @@ export interface CritResult {
 }
 
 export function rollCrit(parsed: ParsedDice, traits: string[]): CritResult {
-  const fatalTrait = traits.find(t => /^fatal-\d*d\d+$/i.test(t));
-  const deadlyTrait = traits.find(t => /^deadly-\d*d\d+$/i.test(t));
-
-  function parseTraitDice(trait: string, prefix: string): { count: number; sides: number } | null {
-    const m = trait.replace(new RegExp(`^${prefix}-`, 'i'), '').match(/^(\d+)?d(\d+)$/i);
-    if (!m) return null;
-    return { count: m[1] ? parseInt(m[1]) : 1, sides: parseInt(m[2]) };
-  }
+  const fatalTrait = traits.find(t => FATAL_TRAIT_REGEX.test(t));
+  const deadlyTrait = traits.find(t => DEADLY_TRAIT_REGEX.test(t));
 
   const fatalDice = fatalTrait ? parseTraitDice(fatalTrait, 'fatal') : null;
   const deadlyDice = deadlyTrait ? parseTraitDice(deadlyTrait, 'deadly') : null;

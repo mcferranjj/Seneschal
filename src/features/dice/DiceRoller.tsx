@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import {
   parseDice, cryptoD, rollDice, rollCrit,
+  FATAL_TRAIT_REGEX, DEADLY_TRAIT_REGEX, parseTraitDice,
 } from '../../utils/dice';
 import type { ParsedDice, RollResult, CritResult } from '../../utils/dice';
 import { useFloatingPanel } from '../../hooks/useFloatingPanel';
@@ -195,12 +196,12 @@ export function DiceRoller({
       {/* ── Damage section ── */}
       {hasDamage && (() => {
         const single = parsedGroups.length === 1;
-        const fatalT  = single ? damageTraits.find(t => /^fatal-\d*d\d+$/i.test(t)) : undefined;
-        const deadlyT = single ? damageTraits.find(t => /^deadly-\d*d\d+$/i.test(t)) : undefined;
+        const fatalT  = single ? damageTraits.find(t => FATAL_TRAIT_REGEX.test(t)) : undefined;
+        const deadlyT = single ? damageTraits.find(t => DEADLY_TRAIT_REGEX.test(t)) : undefined;
         function traitDieLbl(t: string, prefix: string) {
-          const m = t.replace(new RegExp(`^${prefix}-`, 'i'), '').match(/^(\d+)?d(\d+)$/i);
-          if (!m) return t;
-          return m[1] ? `${m[1]}d${m[2]}` : `d${m[2]}`;
+          const d = parseTraitDice(t, prefix);
+          if (!d) return t;
+          return d.count > 1 ? `${d.count}d${d.sides}` : `d${d.sides}`;
         }
         const grandTotal = dmgStates.reduce((sum, st) => sum + (st?.crit?.grandTotal ?? st?.normal?.total ?? 0), 0);
         return (
@@ -307,9 +308,9 @@ interface GroupResult {
 }
 
 function traitDieLabel(t: string, prefix: string): string {
-  const m = t.replace(new RegExp(`^${prefix}-`, 'i'), '').match(/^(\d+)?d(\d+)$/i);
-  if (!m) return t;
-  return m[1] ? `${m[1]}d${m[2]}` : `d${m[2]}`;
+  const d = parseTraitDice(t, prefix);
+  if (!d) return t;
+  return d.count > 1 ? `${d.count}d${d.sides}` : `d${d.sides}`;
 }
 
 export function MultiDamageRoller({ groups, abilityName, creatureName, traits = [], anchorX, anchorY, onClose, onRoll }: MultiDamageRollerProps) {
@@ -401,8 +402,8 @@ export function MultiDamageRoller({ groups, abilityName, creatureName, traits = 
   if (parsedGroups.length === 0) return null;
 
   const isSingle = parsedGroups.length === 1;
-  const fatalTrait  = isSingle ? traits.find(t => /^fatal-\d*d\d+$/i.test(t))  : undefined;
-  const deadlyTrait = isSingle ? traits.find(t => /^deadly-\d*d\d+$/i.test(t)) : undefined;
+  const fatalTrait  = isSingle ? traits.find(t => FATAL_TRAIT_REGEX.test(t))  : undefined;
+  const deadlyTrait = isSingle ? traits.find(t => DEADLY_TRAIT_REGEX.test(t)) : undefined;
 
   // Grand total across all groups (shown for multi-group rolls)
   const grandTotal = results.reduce((sum, gr) => sum + (gr.crit?.grandTotal ?? gr.normal?.total ?? 0), 0);
