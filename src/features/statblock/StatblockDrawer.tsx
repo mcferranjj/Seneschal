@@ -119,10 +119,25 @@ export function StatblockDrawer({
 // if legacy content is wanted, will need to rework this
 async function GetAONURL (search: {name: string, type: string}) {
   try {
+    
+    // build search query for elasticsearch
+    // if other words are found to break search, include them in EXCLUDE_WORDS
+    const EXCLUDE_WORDS = ["spellcaster"];
+    let wordlist = (search.name.match(/\b\w+\b/g) ?? [])
+      .filter(w => !EXCLUDE_WORDS.includes(w.toLowerCase()));
+    // this is a total sloppy hack but it's the only place it's needed :)
+    let bodyPrefix = `{"query":{"function_score":{"query":{"bool":{"should":[{"match_phrase_prefix":{"name.sayt":{"query":"${search.name.toLowerCase()}"}}},{"term":{"name":"${search.name.toLowerCase()}"}},{"bool":{"must":[`;
+    let bodySuffix = `,{"term":{"type":"${search.type}"}}]}}],"minimum_should_match":1,"must_not":[{"term":{"exclude_from_search":true}},{"term":{"category":"item-bonus"}},{"exists":{"field":"remaster_id"}},{"exists":{"field":"item_child_id"}}]}},"boost_mode":"multiply","functions":[{"filter":{"terms":{"type":["Ancestry","Class","Versatile Heritage"]}},"weight":1.2},{"filter":{"terms":{"type":["Trait"]}},"weight":1.05}]}},"size":20,"sort":["_score","_doc"],"_source":{"excludes":["text"]}}`
+    const bodyMiddle = wordlist.map(word =>
+      `{"multi_match":{"query":"${word}","type":"best_fields","fields":["name","legacy_name","remaster_name"],"fuzziness":"auto"}}`
+    ).join(',');
+    const body = bodyPrefix + bodyMiddle + bodySuffix;
+
+    // send req and parse response
     const response = await fetch ('https://elasticsearch.aonprd.com/aon/_search', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: `{"query":{"bool":{"must":[{"match_phrase":{"name":"${search.name.toLowerCase()}"}},{"term":{"type":"${search.type}"}}]}},"_source":["name","url","id","type"],"size":3}`
+      body,
       });
     const data = await response.json();
     let url: string | null = null;
