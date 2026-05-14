@@ -39,7 +39,7 @@ export const DEFAULT_FILTERS: SearchFilters = {
   packSources: [],
   entityTypes: [],
   sortBy: 'level',
-  sortDir: 'desc',
+  sortDir: 'asc',
 };
 
 export interface SearchResult {

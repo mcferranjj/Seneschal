@@ -387,7 +387,7 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
         </div>
       </div>
 
-      {(filters.entityTypes.length === 0 || filters.entityTypes.includes('hazard')) && (
+      {(filters.entityTypes.length === 0 || filters.entityTypes.includes('hazard') || filters.hazardTypes.length > 0) && (
         <div className={styles.section}>
           <span className={styles.label}>Hazard Type</span>
           <div className={styles.checkGroup}>
@@ -406,7 +406,7 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
         </div>
       )}
 
-      {!(filters.entityTypes.includes('hazard') && !filters.entityTypes.includes('npc')) && (
+      {(!(filters.entityTypes.includes('hazard') && !filters.entityTypes.includes('npc')) || filters.creatureTypes.length > 0) && (
         <div className={styles.section}>
           <span className={styles.label}>Creature Type</span>
           <div className={styles.checkGroup}>
