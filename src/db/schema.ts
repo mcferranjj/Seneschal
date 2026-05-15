@@ -11,6 +11,7 @@ export interface CreatureRecord {
   size: string;
   rarity: string;
   packSource: string;
+  publication: string;
   blobSha: string;
   data: PF2ECreature;
   customData?: {

@@ -559,7 +559,7 @@ export function buildScaledCreature(creature: CreatureRecord, targetLevel: numbe
   });
 
   // ── Spellcasting ──────────────────────────────────────────────────────────
-  const rawSpellcasting: CustomSpellcastingEntry[] = creature.packSource === 'custom'
+  const rawSpellcasting: CustomSpellcastingEntry[] = creature.publication === 'Custom'
     ? (creature.customData?.spellcasting ?? [])
     : importSpellcasting(creature);
 

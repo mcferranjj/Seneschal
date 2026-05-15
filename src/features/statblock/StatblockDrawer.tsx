@@ -260,7 +260,7 @@ function StatblockContent({
   const cha  = scaledStats ? scaledStats.cha : c.system?.abilities?.cha?.mod;
 
   // Unified languages: custom creatures store them in customData; official creatures in the system blob
-  const langs = creature.packSource === 'custom'
+  const langs = creature.publication === 'Custom'
     ? (creature.customData?.languages ?? []).join(', ')
     : getLanguages(c);
 
@@ -268,7 +268,7 @@ function StatblockContent({
   // Both shapes are normalized to { name: string; mod: number } for rendering.
   const rawSkills = scaledStats
     ? scaledStats.skills
-    : creature.packSource === 'custom'
+    : creature.publication === 'Custom'
       ? (creature.customData?.skills ?? []).map(sk => ({ name: sk.name, mod: sk.mod }))
       : getSkills(c);
   const senses = getSenses(c);
@@ -292,7 +292,7 @@ function StatblockContent({
   // so both official and custom creatures use the same SpellcastingBlock component.
   const spellcastingEntries: CustomSpellcastingEntry[] = scaledStats
     ? scaledStats.spellcasting
-    : creature.packSource === 'custom'
+    : creature.publication === 'Custom'
       ? (creature.customData?.spellcasting ?? [])
       : importSpellcasting(creature);
   const hasSpellcasting = spellcastingEntries.length > 0;
@@ -328,7 +328,7 @@ function StatblockContent({
           </span>
         </div>
         <div className={styles.headerActions}>
-          {creature.packSource !== 'custom' && (
+          {creature.publication !== 'Custom' && (
             <a
               className={styles.aonLink}
               href={aonURL ?? undefined}
@@ -339,7 +339,7 @@ function StatblockContent({
               AoN ↗
             </a>
           )}
-          {creature.packSource === 'custom' && onEdit && (
+          {creature.publication === 'Custom' && onEdit && (
             <button className={styles.editBtn} onClick={() => onEdit(creature)} title="Edit custom creature">
               ✎
             </button>
@@ -714,7 +714,7 @@ function StatblockContent({
           const scaledStyle = { color: '#2a7a6a', fontWeight: 700 } as const;
           const nonOfficialAttacks = scaledStats
             ? scaledStats.attacks.map(atk => ({ ...atk, isScaled: true as const }))
-            : creature.packSource === 'custom'
+            : creature.publication === 'Custom'
               ? (creature.customData?.attacks ?? []).map(atk => ({ ...atk, isScaled: false as const }))
               : [];
           return nonOfficialAttacks.map((atk, i) => {
@@ -804,7 +804,7 @@ function StatblockContent({
         )}
 
         {/* Custom creature abilities */}
-        {creature.packSource === 'custom' && (creature.customData?.abilities ?? []).map((ab, i) => {
+        {creature.publication === 'Custom' && (creature.customData?.abilities ?? []).map((ab, i) => {
           const actionSymbols: Record<string, string> = {
             single: ' ◆', two: ' ◆◆', three: ' ◆◆◆', reaction: ' ↺', free: ' ◇', passive: '',
           };
@@ -864,7 +864,7 @@ function StatblockContent({
           </>
         )}
 
-        {creature.packSource === 'custom' && creature.customData?.flavorText && (
+        {creature.publication === 'Custom' && creature.customData?.flavorText && (
           <>
             <hr className={styles.divider} />
             <div className={styles.flavorBox}>
@@ -887,7 +887,7 @@ function StatblockContent({
           + Add to Encounter
         </button>
 
-        {creature.packSource === 'custom' && onDelete && (
+        {creature.publication === 'Custom' && onDelete && (
           confirmDelete ? (
             <div className={styles.deleteConfirm}>
               <span>Delete permanently?</span>

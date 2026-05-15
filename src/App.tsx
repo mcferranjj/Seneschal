@@ -31,6 +31,7 @@ export default function App() {
     creatureCount,
     syncProgress,
     isSyncing,
+    triggerSync,
     handleResetDatabase,
     handleDeleteCreature,
     handleWizardSave,
@@ -273,7 +274,7 @@ export default function App() {
               onPointerUp={onHandlePointerUp}
             />
             <div ref={resultsColRef} className={`${styles.resultsCol} ${styles.resultsColOpen}`}>
-              {isSyncing && <SyncProgressBar progress={syncProgress} />}
+              {(isSyncing || syncProgress.phase === 'error') && <SyncProgressBar progress={syncProgress} onRetry={triggerSync} />}
               <ResultsList
                 results={results}
                 totalCount={totalCount}
@@ -387,12 +388,21 @@ export default function App() {
   );
 }
 
-function SyncProgressBar({ progress }: { progress: SyncProgress }) {
-  const { phase, done, total } = progress;
+function SyncProgressBar({ progress, onRetry }: { progress: SyncProgress; onRetry: () => void }) {
+  const { phase, done, total, message } = progress;
   const pct =
     phase === 'fetching' && total && total > 0
       ? Math.round(((done ?? 0) / total) * 100)
       : null;
+
+  if (phase === 'error') {
+    return (
+      <div className={styles.progressBar} data-error>
+        <div className={styles.progressLabel}>{message ?? 'Sync failed.'}</div>
+        <button className={styles.retryBtn} onClick={onRetry}>Retry</button>
+      </div>
+    );
+  }
 
   const label =
     phase === 'checking'

@@ -1,71 +1,58 @@
 import { useEffect, useRef, useState } from 'react';
-import type { SearchFilters, PackSourceInfo } from '../../../search/search';
-import { getAllTraits, getAllPackSourcesWithMeta } from '../../../search/search';
-import type { PackEra, PackCategory } from '../../../sync/packList';
+import type { SearchFilters, PublicationInfo } from '../../../search/search';
+import { getAllTraits, getAllPublicationsWithMeta } from '../../../search/search';
+import type { PublicationEra, PublicationCategory } from '../../../sync/publicationRegistry';
 import { CREATURE_TYPES, SIZES, RARITIES, HAZARD_TYPES } from '../../../data/pf2eConstants';
 import styles from './SearchPanel.module.css';
 import { rankSuggestions } from '../../../utils/suggestions';
 
-const BESTIARY_EXCEPTIONS = new Set([
-  'pathfinder-bestiary',
-  'pathfinder-bestiary-2',
-  'pathfinder-bestiary-3',
-]);
-const LOWERCASE_WORDS = new Set(['a', 'an', 'and', 'at', 'by', 'for', 'in', 'of', 'on', 'the', 'to', 'under', 'up', 'vs']);
-const UPPERCASE_WORDS = new Set(['npc', 'pfs', 'pf2e']);
-
-function packDisplayName(packName: string): string {
-  let name = packName.replace(/-/g, ' ');
-  if (!BESTIARY_EXCEPTIONS.has(packName) && name.endsWith(' bestiary')) {
-    name = name.slice(0, -9);
-  }
-  if (name.startsWith('pathfinder ')) {
-    name = name.slice('pathfinder '.length);
-  }
-  return name
-    .split(' ')
-    .map((word, i) => {
-      if (UPPERCASE_WORDS.has(word)) return word.toUpperCase();
-      if (i > 0 && LOWERCASE_WORDS.has(word)) return word;
-      return word.charAt(0).toUpperCase() + word.slice(1);
-    })
-    .join(' ');
+/**
+ * Strips the "Pathfinder " prefix from publication titles for compact display.
+ * e.g. "Pathfinder GM Core" → "GM Core", "Pathfinder Adventure Path: Age of Ashes" → "Adventure Path: Age of Ashes"
+ */
+function publicationDisplayName(title: string): string {
+  return title.startsWith('Pathfinder ') ? title.slice('Pathfinder '.length) : title;
 }
 
-const ERAS: PackEra[] = ['remaster', 'legacy', 'sf2e'];
-const CATEGORIES: PackCategory[] = ['core', 'supplemental', 'misc'];
+const ERAS: PublicationEra[] = ['remaster', 'legacy', 'sf2e'];
+const CATEGORIES: PublicationCategory[] = ['core', 'supplemental', 'ap', 'adventure', 'society', 'misc'];
 
-const ERA_LABELS: Record<PackEra, string> = {
+const ERA_LABELS: Record<PublicationEra, string> = {
   remaster: 'Remaster',
   legacy: 'Legacy',
   sf2e: 'Starfinder 2E',
 };
 
-const CATEGORY_LABELS: Record<PackCategory, string> = {
+const CATEGORY_LABELS: Record<PublicationCategory, string> = {
   core: 'Core',
   supplemental: 'Supplemental',
-  misc: 'Adventure Paths & Misc',
+  ap: 'Adventure Paths',
+  adventure: 'Adventures',
+  society: 'Society',
+  misc: 'Misc',
 };
 
-type EraGroups = Record<PackEra, Record<PackCategory, PackSourceInfo[]>>;
+type EraGroups = Record<PublicationEra, Record<PublicationCategory, PublicationInfo[]>>;
 
-function groupPacks(packs: PackSourceInfo[]): EraGroups {
+function groupPublications(publications: PublicationInfo[]): EraGroups {
+  const empty = (): Record<PublicationCategory, PublicationInfo[]> =>
+    ({ core: [], supplemental: [], ap: [], adventure: [], society: [], misc: [] });
   const result: EraGroups = {
-    remaster: { core: [], supplemental: [], misc: [] },
-    legacy:   { core: [], supplemental: [], misc: [] },
-    sf2e:     { core: [], supplemental: [], misc: [] },
+    remaster: empty(),
+    legacy:   empty(),
+    sf2e:     empty(),
   };
-  for (const p of packs) {
+  for (const p of publications) {
     result[p.era][p.category].push(p);
   }
   return result;
 }
 
-function checkState(packs: PackSourceInfo[], selected: string[]): 'all' | 'none' | 'some' {
-  if (packs.length === 0) return 'none';
-  const n = packs.filter(p => selected.includes(p.name)).length;
+function checkState(publications: PublicationInfo[], selected: string[]): 'all' | 'none' | 'some' {
+  if (publications.length === 0) return 'none';
+  const n = publications.filter(p => selected.includes(p.name)).length;
   if (n === 0) return 'none';
-  if (n === packs.length) return 'all';
+  if (n === publications.length) return 'all';
   return 'some';
 }
 
@@ -105,24 +92,28 @@ interface SearchPanelProps {
 
 export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchPanelProps) {
   const [allTraits, setAllTraits] = useState<string[]>([]);
-  const [allPacksWithMeta, setAllPacksWithMeta] = useState<PackSourceInfo[]>([]);
+  const [allPublicationsWithMeta, setAllPublicationsWithMeta] = useState<PublicationInfo[]>([]);
   const [traitInput, setTraitInput] = useState('');
-  const [collapsedEras, setCollapsedEras] = useState<Set<string>>(new Set());
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
-  const packsInitialized = useRef(false);
+  const [collapsedEras, setCollapsedEras] = useState<Set<string>>(new Set(['legacy', 'sf2e']));
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set([
+    'remaster/ap', 'remaster/adventure', 'remaster/society', 'remaster/misc',
+    'legacy/core', 'legacy/supplemental', 'legacy/ap', 'legacy/adventure', 'legacy/society', 'legacy/misc',
+    'sf2e/core', 'sf2e/supplemental', 'sf2e/ap', 'sf2e/adventure', 'sf2e/society', 'sf2e/misc',
+  ]));
+  const publicationsInitialized = useRef(false);
 
   useEffect(() => {
     if (!disabled) {
       getAllTraits().then(setAllTraits).catch(() => {});
-      getAllPackSourcesWithMeta().then(packs => {
-        setAllPacksWithMeta(packs);
-        if (!packsInitialized.current) {
-          packsInitialized.current = true;
-          if (filters.packSources.length === 0) {
-            const remaster = packs.filter(p => p.era === 'remaster' && (p.category === 'core' || p.category === 'supplemental') ).map(p => p.name);
-            // Always include 'custom' in the default selection
-            const defaults = packs.some(p => p.name === 'custom') ? [...remaster, 'custom'] : remaster;
-            if (defaults.length > 0) onChange({ ...filters, packSources: defaults });
+      getAllPublicationsWithMeta().then(pubs => {
+        setAllPublicationsWithMeta(pubs);
+        if (!publicationsInitialized.current) {
+          publicationsInitialized.current = true;
+          if (filters.publications.length === 0) {
+            const remaster = pubs.filter(p => p.era === 'remaster' && (p.category === 'core' || p.category === 'supplemental')).map(p => p.name);
+            // Always include 'Custom' in the default selection
+            const defaults = pubs.some(p => p.name === 'Custom') ? [...remaster, 'Custom'] : remaster;
+            if (defaults.length > 0) onChange({ ...filters, publications: defaults });
           }
         }
       }).catch(() => {});
@@ -182,25 +173,25 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
     set({ rarities: checked ? [...filters.rarities, value] : filters.rarities.filter(x => x !== value) });
   }
 
-  function togglePack(value: string, checked: boolean) {
-    set({ packSources: checked ? [...filters.packSources, value] : filters.packSources.filter(x => x !== value) });
+  function togglePublication(value: string, checked: boolean) {
+    set({ publications: checked ? [...filters.publications, value] : filters.publications.filter(x => x !== value) });
   }
 
-  function toggleEra(era: PackEra, checked: boolean) {
-    const eraPacks = CATEGORIES.flatMap(cat => groups[era][cat]).map(p => p.name);
+  function toggleEra(era: PublicationEra, checked: boolean) {
+    const eraPubs = CATEGORIES.flatMap(cat => groups[era][cat]).map(p => p.name);
     set({
-      packSources: checked
-        ? [...new Set([...filters.packSources, ...eraPacks])]
-        : filters.packSources.filter(s => !eraPacks.includes(s)),
+      publications: checked
+        ? [...new Set([...filters.publications, ...eraPubs])]
+        : filters.publications.filter(s => !eraPubs.includes(s)),
     });
   }
 
-  function toggleCategory(era: PackEra, cat: PackCategory, checked: boolean) {
-    const catPacks = groups[era][cat].map(p => p.name);
+  function toggleCategory(era: PublicationEra, cat: PublicationCategory, checked: boolean) {
+    const catPubs = groups[era][cat].map(p => p.name);
     set({
-      packSources: checked
-        ? [...new Set([...filters.packSources, ...catPacks])]
-        : filters.packSources.filter(s => !catPacks.includes(s)),
+      publications: checked
+        ? [...new Set([...filters.publications, ...catPubs])]
+        : filters.publications.filter(s => !catPubs.includes(s)),
     });
   }
 
@@ -220,7 +211,7 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
     });
   }
 
-  const groups = groupPacks(allPacksWithMeta);
+  const groups = groupPublications(allPublicationsWithMeta);
 
   const allActiveTraits = [...filters.traits, ...filters.excludeTraits];
   const filteredTraits = rankSuggestions(allTraits, traitInput)
@@ -479,9 +470,9 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
         <span className={styles.label}>Source</span>
         <div className={styles.sourceTree}>
           {ERAS.map(era => {
-            const eraPacksList = CATEGORIES.flatMap(cat => groups[era][cat]);
-            if (eraPacksList.length === 0) return null;
-            const eraState = checkState(eraPacksList, filters.packSources);
+            const eraPubsList = CATEGORIES.flatMap(cat => groups[era][cat]);
+            if (eraPubsList.length === 0) return null;
+            const eraState = checkState(eraPubsList, filters.publications);
             const isEraCollapsed = collapsedEras.has(era);
 
             return (
@@ -510,9 +501,9 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
                 {!isEraCollapsed && (
                   <div className={styles.eraBody}>
                     {CATEGORIES.map(cat => {
-                      const catPacks = groups[era][cat];
-                      if (catPacks.length === 0) return null;
-                      const catState = checkState(catPacks, filters.packSources);
+                      const catPubs = groups[era][cat];
+                      if (catPubs.length === 0) return null;
+                      const catState = checkState(catPubs, filters.publications);
                       const catKey = `${era}/${cat}`;
                       const isCatCollapsed = collapsedCategories.has(catKey);
 
@@ -540,16 +531,16 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
                           </div>
 
                           {!isCatCollapsed && (
-                            <div className={styles.packItems}>
-                              {catPacks.map(p => (
+                            <div className={styles.publicationItems}>
+                              {catPubs.map(p => (
                                 <label key={p.name} className={styles.checkLabel}>
                                   <input
                                     type="checkbox"
-                                    checked={filters.packSources.includes(p.name)}
-                                    onChange={e => togglePack(p.name, e.target.checked)}
+                                    checked={filters.publications.includes(p.name)}
+                                    onChange={e => togglePublication(p.name, e.target.checked)}
                                     disabled={disabled}
                                   />
-                                  {packDisplayName(p.name)}
+                                  {publicationDisplayName(p.name)}
                                 </label>
                               ))}
                             </div>
@@ -579,7 +570,7 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
             hazardTypes: [],
             sizes: [],
             rarities: [],
-            packSources: [],
+            publications: [],
             sortBy: filters.sortBy,
             sortDir: filters.sortDir,
           })

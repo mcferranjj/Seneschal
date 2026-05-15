@@ -2,7 +2,7 @@ import { db } from '../db/db';
 import type { CreatureRecord } from '../db/schema';
 import type { PF2ECreature } from '../types/pf2e';
 import { fetchLatestCommitSha, fetchPf2eTree, fetchCreatureRaw, fetchTraitDescriptions, GithubError } from './github';
-import { isCreaturePack } from './packList';
+import { resolvePublicationTitle } from './publicationRegistry';
 import { getLevel, getSize } from '../utils/pf2eHelpers';
 import { runInBatches } from '../utils/async';
 import { creatureRepository } from '../db/repositories/CreatureRepository';
@@ -21,8 +21,18 @@ export interface SyncProgress {
 
 export type ProgressCallback = (progress: SyncProgress) => void;
 
-// Re-export for callers that use runInBatches from sync (backward compatibility)
-export { runInBatches };
+const EXCLUDED_PACKS = new Set([
+  'bestiary-ability-glossary-srd',
+  'bestiary-family-ability-glossary',
+  'bestiary-effects',
+  'paizo-pregens',
+  'iconics',
+  'pf2e-pregenerated-characters',
+]);
+
+function isCreaturePack(packName: string): boolean {
+  return !EXCLUDED_PACKS.has(packName);
+}
 
 export function toRecord(creature: PF2ECreature, packSource: string, blobSha: string): CreatureRecord {
   const baseTraits = creature.system?.traits?.value ?? [];
@@ -40,6 +50,7 @@ export function toRecord(creature: PF2ECreature, packSource: string, blobSha: st
     size: getSize(creature),
     rarity: creature.system?.traits?.rarity ?? 'common',
     packSource,
+    publication: resolvePublicationTitle(creature.system?.details?.publication?.title, packSource),
     blobSha,
     data: creature,
   };

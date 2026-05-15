@@ -124,3 +124,26 @@
   border-radius: 2px;
   transition: width 0.3s ease;
 }
+
+.progressBar[data-error] {
+  background: #3a1a1a;
+  border-bottom-color: var(--crimson);
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.retryBtn {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  background: var(--crimson);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.retryBtn:hover {
+  opacity: 0.85;
+}

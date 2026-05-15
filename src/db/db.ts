@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import { resolvePublicationTitle } from '../sync/publicationRegistry';
 import type { CreatureRecord, MetaRecord, TraitDescriptionsRecord, CharacterRecord, EncounterStateRecord } from './schema';
 
 // Re-export so existing callers that import from db.ts continue to work
@@ -42,6 +43,28 @@ class SeneschalDatabase extends Dexie {
       characters: 'id',
       traitDescriptions: 'key',
     });
+    this.version(6).stores({
+      creatures: 'id, entityType, nameLower, level, rarity, size, packSource, publication, *traits',
+      meta: 'key',
+      encounterState: 'key',
+      characters: 'id',
+      traitDescriptions: 'key',
+    });
+    // Version 7: re-run publication backfill using resolvePublicationTitle so that
+    // legacy entries without a publication.title get a proper canonical title
+    // instead of falling back to the raw pack folder name.
+    this.version(7).stores({
+      creatures: 'id, entityType, nameLower, level, rarity, size, packSource, publication, *traits',
+      meta: 'key',
+      encounterState: 'key',
+      characters: 'id',
+      traitDescriptions: 'key',
+    }).upgrade(tx => tx.table('creatures').toCollection().modify(c => {
+      c.publication = resolvePublicationTitle(
+        c.data?.system?.details?.publication?.title,
+        c.packSource,
+      );
+    }));
   }
 }
 

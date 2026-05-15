@@ -508,6 +508,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
       size,
       rarity: 'common',
       packSource: 'custom',
+      publication: 'Custom',
       blobSha: '',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: {

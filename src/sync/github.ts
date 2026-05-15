@@ -31,9 +31,13 @@ function withTimeout(ms: number): AbortSignal {
   return AbortSignal.timeout(ms);
 }
 
+const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN as string | undefined;
+
 async function githubGet<T>(url: string): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/vnd.github.v3+json' };
+  if (GITHUB_TOKEN) headers['Authorization'] = `Bearer ${GITHUB_TOKEN}`;
   const res = await fetch(url, {
-    headers: { Accept: 'application/vnd.github.v3+json' },
+    headers,
     signal: withTimeout(API_TIMEOUT_MS),
   });
   if (!res.ok) {
