@@ -318,7 +318,9 @@ function StatblockContent({
             )}
           </span>
           <span className={styles.creatureLevel}>
-            {creature.entityType === 'hazard' ? 'Hazard' : 'Creature'}{' '}
+            {creature.entityType === 'hazard'
+              ? (hazard?.isComplex ? 'Complex Hazard' : 'Simple Hazard')
+              : 'Creature'}{' '}
             {activeScaledLevel != null
               ? activeEliteWeak ? eliteWeakLevel(activeScaledLevel, activeEliteWeak) : activeScaledLevel
               : activeEliteWeak ? eliteWeakLevel(level, activeEliteWeak) : level}
@@ -479,7 +481,11 @@ function StatblockContent({
           hazard!.stealth != null && (
             <p className={styles.infoLine}>
               <strong>Stealth</strong>{' '}
-              {hazard!.stealth.value != null ? `+${hazard!.stealth.value}` : '—'}
+              {hazard!.stealth.value != null
+                ? (creature.packSource === 'custom'
+                    ? `DC ${hazard!.stealth.value}`
+                    : `+${hazard!.stealth.value}`)
+                : '—'}
               {hazard!.stealth.details
                 ? <> <span dangerouslySetInnerHTML={{ __html: processFoundryHtml(hazard!.stealth.details) }} /></>
                 : null}
@@ -896,7 +902,7 @@ function StatblockContent({
             </div>
           ) : (
             <button className={styles.deleteBtn} onClick={() => setConfirmDelete(true)}>
-              Delete Custom Creature
+              Delete Custom {creature.entityType === 'hazard' ? 'Hazard' : 'Creature'}
             </button>
           )
         )}

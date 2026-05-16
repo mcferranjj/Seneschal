@@ -120,6 +120,7 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const system = c.system as any;
   const attrs = system?.attributes ?? {};
+  const isHazard = source.entityType === 'hazard';
 
   const hp: number = attrs.hp?.max ?? 10;
   const ac: number = attrs.ac?.value ?? 10;
@@ -136,17 +137,19 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
   const perception: number = system?.perception?.mod ?? system?.perception?.value ?? 0;
   const level: number = system?.details?.level?.value ?? source.level;
 
-  // Speeds
+  // Speeds (creatures only)
   const speed = attrs.speed ?? {};
   const speeds: CustomSpeed[] = [];
-  if (speed.value) speeds.push({ type: 'land' as SpeedType, value: speed.value });
-  for (const s of speed.otherSpeeds ?? []) {
-    if (['climb', 'swim', 'burrow', 'fly'].includes(s.type))
-      speeds.push({ type: s.type as SpeedType, value: s.value });
+  if (!isHazard) {
+    if (speed.value) speeds.push({ type: 'land' as SpeedType, value: speed.value });
+    for (const s of speed.otherSpeeds ?? []) {
+      if (['climb', 'swim', 'burrow', 'fly'].includes(s.type))
+        speeds.push({ type: s.type as SpeedType, value: s.value });
+    }
   }
 
-  // Senses
-  const senses: CustomSense[] = (system?.perception?.senses ?? []).map((s: { type: string; range?: number }) => ({
+  // Senses (creatures only)
+  const senses: CustomSense[] = isHazard ? [] : (system?.perception?.senses ?? []).map((s: { type: string; range?: number }) => ({
     name: s.type,
     range: s.range ?? undefined,
   }));
@@ -168,14 +171,14 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
     exceptions: w.exceptions?.join(', '),
   }));
 
-  // Skills
-  const skills: CustomSkill[] = Object.entries(system?.skills ?? {}).map(([name, data]) => ({
+  // Skills (creatures only)
+  const skills: CustomSkill[] = isHazard ? [] : Object.entries(system?.skills ?? {}).map(([name, data]) => ({
     name: name.charAt(0).toUpperCase() + name.slice(1),
     mod: (data as { base?: number; value?: number }).base ?? (data as { base?: number; value?: number }).value ?? 0,
   })).filter(s => s.mod !== 0);
 
-  // Languages
-  const langObj = system?.details?.languages ?? system?.traits?.languages;
+  // Languages (creatures only)
+  const langObj = isHazard ? undefined : (system?.details?.languages ?? system?.traits?.languages);
   const languages: string[] = typeof langObj === 'string'
     ? langObj.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean)
     : (langObj?.value ?? []);
@@ -246,19 +249,98 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
     };
   });
 
-  // Spellcasting
-  const spellcasting = importSpellcasting(source);
+  // Spellcasting (creatures only)
+  const spellcasting = isHazard ? [] : importSpellcasting(source);
 
   // Flavor text
   const flavorText = system?.details?.publicNotes ?? '';
 
   // Size / rarity / traits from source record (already normalized)
-  const size = source.size;
+  const size = isHazard ? 'med' : source.size;
   const rarity = source.rarity;
   const traits = source.traits;
 
   const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const newName = `${source.name} (Custom)`;
+
+  // Hazard-specific fields
+  const hazardIsComplex: boolean = system?.details?.isComplex === true;
+  // hasHealth: official hazards have hasHealth on attrs; fall back to checking if hp.max > 0
+  const hazardHasHealth: boolean = attrs.hasHealth !== false && (attrs.hp?.max ?? 1) > 0;
+  const hazardHardness: number = attrs.hardness ?? 0;
+  const hazardStealthDC: number = attrs.stealth?.dc ?? attrs.stealth?.value ?? 0;
+  const hazardStealthDetails: string = attrs.stealth?.details ?? '';
+  // disable/reset/routine may be HTML strings or { value: string } objects
+  function extractHtml(raw: unknown): string {
+    if (typeof raw === 'string') return raw;
+    if (raw && typeof raw === 'object' && 'value' in (raw as object)) return String((raw as { value: unknown }).value ?? '');
+    return '';
+  }
+  const hazardDisable: string = extractHtml(system?.details?.disable);
+  const hazardReset: string = extractHtml(system?.details?.reset);
+  const hazardRoutine: string = extractHtml(system?.details?.routine);
+
+  if (isHazard) {
+    return {
+      id,
+      entityType: 'hazard',
+      name: newName,
+      nameLower: newName.toLowerCase(),
+      level,
+      traits,
+      size: 'med',
+      rarity,
+      packSource: 'custom',
+      publication: 'Custom',
+      blobSha: '',
+      isComplex: hazardIsComplex || undefined,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: {
+        _id: id,
+        name: newName,
+        type: 'hazard',
+        items: [],
+        system: {
+          details: {
+            level: { value: level },
+            publication: { title: 'Custom' },
+            isComplex: hazardIsComplex,
+            disable: hazardDisable,
+            reset: hazardReset,
+            routine: hazardRoutine,
+          },
+          attributes: {
+            hp: hazardHasHealth ? { value: hp, max: hp } : undefined,
+            ac: hazardHasHealth ? { value: ac } : undefined,
+            hardness: hazardHardness,
+            hasHealth: hazardHasHealth,
+            stealth: { value: hazardStealthDC, details: hazardStealthDetails },
+            immunities: immunities.length ? immunities.map(i => ({ type: i.type })) : undefined,
+            resistances: resistances.length ? resistances.map(r => ({ type: r.type, value: r.value, exceptions: r.exceptions ? [r.exceptions] : undefined })) : undefined,
+            weaknesses: weaknesses.length ? weaknesses.map(w => ({ type: w.type, value: w.value, exceptions: w.exceptions ? [w.exceptions] : undefined })) : undefined,
+          },
+          saves: hazardHasHealth ? { fortitude: { value: fort }, reflex: { value: ref }, will: { value: will } } : undefined,
+          traits: { value: traits, rarity, size: { value: 'med' } },
+        } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      },
+      customData: {
+        attacks: attacks.length ? attacks : undefined,
+        abilities: abilities.length ? abilities : undefined,
+        flavorText: flavorText || undefined,
+        immunities: immunities.length ? immunities : undefined,
+        resistances: resistances.length ? resistances : undefined,
+        weaknesses: weaknesses.length ? weaknesses : undefined,
+        hardness: hazardHardness || undefined,
+        hasHealth: hazardHasHealth,
+        stealthDC: hazardStealthDC || undefined,
+        stealthDetails: hazardStealthDetails || undefined,
+        isComplex: hazardIsComplex || undefined,
+        disable: hazardDisable || undefined,
+        reset: hazardReset || undefined,
+        routine: hazardRoutine || undefined,
+      },
+    };
+  }
 
   const landSpeed = speeds.find(s => s.type === 'land');
   const otherSpeeds = speeds.filter(s => s.type !== 'land').map(s => ({ type: s.type, value: s.value, label: s.type }));

@@ -11,7 +11,7 @@ Backend Cleanup/Improvements:
 
 Bug Fixes:
     - GM Core and Core Rulebook need to be added in their relevant legacy/remastered sections as togglable filters
-    - fix AoN link bug - works the first time, but then never again
+    - make sure "custom" is always present as a source, even when no custom creatures are in the database. Only turn it on by default if custom creatures are found
 
 Unanswered Questions:
     - is it legal to include pics plus the flavor descriptions in a public product if I make someone prove they own the pdf first?

@@ -1,0 +1,175 @@
+.abilityEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Action type row */
+.actionRow {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.actionBtn {
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-mid);
+  font-size: 0.68rem;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.actionBtn:hover {
+  background: var(--border-l);
+}
+
+.actionBtnActive {
+  background: var(--crimson);
+  border-color: var(--crimson);
+  color: #f0e6cc;
+}
+
+/* Meta inputs (frequency, trigger, requirements) */
+.metaInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-family: inherit;
+}
+
+.metaInput::placeholder {
+  color: var(--text-mute);
+}
+
+/* Formatting toolbar */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+}
+
+.toolbarBtn {
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-mid);
+  font-size: 0.68rem;
+  cursor: pointer;
+  line-height: 1.5;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.toolbarBtn:hover {
+  background: var(--border-l);
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+.bold {
+  font-weight: 700;
+}
+
+.italic {
+  font-style: italic;
+}
+
+.underline {
+  text-decoration: underline;
+}
+
+.toolbarSep {
+  display: inline-block;
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  margin: 0 2px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* WYSIWYG editor surface */
+.editorSurface {
+  min-height: 60px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--parchment);
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  outline: none;
+  cursor: text;
+  /* PF2e-style formatting */
+}
+
+.editorSurface:focus {
+  border-color: var(--crimson);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--crimson) 15%, transparent);
+}
+
+/* Placeholder when empty */
+.editorSurface:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-mute);
+  pointer-events: none;
+}
+
+/* PF2e-style elements inside editor */
+.editorSurface p {
+  margin: 2px 0;
+}
+
+.editorSurface h3 {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 4px 0 2px;
+  border-bottom: 1px solid var(--border-l);
+  padding-bottom: 1px;
+}
+
+.editorSurface strong,
+.editorSurface b {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.editorSurface em,
+.editorSurface i {
+  font-style: italic;
+}
+
+.editorSurface u {
+  text-decoration: underline;
+}
+
+.editorSurface hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+}
+
+/* PF2e roll spans injected by processFoundryHtml */
+.editorSurface :global(.pf2roll) {
+  color: var(--crimson);
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+/* PF2e keyword tooltip spans */
+.editorSurface :global(.pf2kw) {
+  border-bottom: 1px dotted var(--text-mute);
+  cursor: help;
+}

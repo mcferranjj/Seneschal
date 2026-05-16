@@ -2,20 +2,18 @@ import { useState, useRef, useEffect } from 'react';
 import {
   HP_TABLE, AC_TABLE, SAVE_TABLE, ATTACK_TABLE, DAMAGE_TABLE,
   ABILITY_TABLE, PERCEPTION_TABLE, RES_WEAK_TABLE,
+  HAZARD_STEALTH_DISABLE_TABLE, HAZARD_DEFENSE_TABLE, HAZARD_OFFENSE_TABLE,
 } from '../../data/pf2eTables';
-import type { HpTier, AcTier, SaveTier, AbilityTier, ResWeakTier } from '../../data/pf2eTables';
-import { CREATURE_TYPES, SIZES, DAMAGE_TYPES } from '../../data/pf2eConstants';
+import type { HpTier, AcTier, SaveTier, AbilityTier, ResWeakTier, HazardDCTier, HazardDefenseTier } from '../../data/pf2eTables';
+import { CREATURE_TYPES, HAZARD_TYPES, SIZES, DAMAGE_TYPES } from '../../data/pf2eConstants';
 import type { CreatureRecord } from '../../db/schema';
 import type { CustomAttack, CustomAbility, AbilityActionType, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, SpeedType, CustomSpellcastingEntry, CustomSpell, SpellTradition, SpellcastingType, SpellFrequency, CustomSkill } from '../../types/encounter';
 import { creatureRepository } from '../../db/repositories/CreatureRepository';
 import { getAllTraits } from '../../search/search';
-import { stripFoundryMacros, linkKeywords, linkRolls } from '../../utils/foundryMacros';
 import { rankSuggestions } from '../../utils/suggestions';
+import { AbilityEditor } from './AbilityEditor';
+import type { AbilityEditorToolbarExtras } from './AbilityEditor';
 import styles from './CustomCreatureWizard.module.css';
-
-function processHtml(raw: string): string {
-  return linkRolls(linkKeywords(stripFoundryMacros(raw)));
-}
 
 
 
@@ -81,6 +79,9 @@ const SAVE_TIERS:     SaveTier[]    = ['terrible', 'low', 'moderate', 'high', 'e
 const ABILITY_TIERS:  AbilityTier[] = ['terrible', 'low', 'moderate', 'high', 'extreme'];
 const RES_WEAK_TIERS: ResWeakTier[] = ['low', 'moderate', 'high'];
 
+const HAZARD_DC_TIERS:      HazardDCTier[]      = ['low', 'high', 'extreme'];
+const HAZARD_DEFENSE_TIERS: HazardDefenseTier[] = ['low', 'high', 'extreme'];
+
 const TIER_ABBREV: Record<HpTier | AcTier | SaveTier, string> = {
   terrible: 'T', low: 'L', moderate: 'M', high: 'H', extreme: 'E',
 };
@@ -89,6 +90,42 @@ const TIER_ABBREV: Record<HpTier | AcTier | SaveTier, string> = {
 const TIER_COL: Record<HpTier | AcTier | SaveTier, number> = {
   terrible: 1, low: 2, moderate: 3, high: 4, extreme: 5,
 };
+
+// Hazard tier abbreviations (3-column grid: L H E)
+const HAZARD_TIER_ABBREV: Record<HazardDCTier, string> = { low: 'L', high: 'H', extreme: 'E' };
+/** Grid column for hazard 3-tier buttons (L H E → columns 1 2 3) */
+const HAZARD_TIER_COL: Record<HazardDCTier, number> = { low: 1, high: 2, extreme: 3 };
+
+function lookupHazardStealth(level: number, tier: HazardDCTier): number {
+  const l = Math.max(-1, Math.min(24, level));
+  return (HAZARD_STEALTH_DISABLE_TABLE[l] ?? HAZARD_STEALTH_DISABLE_TABLE[0])[tier];
+}
+function lookupHazardAc(level: number, tier: HazardDefenseTier): number {
+  const l = Math.max(-1, Math.min(24, level));
+  return (HAZARD_DEFENSE_TABLE[l] ?? HAZARD_DEFENSE_TABLE[0]).ac[tier];
+}
+function lookupHazardSave(level: number, tier: HazardDefenseTier): number {
+  const l = Math.max(-1, Math.min(24, level));
+  return (HAZARD_DEFENSE_TABLE[l] ?? HAZARD_DEFENSE_TABLE[0]).save[tier];
+}
+function lookupHazardHp(level: number): number {
+  const l = Math.max(-1, Math.min(24, level));
+  return (HAZARD_DEFENSE_TABLE[l] ?? HAZARD_DEFENSE_TABLE[0]).hp;
+}
+function lookupHazardHardness(level: number): number {
+  const l = Math.max(-1, Math.min(24, level));
+  return (HAZARD_DEFENSE_TABLE[l] ?? HAZARD_DEFENSE_TABLE[0]).hardness;
+}
+function lookupHazardAtk(level: number, isComplex: boolean): number {
+  const l = Math.max(-1, Math.min(24, level));
+  const row = HAZARD_OFFENSE_TABLE[l] ?? HAZARD_OFFENSE_TABLE[0];
+  return isComplex ? row.complexAtk : row.simpleAtk;
+}
+function lookupHazardDmg(level: number, isComplex: boolean): string {
+  const l = Math.max(-1, Math.min(24, level));
+  const row = HAZARD_OFFENSE_TABLE[l] ?? HAZARD_OFFENSE_TABLE[0];
+  return isComplex ? row.complexDmg : row.simpleDmg;
+}
 
 
 function lookupAbility(level: number, tier: AbilityTier): number {
@@ -148,6 +185,20 @@ function defaultAttack(level: number): AttackDraft {
     bonus: lookupAttack(level, 'moderate'),
     bonusTier: 'moderate',
     damage: lookupDamage(level, 'moderate'),
+    damageTier: 'moderate',
+    traits: [],
+    traitInput: '',
+  };
+}
+
+// Hazard attacks default to at-level (moderate = M button)
+function defaultHazardAttack(level: number, isComplex: boolean): AttackDraft {
+  return {
+    name: 'Strike',
+    type: 'melee',
+    bonus: lookupHazardAtk(level, isComplex),
+    bonusTier: 'moderate',
+    damage: lookupHazardDmg(level, isComplex),
     damageTier: 'moderate',
     traits: [],
     traitInput: '',
@@ -246,11 +297,20 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
   }
 
   const editData = editCreature?.data as (ReturnType<typeof Object.assign> | undefined);
+
+  // Determine if editing a hazard
+  const editIsHazard = isEditing && editCreature!.entityType === 'hazard';
+  const editIsComplex = isEditing && (editCreature!.customData?.isComplex ?? editCreature!.isComplex ?? false);
+
   const editType = isEditing
-    ? (editCreature!.traits.find(t => CREATURE_TYPES.map(c => c.toLowerCase()).includes(t)) ?? '')
+    ? editIsHazard
+      ? (editCreature!.traits.find(t => HAZARD_TYPES.map(h => h.value).includes(t)) ?? '')
+      : (editCreature!.traits.find(t => CREATURE_TYPES.map(c => c.toLowerCase()).includes(t)) ?? '')
     : '';
   const editExtraTraits = isEditing
-    ? editCreature!.traits.filter(t => !CREATURE_TYPES.map(c => c.toLowerCase()).includes(t))
+    ? editIsHazard
+      ? editCreature!.traits.filter(t => !HAZARD_TYPES.map(h => h.value).includes(t) && t !== 'complex')
+      : editCreature!.traits.filter(t => !CREATURE_TYPES.map(c => c.toLowerCase()).includes(t))
     : [];
   const editAttacks: AttackDraft[] = isEditing && editCreature!.customData?.attacks
     ? editCreature!.customData.attacks.map(a => ({
@@ -270,8 +330,25 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
   const [name, setName] = useState(initFromEdit(editCreature?.name ?? '', ''));
   const [level, setLevel] = useState(initFromEdit(editCreature?.level ?? partyLevel, partyLevel));
   const [size, setSize] = useState(initFromEdit(editCreature?.size ?? 'med', 'med'));
+
+  // Entity kind: 'creature' | 'hazard'
+  const [entityKind, setEntityKind] = useState<'creature' | 'hazard'>(
+    isEditing ? (editIsHazard ? 'hazard' : 'creature') : 'creature'
+  );
+  // Complexity (hazard only)
+  const [hazardIsComplex, setHazardIsComplex] = useState<boolean>(
+    isEditing ? editIsComplex : false
+  );
+
   const [creatureType, setCreatureType] = useState(
-    isEditing ? (CREATURE_TYPES.find(t => t.toLowerCase() === editType) ?? '') : ''
+    isEditing
+      ? editIsHazard
+        ? ''
+        : (CREATURE_TYPES.find(t => t.toLowerCase() === editType) ?? '')
+      : ''
+  );
+  const [hazardType, setHazardType] = useState(
+    isEditing && editIsHazard ? editType : ''
   );
   const [hp, setHp] = useState(() =>
     isEditing ? (editData?.system?.attributes?.hp?.max ?? lookupHp(partyLevel, 'moderate')) : lookupHp(partyLevel, 'moderate')
@@ -391,6 +468,37 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
     initFromEdit(editCreature?.customData?.spellcasting ?? [], [])
   );
 
+  // Hazard-specific state
+  const [hazardHasHealth, setHazardHasHealth] = useState<boolean>(
+    isEditing && editIsHazard ? (editCreature!.customData?.hasHealth ?? true) : true
+  );
+  const [hazardHardness, setHazardHardness] = useState<number>(() => {
+    if (isEditing && editIsHazard) return editCreature!.customData?.hardness ?? 0;
+    return 0;
+  });
+  const [hazardStealthDC, setHazardStealthDC] = useState<number>(() => {
+    if (isEditing && editIsHazard) return editCreature!.customData?.stealthDC ?? 0;
+    return 0;
+  });
+  const [hazardStealthDCTier, setHazardStealthDCTier] = useState<HazardDCTier>('high');
+  const [hazardStealthDetails, setHazardStealthDetails] = useState<string>(
+    isEditing && editIsHazard ? (editCreature!.customData?.stealthDetails ?? '') : ''
+  );
+  const [hazardDisable, setHazardDisable] = useState<string>(
+    isEditing && editIsHazard ? (editCreature!.customData?.disable ?? '') : ''
+  );
+  const [hazardReset, setHazardReset] = useState<string>(
+    isEditing && editIsHazard ? (editCreature!.customData?.reset ?? '') : ''
+  );
+  const [hazardRoutine, setHazardRoutine] = useState<string>(
+    isEditing && editIsHazard ? (editCreature!.customData?.routine ?? '') : ''
+  );
+  // Hazard AC / save tiers (reuse existing ac/fort/ref/will state for values; these tiers drive hazard tier buttons)
+  const [hazardAcTier, setHazardAcTier] = useState<HazardDefenseTier>('high');
+  const [hazardFortTier, setHazardFortTier] = useState<HazardDefenseTier>('high');
+  const [hazardRefTier, setHazardRefTier] = useState<HazardDefenseTier>('high');
+  const [hazardWillTier, setHazardWillTier] = useState<HazardDefenseTier>('high');
+
   // Skills — each skill tracks its active tier so the buttons highlight correctly.
   // When editing, initialise each skill's tier to whichever SAVE_TIERS value is
   // numerically closest to the stored mod (at the creature's level).
@@ -417,11 +525,8 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
     initFromEdit(editCreature?.customData?.allSavesNote ?? '', '')
   );
 
-  // Ability editor tab state: map from ability index to 'edit' | 'preview'
-  const [abilityEditorTabs, setAbilityEditorTabs] = useState<Record<number, 'edit' | 'preview'>>({});
-  const abilityTextareaRefs = useRef<Record<number, HTMLTextAreaElement | null>>({});
-
   const [saving, setSaving] = useState(false);
+  const [hazardInfoOpen, setHazardInfoOpen] = useState(false);
 
   useEffect(() => { getAllTraits().then(setAllTraits).catch(() => {}); }, []);
 
@@ -447,10 +552,41 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
     setSkills([]); setLanguages([]); setAllSavesNote('');
   }
 
+  function applyHazardTiers(lv: number, isComplex: boolean) {
+    // Stealth DC defaults to high
+    setHazardStealthDC(lookupHazardStealth(lv, 'high'));
+    setHazardStealthDCTier('high');
+    // Defense defaults
+    setHp(lookupHazardHp(lv));
+    setHpTier('moderate');
+    setAc(lookupHazardAc(lv, 'high'));
+    setHazardAcTier('high');
+    setFort(lookupHazardSave(lv, 'high'));
+    setHazardFortTier('high');
+    setRef(lookupHazardSave(lv, 'high'));
+    setHazardRefTier('high');
+    setWill(lookupHazardSave(lv, 'high'));
+    setHazardWillTier('high');
+    setHazardHardness(lookupHazardHardness(lv));
+    setHazardHasHealth(true);
+    // Default attack
+    setAttacks([defaultHazardAttack(lv, isComplex)]);
+    setAbilities([]);
+    setImmunities([]); setResistances([]); setWeaknesses([]);
+    setHazardStealthDetails('');
+    setHazardDisable('');
+    setHazardReset('');
+    setHazardRoutine('');
+  }
+
   function goNext() {
-    if (!name.trim() || !creatureType) return;
-    // Only reset tiers/stats when creating new (not editing)
-    if (!isEditing) applyTiers(level);
+    if (entityKind === 'hazard') {
+      if (!name.trim() || !hazardType) return;
+      if (!isEditing) applyHazardTiers(level, hazardIsComplex);
+    } else {
+      if (!name.trim() || !creatureType) return;
+      if (!isEditing) applyTiers(level);
+    }
     setStep(1);
   }
 
@@ -485,15 +621,87 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
     // Preserve ID when editing; generate new one for new creatures
     const id = isEditing ? editCreature!.id : `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const trimmedName = name.trim();
-    const allTraitsList = [creatureType.toLowerCase(), ...extraTraits];
-    // Build speed string for PF2E system blob
-    const landSpeed = speeds.find(s => s.type === 'land');
-    const otherSpeeds = speeds.filter(s => s.type !== 'land').map(s => ({ type: s.type, value: s.value, label: s.type }));
 
     // Build immunities/resistances/weaknesses for PF2E system blob
     const pf2eImmunities = immunities.map(i => ({ type: i.type }));
     const pf2eResistances = resistances.map(r => ({ type: r.type, value: r.value, exceptions: r.exceptions ? [r.exceptions] : undefined }));
     const pf2eWeaknesses = weaknesses.map(w => ({ type: w.type, value: w.value, exceptions: w.exceptions ? [w.exceptions] : undefined }));
+
+    if (entityKind === 'hazard') {
+      // Build hazard traits (hazardType chip + extras; add 'complex' if applicable)
+      const hazardTraits = [hazardType, ...(hazardIsComplex ? ['complex'] : []), ...extraTraits];
+      const record: CreatureRecord = {
+        id,
+        entityType: 'hazard',
+        name: trimmedName,
+        nameLower: trimmedName.toLowerCase(),
+        level,
+        traits: hazardTraits,
+        size: 'med',
+        rarity: 'common',
+        packSource: 'custom',
+        publication: 'Custom',
+        blobSha: '',
+        isComplex: hazardIsComplex || undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        data: {
+          _id: id,
+          name: trimmedName,
+          type: 'hazard',
+          items: [],
+          system: {
+            details: {
+              level: { value: level },
+              publication: { title: 'Custom' },
+              isComplex: hazardIsComplex,
+              disable: hazardDisable.trim() || undefined,
+              reset: hazardReset.trim() || undefined,
+              routine: hazardRoutine.trim() || undefined,
+            },
+            attributes: {
+              ...(hazardHasHealth ? {
+                hp: { value: hp, max: hp },
+                ac: { value: ac },
+                hardness: hazardHardness,
+              } : {
+                hardness: hazardHardness,
+              }),
+              hasHealth: hazardHasHealth,
+              stealth: { value: hazardStealthDC, details: hazardStealthDetails.trim() || undefined },
+              immunities: pf2eImmunities.length ? pf2eImmunities : undefined,
+              resistances: pf2eResistances.length ? pf2eResistances : undefined,
+              weaknesses: pf2eWeaknesses.length ? pf2eWeaknesses : undefined,
+            },
+            saves: hazardHasHealth ? { fortitude: { value: fort }, reflex: { value: ref }, will: { value: will } } : undefined,
+            traits: { value: hazardTraits, rarity: 'common', size: { value: 'med' } },
+          } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+        },
+        customData: {
+          attacks: cleanAttacks.length ? cleanAttacks : undefined,
+          abilities: cleanAbilities.length ? cleanAbilities : undefined,
+          flavorText: flavorText.trim() || undefined,
+          immunities: immunities.length ? immunities : undefined,
+          resistances: resistances.length ? resistances : undefined,
+          weaknesses: weaknesses.length ? weaknesses : undefined,
+          hardness: hazardHardness || undefined,
+          hasHealth: hazardHasHealth,
+          stealthDC: hazardStealthDC || undefined,
+          stealthDetails: hazardStealthDetails.trim() || undefined,
+          isComplex: hazardIsComplex || undefined,
+          disable: hazardDisable.trim() || undefined,
+          reset: hazardReset.trim() || undefined,
+          routine: hazardRoutine.trim() || undefined,
+        },
+      };
+      await creatureRepository.put(record);
+      onSave(record);
+      return;
+    }
+
+    const allTraitsList = [creatureType.toLowerCase(), ...extraTraits];
+    // Build speed string for PF2E system blob
+    const landSpeed = speeds.find(s => s.type === 'land');
+    const otherSpeeds = speeds.filter(s => s.type !== 'land').map(s => ({ type: s.type, value: s.value, label: s.type }));
 
     // Build senses for PF2E system blob
     const pf2eSenses = senses.map(s => ({ type: s.name, range: s.range }));
@@ -560,10 +768,11 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
   }
 
   if (step === 0) {
+    const canProceed = name.trim() && (entityKind === 'creature' ? !!creatureType : !!hazardType);
     return (
       <div className={styles.wizard}>
         <div className={styles.wizardHeader}>
-          <span className={styles.wizardTitle}>{isEditing ? `Edit: ${editCreature!.name}` : 'New Custom Creature'}</span>
+          <span className={styles.wizardTitle}>{isEditing ? `Edit: ${editCreature!.name}` : 'New Custom Entry'}</span>
           <button className={styles.cancelBtn} onClick={onCancel}>✕</button>
         </div>
         <div className={styles.wizardBody}>
@@ -573,8 +782,8 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
             value={name}
             autoFocus
             onChange={e => setName(e.target.value)}
-            placeholder="Creature name…"
-            onKeyDown={e => e.key === 'Enter' && name.trim() && goNext()}
+            placeholder="Name…"
+            onKeyDown={e => e.key === 'Enter' && canProceed && goNext()}
           />
           <div className={styles.fieldLabel}>Level</div>
           <div className={styles.levelRow}>
@@ -582,29 +791,76 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
             <span className={styles.levelVal}>{level}</span>
             <button className={styles.stepBtn} onClick={() => setLevel(l => Math.min(25, l + 1))}>+</button>
           </div>
-          <div className={styles.fieldLabel}>Size</div>
-          <div className={styles.typeGrid}>
-            {SIZES.map(s => (
-              <button
-                key={s.value}
-                className={`${styles.typeChip} ${size === s.value ? styles.typeChipActive : ''}`}
-                onClick={() => setSize(s.value)}
-              >{s.label}</button>
-            ))}
+          <div className={styles.fieldLabel}>Building a…</div>
+          <div className={styles.toggleRow}>
+            <button
+              className={`${styles.typeChip} ${entityKind === 'creature' ? styles.typeChipActive : ''}`}
+              onClick={() => setEntityKind('creature')}
+            >Creature</button>
+            <button
+              className={`${styles.typeChip} ${entityKind === 'hazard' ? styles.typeChipActive : ''}`}
+              onClick={() => setEntityKind('hazard')}
+            >Hazard</button>
           </div>
-          <div className={styles.fieldLabel}>Creature Type</div>
-          <div className={styles.typeGrid}>
-            {CREATURE_TYPES.map(t => (
-              <button
-                key={t}
-                className={`${styles.typeChip} ${creatureType === t ? styles.typeChipActive : ''}`}
-                onClick={() => setCreatureType(t)}
-              >{t}</button>
-            ))}
-          </div>
+
+          {entityKind === 'hazard' && (
+            <>
+              <div className={styles.fieldLabel}>Complexity</div>
+              <div className={styles.toggleRow}>
+                <button
+                  className={`${styles.typeChip} ${!hazardIsComplex ? styles.typeChipActive : ''}`}
+                  onClick={() => setHazardIsComplex(false)}
+                >Simple</button>
+                <button
+                  className={`${styles.typeChip} ${hazardIsComplex ? styles.typeChipActive : ''}`}
+                  onClick={() => setHazardIsComplex(true)}
+                >Complex</button>
+              </div>
+            </>
+          )}
+
+          {entityKind === 'creature' && (
+            <>
+              <div className={styles.fieldLabel}>Size</div>
+              <div className={styles.typeGrid}>
+                {SIZES.map(s => (
+                  <button
+                    key={s.value}
+                    className={`${styles.typeChip} ${size === s.value ? styles.typeChipActive : ''}`}
+                    onClick={() => setSize(s.value)}
+                  >{s.label}</button>
+                ))}
+              </div>
+              <div className={styles.fieldLabel}>Creature Type</div>
+              <div className={styles.typeGrid}>
+                {CREATURE_TYPES.map(t => (
+                  <button
+                    key={t}
+                    className={`${styles.typeChip} ${creatureType === t ? styles.typeChipActive : ''}`}
+                    onClick={() => setCreatureType(t)}
+                  >{t}</button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {entityKind === 'hazard' && (
+            <>
+              <div className={styles.fieldLabel}>Hazard Type</div>
+              <div className={styles.typeGrid}>
+                {HAZARD_TYPES.map(t => (
+                  <button
+                    key={t.value}
+                    className={`${styles.typeChip} ${hazardType === t.value ? styles.typeChipActive : ''}`}
+                    onClick={() => setHazardType(t.value)}
+                  >{t.label}</button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
         <div className={styles.wizardFooter}>
-          <button className={styles.primaryBtn} onClick={goNext} disabled={!name.trim() || !creatureType}>
+          <button className={styles.primaryBtn} onClick={goNext} disabled={!canProceed}>
             Next →
           </button>
           <button className={styles.ghostBtn} onClick={onCancel}>Cancel</button>
@@ -619,12 +875,36 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
         <span className={styles.wizardTitle}>{name} (Lvl {level})</span>
         <button className={styles.cancelBtn} onClick={onCancel}>✕</button>
       </div>
-      <div className={styles.wizardHint}>Click a tier to prefill · T=Terrible L=Low M=Moderate H=High E=Extreme</div>
+      {entityKind === 'hazard' ? (
+        <div className={styles.wizardHintRow}>
+          <span className={styles.wizardHint}>Click a tier to prefill · L=Low H=High E=Extreme · Attacks: L=level−1 M=at-level H=level+1</span>
+          <button className={styles.infoBtn} onClick={() => setHazardInfoOpen(o => !o)} title="Hazard design tips">?</button>
+        </div>
+      ) : (
+        <div className={styles.wizardHint}>Click a tier to prefill · T=Terrible L=Low M=Moderate H=High E=Extreme</div>
+      )}
+      {hazardInfoOpen && entityKind === 'hazard' && (
+        <div className={styles.hazardInfoPanel}>
+          <button className={styles.hazardInfoClose} onClick={() => setHazardInfoOpen(false)}>✕</button>
+          <p className={styles.hazardInfoHeading}>Designing Simple Hazards</p>
+          <p className={styles.hazardInfoBody}>When designing a simple hazard, make sure to select an appropriate trigger and effect. Often, a simple hazard that merely damages its target is little more than a speed bump that slows down the game without much added value, so think about the purpose of your hazard carefully, both in the story and in the game world, especially when it's a hazard that a creature intentionally built or placed in that location. A great simple hazard does something interesting, has a longer-lasting consequence, or integrates with the nearby inhabitants or even the encounters in some way.</p>
+          <p className={styles.hazardInfoHeading}>Designing Complex Hazards</p>
+          <p className={styles.hazardInfoBody}>Unlike a simple hazard, a complex hazard can play the part of a creature in a battle, or can be an encounter all its own. Many of the concerns with damaging effects when designing a simple hazard don't apply when designing a complex hazard. A complex hazard can apply its damage over and over again, eventually killing its hapless victim, and isn't intended to be a quick-to-overcome obstacle.</p>
+          <p className={styles.hazardInfoBody}>A good complex hazard often requires disabling multiple components or otherwise interacting with the encounter in some way. For instance, while the poisoned dart gallery requires only one Thievery check to disable, the control panel is on the far end of the gallery, so a PC would need to make their way across first.</p>
+          <p className={styles.hazardInfoHeading}>Building Routines</p>
+          <p className={styles.hazardInfoBody}>A complex hazard has a routine each round, whether it stems from preprogrammed instructions built into a trap, instincts and residual emotions swirling around a complex haunt, or a force of nature like sinking in quicksand. Make sure to build a routine that makes sense for the hazard; an environmental lava chute that ejects lava into the area each round shouldn't be able to seek out and precisely target only the PCs, but it might spatter random areas within range or everything within range, depending on how you describe the hazard. However, a complex haunt might be able to recognize life force and target living creatures.</p>
+          <p className={styles.hazardInfoBody}>If you create a hazard that can't consistently attack the PCs (like the blade pillar, which moves in a random direction), you can make it deadlier than normal in other ways.</p>
+          <p className={styles.hazardInfoBody}>The hazard should have as many actions as you feel it needs to perform its routine. If you split the routine out into several actions, you can also remove some of the hazard's actions once partial progress is made in disabling or destroying it; this can give the PCs a feeling of progress, and it can encourage them to handle the hazard if it appears in an encounter alongside creatures.</p>
+        </div>
+      )}
       <div className={styles.wizardBody}>
         {/* Traits */}
         <div className={styles.sectionHead}>Traits</div>
         <div className={styles.traitRow}>
-          <span className={styles.traitChipFixed}>{creatureType}</span>
+          <span className={styles.traitChipFixed}>{entityKind === 'hazard' ? HAZARD_TYPES.find(h => h.value === hazardType)?.label ?? hazardType : creatureType}</span>
+          {entityKind === 'hazard' && hazardIsComplex && (
+            <span className={styles.traitChipFixed}>complex</span>
+          )}
           {extraTraits.map(t => (
             <span key={t} className={styles.traitChipExtra}>
               {t}
@@ -666,69 +946,198 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
           <button className={styles.addBtn} onClick={() => addExtraTrait(traitInput)}>+ Add</button>
         </div>
 
+        {/* Stealth (hazard) or Perception (creature) */}
+        {entityKind === 'hazard' ? (
+          <>
+            <div className={styles.sectionHead}>Stealth</div>
+            <div className={styles.statRow}>
+              <span className={styles.statLabel}>DC</span>
+              <div className={styles.tierBtns} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                {HAZARD_DC_TIERS.map(t => (
+                  <button key={t} title={t}
+                    className={`${styles.tierBtn} ${hazardStealthDCTier === t ? styles.tierBtnActive : ''}`}
+                    style={{ gridColumn: HAZARD_TIER_COL[t] }}
+                    onClick={() => { setHazardStealthDCTier(t); setHazardStealthDC(lookupHazardStealth(level, t)); }}
+                  >{HAZARD_TIER_ABBREV[t]}</button>
+                ))}
+              </div>
+              <input className={styles.statInput} type="number" min={0} max={80}
+                value={hazardStealthDC} onChange={e => setHazardStealthDC(Number(e.target.value))} />
+            </div>
+            <div className={styles.statRow}>
+              <span className={styles.statLabel} style={{ width: 'auto', marginRight: 6 }}>Details</span>
+              <input
+                className={styles.attackNameInput}
+                value={hazardStealthDetails}
+                onChange={e => setHazardStealthDetails(e.target.value)}
+                placeholder="e.g. legendary, or detect magic"
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={styles.sectionHead}>Perception</div>
+            <div className={styles.statRow}>
+              <span className={styles.statLabel}>Perc</span>
+              <div className={styles.tierBtns}>
+                {SAVE_TIERS.map(t => (
+                  <button key={t} title={t}
+                    className={`${styles.tierBtn} ${perceptionTier === t ? styles.tierBtnActive : ''}`}
+                    style={{ gridColumn: TIER_COL[t] }}
+                    onClick={() => { setPerceptionTier(t); setPerception(lookupPerception(level, t)); }}
+                  >{TIER_ABBREV[t]}</button>
+                ))}
+              </div>
+              <input className={styles.statInput} type="number" min={-10} max={80}
+                value={perception} onChange={e => setPerception(Number(e.target.value))} />
+            </div>
+          </>
+        )}
+
         {/* Defenses */}
         <div className={styles.sectionHead}>Defenses</div>
-        {([
-          { label: 'HP',   tiers: HP_TIERS,   tier: hpTier,   setTier: (t: HpTier)   => { setHpTier(t);   setHp(lookupHp(level, t));     }, val: hp,   setVal: setHp,   min: 1,   max: 9999 },
-          { label: 'AC',   tiers: AC_TIERS,   tier: acTier,   setTier: (t: AcTier)   => { setAcTier(t);   setAc(lookupAc(level, t));     }, val: ac,   setVal: setAc,   min: 1,   max: 99   },
-          { label: 'Fort', tiers: SAVE_TIERS, tier: fortTier, setTier: (t: SaveTier) => { setFortTier(t); setFort(lookupSave(level, t)); }, val: fort, setVal: setFort, min: -10, max: 60   },
-          { label: 'Ref',  tiers: SAVE_TIERS, tier: refTier,  setTier: (t: SaveTier) => { setRefTier(t);  setRef(lookupSave(level, t));  }, val: ref,  setVal: setRef,  min: -10, max: 60   },
-          { label: 'Will', tiers: SAVE_TIERS, tier: willTier, setTier: (t: SaveTier) => { setWillTier(t); setWill(lookupSave(level, t)); }, val: will, setVal: setWill, min: -10, max: 60   },
-        ] as const).map(({ label, tiers, tier, setTier, val, setVal, min, max }) => (
-          <div key={label} className={styles.statRow}>
-            <span className={styles.statLabel}>{label}</span>
-            <div className={styles.tierBtns}>
-              {(tiers as readonly string[]).map(t => (
+        {entityKind === 'hazard' ? (
+          <>
+            {/* Has Physical Component toggle */}
+            <div className={styles.statRow}>
+              <span className={styles.statLabel} style={{ width: 'auto', marginRight: 8 }}>Has Physical Component</span>
+              <div className={styles.toggleRow}>
                 <button
-                  key={t}
-                  title={t.charAt(0).toUpperCase() + t.slice(1)}
-                  className={`${styles.tierBtn} ${tier === t ? styles.tierBtnActive : ''}`}
-                  style={{ gridColumn: TIER_COL[t as keyof typeof TIER_COL] }}
-                  onClick={() => (setTier as (t: string) => void)(t)}
-                >{TIER_ABBREV[t as keyof typeof TIER_ABBREV]}</button>
-              ))}
+                  className={`${styles.typeChip} ${hazardHasHealth ? styles.typeChipActive : ''}`}
+                  onClick={() => setHazardHasHealth(true)}
+                >Yes</button>
+                <button
+                  className={`${styles.typeChip} ${!hazardHasHealth ? styles.typeChipActive : ''}`}
+                  onClick={() => setHazardHasHealth(false)}
+                >No</button>
+              </div>
             </div>
-            <input
-              className={styles.statInput}
-              type="number" min={min} max={max}
-              value={val}
-              onChange={e => setVal(Number(e.target.value))}
-            />
-          </div>
-        ))}
-        <div className={styles.statRow}>
-          <span className={styles.statLabel} style={{ width: 'auto', marginRight: 6 }}>All Saves Note</span>
-          <input
-            className={styles.attackNameInput}
-            value={allSavesNote}
-            onChange={e => setAllSavesNote(e.target.value)}
-            placeholder="e.g. +1 status bonus to all saves vs. magic"
-          />
-        </div>
-
-        {/* Perception */}
-        <div className={styles.sectionHead}>Perception</div>
-        <div className={styles.statRow}>
-          <span className={styles.statLabel}>Perc</span>
-          <div className={styles.tierBtns}>
-            {SAVE_TIERS.map(t => (
-              <button key={t} title={t}
-                className={`${styles.tierBtn} ${perceptionTier === t ? styles.tierBtnActive : ''}`}
-                style={{ gridColumn: TIER_COL[t] }}
-                onClick={() => { setPerceptionTier(t); setPerception(lookupPerception(level, t)); }}
-              >{TIER_ABBREV[t]}</button>
+            {hazardHasHealth && (
+              <>
+                {/* AC */}
+                <div className={styles.statRow}>
+                  <span className={styles.statLabel}>AC</span>
+                  <div className={styles.tierBtns} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                    {HAZARD_DEFENSE_TIERS.map(t => (
+                      <button key={t} title={t}
+                        className={`${styles.tierBtn} ${hazardAcTier === t ? styles.tierBtnActive : ''}`}
+                        style={{ gridColumn: HAZARD_TIER_COL[t] }}
+                        onClick={() => { setHazardAcTier(t); setAc(lookupHazardAc(level, t)); }}
+                      >{HAZARD_TIER_ABBREV[t]}</button>
+                    ))}
+                  </div>
+                  <input className={styles.statInput} type="number" min={1} max={99}
+                    value={ac} onChange={e => setAc(Number(e.target.value))} />
+                </div>
+                {/* Hardness */}
+                <div className={styles.statRow}>
+                  <span className={styles.statLabel}>Hardness</span>
+                  <input className={styles.statInput} type="number" min={0} max={99}
+                    value={hazardHardness} onChange={e => setHazardHardness(Number(e.target.value))} />
+                </div>
+                {/* Fort */}
+                <div className={styles.statRow}>
+                  <span className={styles.statLabel}>Fort</span>
+                  <div className={styles.tierBtns} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                    {HAZARD_DEFENSE_TIERS.map(t => (
+                      <button key={t} title={t}
+                        className={`${styles.tierBtn} ${hazardFortTier === t ? styles.tierBtnActive : ''}`}
+                        style={{ gridColumn: HAZARD_TIER_COL[t] }}
+                        onClick={() => { setHazardFortTier(t); setFort(lookupHazardSave(level, t)); }}
+                      >{HAZARD_TIER_ABBREV[t]}</button>
+                    ))}
+                  </div>
+                  <input className={styles.statInput} type="number" min={-10} max={60}
+                    value={fort} onChange={e => setFort(Number(e.target.value))} />
+                </div>
+                {/* Ref */}
+                <div className={styles.statRow}>
+                  <span className={styles.statLabel}>Ref</span>
+                  <div className={styles.tierBtns} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                    {HAZARD_DEFENSE_TIERS.map(t => (
+                      <button key={t} title={t}
+                        className={`${styles.tierBtn} ${hazardRefTier === t ? styles.tierBtnActive : ''}`}
+                        style={{ gridColumn: HAZARD_TIER_COL[t] }}
+                        onClick={() => { setHazardRefTier(t); setRef(lookupHazardSave(level, t)); }}
+                      >{HAZARD_TIER_ABBREV[t]}</button>
+                    ))}
+                  </div>
+                  <input className={styles.statInput} type="number" min={-10} max={60}
+                    value={ref} onChange={e => setRef(Number(e.target.value))} />
+                </div>
+                {/* Will */}
+                <div className={styles.statRow}>
+                  <span className={styles.statLabel}>Will</span>
+                  <div className={styles.tierBtns} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                    {HAZARD_DEFENSE_TIERS.map(t => (
+                      <button key={t} title={t}
+                        className={`${styles.tierBtn} ${hazardWillTier === t ? styles.tierBtnActive : ''}`}
+                        style={{ gridColumn: HAZARD_TIER_COL[t] }}
+                        onClick={() => { setHazardWillTier(t); setWill(lookupHazardSave(level, t)); }}
+                      >{HAZARD_TIER_ABBREV[t]}</button>
+                    ))}
+                  </div>
+                  <input className={styles.statInput} type="number" min={-10} max={60}
+                    value={will} onChange={e => setWill(Number(e.target.value))} />
+                </div>
+                {/* HP */}
+                <div className={styles.statRow}>
+                  <span className={styles.statLabel}>HP</span>
+                  <input className={styles.statInput} type="number" min={1} max={9999}
+                    value={hp} onChange={e => setHp(Number(e.target.value))} />
+                  <span className={styles.subLabel} style={{ marginLeft: 6 }}>BT {Math.floor(hp / 2)}</span>
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            {([
+              { label: 'HP',   tiers: HP_TIERS,   tier: hpTier,   setTier: (t: HpTier)   => { setHpTier(t);   setHp(lookupHp(level, t));     }, val: hp,   setVal: setHp,   min: 1,   max: 9999 },
+              { label: 'AC',   tiers: AC_TIERS,   tier: acTier,   setTier: (t: AcTier)   => { setAcTier(t);   setAc(lookupAc(level, t));     }, val: ac,   setVal: setAc,   min: 1,   max: 99   },
+              { label: 'Fort', tiers: SAVE_TIERS, tier: fortTier, setTier: (t: SaveTier) => { setFortTier(t); setFort(lookupSave(level, t)); }, val: fort, setVal: setFort, min: -10, max: 60   },
+              { label: 'Ref',  tiers: SAVE_TIERS, tier: refTier,  setTier: (t: SaveTier) => { setRefTier(t);  setRef(lookupSave(level, t));  }, val: ref,  setVal: setRef,  min: -10, max: 60   },
+              { label: 'Will', tiers: SAVE_TIERS, tier: willTier, setTier: (t: SaveTier) => { setWillTier(t); setWill(lookupSave(level, t)); }, val: will, setVal: setWill, min: -10, max: 60   },
+            ] as const).map(({ label, tiers, tier, setTier, val, setVal, min, max }) => (
+              <div key={label} className={styles.statRow}>
+                <span className={styles.statLabel}>{label}</span>
+                <div className={styles.tierBtns}>
+                  {(tiers as readonly string[]).map(t => (
+                    <button
+                      key={t}
+                      title={t.charAt(0).toUpperCase() + t.slice(1)}
+                      className={`${styles.tierBtn} ${tier === t ? styles.tierBtnActive : ''}`}
+                      style={{ gridColumn: TIER_COL[t as keyof typeof TIER_COL] }}
+                      onClick={() => (setTier as (t: string) => void)(t)}
+                    >{TIER_ABBREV[t as keyof typeof TIER_ABBREV]}</button>
+                  ))}
+                </div>
+                <input
+                  className={styles.statInput}
+                  type="number" min={min} max={max}
+                  value={val}
+                  onChange={e => setVal(Number(e.target.value))}
+                />
+              </div>
             ))}
-          </div>
-          <input className={styles.statInput} type="number" min={-10} max={80}
-            value={perception} onChange={e => setPerception(Number(e.target.value))} />
-        </div>
+            <div className={styles.statRow}>
+              <span className={styles.statLabel} style={{ width: 'auto', marginRight: 6 }}>All Saves Note</span>
+              <input
+                className={styles.attackNameInput}
+                value={allSavesNote}
+                onChange={e => setAllSavesNote(e.target.value)}
+                placeholder="e.g. +1 status bonus to all saves vs. magic"
+              />
+            </div>
+          </>
+        )}
 
-        {/* Skills */}
-        <div className={styles.sectionHead}>
+        {/* Skills — creatures only */}
+        {entityKind !== 'hazard' && <div className={styles.sectionHead}>
           Skills
           <button className={styles.addBtn} onClick={() => setSkills(prev => [...prev, { name: '', mod: lookupSave(level, 'moderate'), tier: 'moderate' }])}>+ Add Skill</button>
-        </div>
-        {skills.map((sk, i) => (
+        </div>}
+        {entityKind !== 'hazard' && skills.map((sk, i) => (
           <div key={i} className={styles.statRow}>
             <div className={styles.attackTraitInputWrap} style={{ flex: 1 }}>
               <input
@@ -777,186 +1186,202 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
           </div>
         ))}
 
-        {/* Languages */}
-        <div className={styles.sectionHead}>Languages</div>
-        <div className={styles.traitRow}>
-          {languages.map((lang, i) => (
-            <span key={i} className={styles.traitChipExtra}>
-              {lang}
-              <button className={styles.traitRemove} onClick={() => setLanguages(prev => prev.filter((_, idx) => idx !== i))}>×</button>
-            </span>
-          ))}
-        </div>
-        <div className={styles.traitInputRow}>
-          <div className={styles.traitInputWrap}>
-            <input
-              className={styles.traitInput}
-              value={langInput}
-              onChange={e => setLangInput(e.target.value)}
-              onFocus={() => setFocusedLangInput(true)}
-              onBlur={() => setFocusedLangInput(false)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  const t = langInput.trim();
-                  if (t && !languages.includes(t)) setLanguages(prev => [...prev, t]);
-                  setLangInput('');
-                }
-                if (e.key === 'Tab' && langInput.length > 0) {
+        {/* Languages — creatures only */}
+        {entityKind !== 'hazard' && (
+          <>
+            <div className={styles.sectionHead}>Languages</div>
+            <div className={styles.traitRow}>
+              {languages.map((lang, i) => (
+                <span key={i} className={styles.traitChipExtra}>
+                  {lang}
+                  <button className={styles.traitRemove} onClick={() => setLanguages(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+                </span>
+              ))}
+            </div>
+            <div className={styles.traitInputRow}>
+              <div className={styles.traitInputWrap}>
+                <input
+                  className={styles.traitInput}
+                  value={langInput}
+                  onChange={e => setLangInput(e.target.value)}
+                  onFocus={() => setFocusedLangInput(true)}
+                  onBlur={() => setFocusedLangInput(false)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const t = langInput.trim();
+                      if (t && !languages.includes(t)) setLanguages(prev => [...prev, t]);
+                      setLangInput('');
+                    }
+                    if (e.key === 'Tab' && langInput.length > 0) {
+                      const q = langInput.toLowerCase();
+                      const sugg = rankSuggestions(LANGUAGE_SUGGESTIONS, q).filter(l => !languages.includes(l)).slice(0, 8);
+                      if (sugg.length > 0) { e.preventDefault(); if (!languages.includes(sugg[0])) setLanguages(prev => [...prev, sugg[0]]); setLangInput(''); }
+                    }
+                  }}
+                  placeholder="Add language… (Enter to add)"
+                />
+                {focusedLangInput && langInput.length > 0 && (() => {
                   const q = langInput.toLowerCase();
                   const sugg = rankSuggestions(LANGUAGE_SUGGESTIONS, q).filter(l => !languages.includes(l)).slice(0, 8);
-                  if (sugg.length > 0) { e.preventDefault(); if (!languages.includes(sugg[0])) setLanguages(prev => [...prev, sugg[0]]); setLangInput(''); }
-                }
-              }}
-              placeholder="Add language… (Enter to add)"
-            />
-            {focusedLangInput && langInput.length > 0 && (() => {
-              const q = langInput.toLowerCase();
-              const sugg = rankSuggestions(LANGUAGE_SUGGESTIONS, q).filter(l => !languages.includes(l)).slice(0, 8);
-              return sugg.length > 0 ? (
-                <ul className={styles.suggestions}>
-                  {sugg.map(l => (
-                    <li key={l} className={styles.suggestion} onMouseDown={e => {
-                      e.preventDefault();
-                      if (!languages.includes(l)) setLanguages(prev => [...prev, l]);
-                      setLangInput('');
-                    }}>{l}</li>
-                  ))}
-                </ul>
-              ) : null;
-            })()}
-          </div>
-          <button className={styles.addBtn} onClick={() => {
-            const t = langInput.trim();
-            if (t && !languages.includes(t)) setLanguages(prev => [...prev, t]);
-            setLangInput('');
-          }}>+ Add</button>
-        </div>
+                  return sugg.length > 0 ? (
+                    <ul className={styles.suggestions}>
+                      {sugg.map(l => (
+                        <li key={l} className={styles.suggestion} onMouseDown={e => {
+                          e.preventDefault();
+                          if (!languages.includes(l)) setLanguages(prev => [...prev, l]);
+                          setLangInput('');
+                        }}>{l}</li>
+                      ))}
+                    </ul>
+                  ) : null;
+                })()}
+              </div>
+              <button className={styles.addBtn} onClick={() => {
+                const t = langInput.trim();
+                if (t && !languages.includes(t)) setLanguages(prev => [...prev, t]);
+                setLangInput('');
+              }}>+ Add</button>
+            </div>
+          </>
+        )}
 
-        {/* Senses */}
-        <div className={styles.sectionHead}>Senses</div>
-        {senses.map((s, i) => (
-          <div key={i} className={styles.senseRow}>
-            <span className={styles.senseChip}>
-              {s.name}{s.range != null ? ` ${s.range} ft.` : ''}
-              <button className={styles.traitRemove} onClick={() => setSenses(prev => prev.filter((_, idx) => idx !== i))}>×</button>
-            </span>
-          </div>
-        ))}
-        <div className={styles.senseInputRow}>
-          <div className={styles.senseNameWrap}>
-            <input
-              className={styles.traitInput}
-              value={senseNameInput}
-              onChange={e => setSenseNameInput(e.target.value)}
-              onFocus={() => setFocusedSenseInput(true)}
-              onBlur={() => setFocusedSenseInput(false)}
-              placeholder="Sense name…"
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  const n = senseNameInput.trim().toLowerCase();
-                  if (!n) return;
-                  const range = senseRangeInput.trim() ? Number(senseRangeInput) : undefined;
-                  setSenses(prev => [...prev, { name: n, range }]);
-                  setSenseNameInput(''); setSenseRangeInput('');
-                }
-                if (e.key === 'Tab' && senseNameInput.length > 0) {
+        {/* Senses — creatures only */}
+        {entityKind !== 'hazard' && (
+          <>
+            <div className={styles.sectionHead}>Senses</div>
+            {senses.map((s, i) => (
+              <div key={i} className={styles.senseRow}>
+                <span className={styles.senseChip}>
+                  {s.name}{s.range != null ? ` ${s.range} ft.` : ''}
+                  <button className={styles.traitRemove} onClick={() => setSenses(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+                </span>
+              </div>
+            ))}
+            <div className={styles.senseInputRow}>
+              <div className={styles.senseNameWrap}>
+                <input
+                  className={styles.traitInput}
+                  value={senseNameInput}
+                  onChange={e => setSenseNameInput(e.target.value)}
+                  onFocus={() => setFocusedSenseInput(true)}
+                  onBlur={() => setFocusedSenseInput(false)}
+                  placeholder="Sense name…"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const n = senseNameInput.trim().toLowerCase();
+                      if (!n) return;
+                      const range = senseRangeInput.trim() ? Number(senseRangeInput) : undefined;
+                      setSenses(prev => [...prev, { name: n, range }]);
+                      setSenseNameInput(''); setSenseRangeInput('');
+                    }
+                    if (e.key === 'Tab' && senseNameInput.length > 0) {
+                      const q = senseNameInput.toLowerCase();
+                      const sugg = rankSuggestions(COMMON_SENSES, q).filter(s => !senses.some(x => x.name === s));
+                      if (sugg.length > 0) { e.preventDefault(); setSenseNameInput(sugg[0]); }
+                    }
+                  }}
+                />
+                {focusedSenseInput && senseNameInput.length > 0 && (() => {
                   const q = senseNameInput.toLowerCase();
                   const sugg = rankSuggestions(COMMON_SENSES, q).filter(s => !senses.some(x => x.name === s));
-                  if (sugg.length > 0) { e.preventDefault(); setSenseNameInput(sugg[0]); }
-                }
-              }}
-            />
-            {focusedSenseInput && senseNameInput.length > 0 && (() => {
-              const q = senseNameInput.toLowerCase();
-              const sugg = rankSuggestions(COMMON_SENSES, q).filter(s => !senses.some(x => x.name === s));
-              return sugg.length > 0 ? (
-                <ul className={styles.suggestions}>
-                  {sugg.map(s => (
-                    <li key={s} className={styles.suggestion} onMouseDown={e => {
-                      e.preventDefault();
-                      setSenseNameInput(s);
-                    }}>{s}</li>
-                  ))}
-                </ul>
-              ) : null;
-            })()}
-          </div>
-          <input className={styles.senseRangeInput} type="number" min={0} step={5}
-            value={senseRangeInput} onChange={e => setSenseRangeInput(e.target.value)}
-            placeholder="Range ft (blank=∞)" />
-          <button className={styles.addBtn} onMouseDown={e => {
-            e.preventDefault();
-            const n = senseNameInput.trim().toLowerCase();
-            if (!n) return;
-            const range = senseRangeInput.trim() ? Number(senseRangeInput) : undefined;
-            setSenses(prev => [...prev, { name: n, range }]);
-            setSenseNameInput(''); setSenseRangeInput('');
-          }}>+ Add</button>
-        </div>
-
-        {/* Ability Modifiers */}
-        <div className={styles.sectionHead}>Ability Modifiers</div>
-        {([
-          { label: 'Str', val: strMod, setVal: setStrMod, tier: strTier, setTier: (t: AbilityTier) => { setStrTier(t); setStrMod(lookupAbility(level, t)); } },
-          { label: 'Dex', val: dexMod, setVal: setDexMod, tier: dexTier, setTier: (t: AbilityTier) => { setDexTier(t); setDexMod(lookupAbility(level, t)); } },
-          { label: 'Con', val: conMod, setVal: setConMod, tier: conTier, setTier: (t: AbilityTier) => { setConTier(t); setConMod(lookupAbility(level, t)); } },
-          { label: 'Int', val: intMod, setVal: setIntMod, tier: intTier, setTier: (t: AbilityTier) => { setIntTier(t); setIntMod(lookupAbility(level, t)); } },
-          { label: 'Wis', val: wisMod, setVal: setWisMod, tier: wisTier, setTier: (t: AbilityTier) => { setWisTier(t); setWisMod(lookupAbility(level, t)); } },
-          { label: 'Cha', val: chaMod, setVal: setChaMod, tier: chaTier, setTier: (t: AbilityTier) => { setChaTier(t); setChaMod(lookupAbility(level, t)); } },
-        ] as const).map(({ label, val, setVal, tier, setTier }) => (
-          <div key={label} className={styles.statRow}>
-            <span className={styles.statLabel}>{label}</span>
-            <div className={styles.tierBtns}>
-              {ABILITY_TIERS.map(t => {
-                const isHidden = (level <= 0) && t === 'extreme';
-                return isHidden ? null : (
-                  <button key={t} title={t}
-                    className={`${styles.tierBtn} ${tier === t ? styles.tierBtnActive : ''}`}
-                    style={{ gridColumn: TIER_COL[t] }}
-                    onClick={() => (setTier as (t: AbilityTier) => void)(t)}
-                  >{TIER_ABBREV[t]}</button>
-                );
-              })}
+                  return sugg.length > 0 ? (
+                    <ul className={styles.suggestions}>
+                      {sugg.map(s => (
+                        <li key={s} className={styles.suggestion} onMouseDown={e => {
+                          e.preventDefault();
+                          setSenseNameInput(s);
+                        }}>{s}</li>
+                      ))}
+                    </ul>
+                  ) : null;
+                })()}
+              </div>
+              <input className={styles.senseRangeInput} type="number" min={0} step={5}
+                value={senseRangeInput} onChange={e => setSenseRangeInput(e.target.value)}
+                placeholder="Range ft (blank=∞)" />
+              <button className={styles.addBtn} onMouseDown={e => {
+                e.preventDefault();
+                const n = senseNameInput.trim().toLowerCase();
+                if (!n) return;
+                const range = senseRangeInput.trim() ? Number(senseRangeInput) : undefined;
+                setSenses(prev => [...prev, { name: n, range }]);
+                setSenseNameInput(''); setSenseRangeInput('');
+              }}>+ Add</button>
             </div>
-            <input className={styles.statInput} type="number" min={-5} max={20}
-              value={val} onChange={e => (setVal as (n: number) => void)(Number(e.target.value))} />
-          </div>
-        ))}
+          </>
+        )}
 
-        {/* Speed */}
-        <div className={styles.sectionHead}>Speed</div>
-        {(['land', 'climb', 'swim', 'burrow', 'fly'] as SpeedType[]).map(type => {
-          const entry = speeds.find(s => s.type === type);
-          const active = entry != null;
-          return (
-            <div key={type} className={styles.speedRow}>
-              <button
-                className={`${styles.speedToggle} ${active ? styles.speedToggleActive : ''}`}
-                onClick={() => {
-                  if (active) {
-                    setSpeeds(prev => prev.filter(s => s.type !== type));
-                  } else {
-                    setSpeeds(prev => [...prev, { type, value: 25 }]);
-                  }
-                }}
-              >
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </button>
-              {active && (
-                <>
-                  <button className={styles.stepBtn}
-                    onClick={() => setSpeeds(prev => prev.map(s => s.type === type ? { ...s, value: Math.max(0, s.value - 5) } : s))}>−</button>
-                  <span className={styles.levelVal}>{entry!.value}</span>
-                  <button className={styles.stepBtn}
-                    onClick={() => setSpeeds(prev => prev.map(s => s.type === type ? { ...s, value: s.value + 5 } : s))}>+</button>
-                  <span className={styles.subLabel}>ft</span>
-                </>
-              )}
-            </div>
-          );
-        })}
+        {/* Ability Modifiers — creatures only */}
+        {entityKind !== 'hazard' && (
+          <>
+            <div className={styles.sectionHead}>Ability Modifiers</div>
+            {([
+              { label: 'Str', val: strMod, setVal: setStrMod, tier: strTier, setTier: (t: AbilityTier) => { setStrTier(t); setStrMod(lookupAbility(level, t)); } },
+              { label: 'Dex', val: dexMod, setVal: setDexMod, tier: dexTier, setTier: (t: AbilityTier) => { setDexTier(t); setDexMod(lookupAbility(level, t)); } },
+              { label: 'Con', val: conMod, setVal: setConMod, tier: conTier, setTier: (t: AbilityTier) => { setConTier(t); setConMod(lookupAbility(level, t)); } },
+              { label: 'Int', val: intMod, setVal: setIntMod, tier: intTier, setTier: (t: AbilityTier) => { setIntTier(t); setIntMod(lookupAbility(level, t)); } },
+              { label: 'Wis', val: wisMod, setVal: setWisMod, tier: wisTier, setTier: (t: AbilityTier) => { setWisTier(t); setWisMod(lookupAbility(level, t)); } },
+              { label: 'Cha', val: chaMod, setVal: setChaMod, tier: chaTier, setTier: (t: AbilityTier) => { setChaTier(t); setChaMod(lookupAbility(level, t)); } },
+            ] as const).map(({ label, val, setVal, tier, setTier }) => (
+              <div key={label} className={styles.statRow}>
+                <span className={styles.statLabel}>{label}</span>
+                <div className={styles.tierBtns}>
+                  {ABILITY_TIERS.map(t => {
+                    const isHidden = (level <= 0) && t === 'extreme';
+                    return isHidden ? null : (
+                      <button key={t} title={t}
+                        className={`${styles.tierBtn} ${tier === t ? styles.tierBtnActive : ''}`}
+                        style={{ gridColumn: TIER_COL[t] }}
+                        onClick={() => (setTier as (t: AbilityTier) => void)(t)}
+                      >{TIER_ABBREV[t]}</button>
+                    );
+                  })}
+                </div>
+                <input className={styles.statInput} type="number" min={-5} max={20}
+                  value={val} onChange={e => (setVal as (n: number) => void)(Number(e.target.value))} />
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Speed — creatures only */}
+        {entityKind !== 'hazard' && (
+          <>
+            <div className={styles.sectionHead}>Speed</div>
+            {(['land', 'climb', 'swim', 'burrow', 'fly'] as SpeedType[]).map(type => {
+              const entry = speeds.find(s => s.type === type);
+              const active = entry != null;
+              return (
+                <div key={type} className={styles.speedRow}>
+                  <button
+                    className={`${styles.speedToggle} ${active ? styles.speedToggleActive : ''}`}
+                    onClick={() => {
+                      if (active) {
+                        setSpeeds(prev => prev.filter(s => s.type !== type));
+                      } else {
+                        setSpeeds(prev => [...prev, { type, value: 25 }]);
+                      }
+                    }}
+                  >
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </button>
+                  {active && (
+                    <>
+                      <button className={styles.stepBtn}
+                        onClick={() => setSpeeds(prev => prev.map(s => s.type === type ? { ...s, value: Math.max(0, s.value - 5) } : s))}>−</button>
+                      <span className={styles.levelVal}>{entry!.value}</span>
+                      <button className={styles.stepBtn}
+                        onClick={() => setSpeeds(prev => prev.map(s => s.type === type ? { ...s, value: s.value + 5 } : s))}>+</button>
+                      <span className={styles.subLabel}>ft</span>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
 
         {/* Immunities */}
         <div className={styles.sectionHead}>Immunities</div>
@@ -1034,10 +1459,48 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
           />
         ))}
 
+        {/* Hazard Details — hazards only */}
+        {entityKind === 'hazard' && (
+          <>
+            <div className={styles.sectionHead}>Hazard Details</div>
+            <div className={styles.fieldLabel}>Disable</div>
+            <textarea
+              className={styles.descInput}
+              value={hazardDisable}
+              onChange={e => setHazardDisable(e.target.value)}
+              placeholder="Disable description (HTML or plain text)…"
+              rows={3}
+            />
+            <div className={styles.fieldLabel}>Reset</div>
+            <textarea
+              className={styles.descInput}
+              value={hazardReset}
+              onChange={e => setHazardReset(e.target.value)}
+              placeholder="Reset description (HTML or plain text)…"
+              rows={2}
+            />
+            {hazardIsComplex && (
+              <>
+                <div className={styles.fieldLabel}>Routine</div>
+                <textarea
+                  className={styles.descInput}
+                  value={hazardRoutine}
+                  onChange={e => setHazardRoutine(e.target.value)}
+                  placeholder="Routine description (HTML or plain text)…"
+                  rows={3}
+                />
+              </>
+            )}
+          </>
+        )}
+
         {/* Attacks */}
         <div className={styles.sectionHead}>
           Attacks
-          <button className={styles.addBtn} onClick={() => setAttacks(prev => [...prev, defaultAttack(level)])}>+ Add</button>
+          <button className={styles.addBtn} onClick={() => setAttacks(prev => [
+            ...prev,
+            entityKind === 'hazard' ? defaultHazardAttack(level, hazardIsComplex) : defaultAttack(level),
+          ])}>+ Add</button>
         </div>
         {attacks.map((atk, i) => (
           <div key={i} className={styles.attackCard}>
@@ -1057,25 +1520,73 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
             </div>
             <div className={styles.attackRow2}>
               <span className={styles.subLabel}>Atk</span>
-              <div className={styles.tierBtns}>
-                {AC_TIERS.map(t => (
-                  <button key={t} title={t} className={`${styles.tierBtn} ${atk.bonusTier === t ? styles.tierBtnActive : ''}`}
-                    style={{ gridColumn: TIER_COL[t] }}
-                    onClick={() => updateAttack(i, { bonusTier: t, bonus: lookupAttack(level, t) })}
-                  >{TIER_ABBREV[t]}</button>
-                ))}
-              </div>
+              {entityKind === 'hazard' ? (
+                // L=level-1, M=at-level, H=level+1 (relative to the hazard's base attack for its complexity)
+                <div className={styles.tierBtns} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                  {(['low', 'moderate', 'high'] as const).map((t, ci) => {
+                    const lvOffset = t === 'low' ? -1 : t === 'high' ? 1 : 0;
+                    const targetLv = Math.max(-1, Math.min(24, level + lvOffset));
+                    const hasRow = HAZARD_OFFENSE_TABLE[targetLv] != null;
+                    const atkVal = hasRow
+                      ? lookupHazardAtk(targetLv, hazardIsComplex)
+                      : lookupHazardAtk(level, hazardIsComplex) + (lvOffset > 0 ? 1 : -1);
+                    return (
+                      <button key={t} title={t === 'low' ? 'Level −1' : t === 'moderate' ? 'At level' : 'Level +1'}
+                        className={`${styles.tierBtn} ${atk.bonusTier === t ? styles.tierBtnActive : ''}`}
+                        style={{ gridColumn: ci + 1 }}
+                        onClick={() => updateAttack(i, { bonusTier: t, bonus: atkVal })}
+                      >{TIER_ABBREV[t]}</button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={styles.tierBtns}>
+                  {AC_TIERS.map(t => (
+                    <button key={t} title={t} className={`${styles.tierBtn} ${atk.bonusTier === t ? styles.tierBtnActive : ''}`}
+                      style={{ gridColumn: TIER_COL[t] }}
+                      onClick={() => updateAttack(i, { bonusTier: t, bonus: lookupAttack(level, t) })}
+                    >{TIER_ABBREV[t]}</button>
+                  ))}
+                </div>
+              )}
               <input className={styles.statInput} type="number" min={-10} max={70}
                 value={atk.bonus} onChange={e => updateAttack(i, { bonus: Number(e.target.value) })} />
               <span className={styles.subLabel}>Dmg</span>
-              <div className={styles.tierBtns}>
-                {AC_TIERS.map(t => (
-                  <button key={t} title={t} className={`${styles.tierBtn} ${atk.damageTier === t ? styles.tierBtnActive : ''}`}
-                    style={{ gridColumn: TIER_COL[t] }}
-                    onClick={() => updateAttack(i, { damageTier: t, damage: lookupDamage(level, t) })}
-                  >{TIER_ABBREV[t]}</button>
-                ))}
-              </div>
+              {entityKind === 'hazard' ? (
+                <div className={styles.tierBtns} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                  {(['low', 'moderate', 'high'] as const).map((t, ci) => {
+                    const lvOffset = t === 'low' ? -1 : t === 'high' ? 1 : 0;
+                    const targetLv = Math.max(-1, Math.min(24, level + lvOffset));
+                    const hasRow = HAZARD_OFFENSE_TABLE[targetLv] != null;
+                    const dmgDelta = hazardIsComplex ? 2 : 4;
+                    const dmgVal = hasRow
+                      ? lookupHazardDmg(targetLv, hazardIsComplex)
+                      : (() => {
+                          // parse base damage and adjust constant by dmgDelta
+                          const base = lookupHazardDmg(level, hazardIsComplex);
+                          const m = base.match(/^(.+[+-])(\d+)$/);
+                          if (m) return `${m[1]}${Math.max(0, parseInt(m[2]) + lvOffset * dmgDelta)}`;
+                          return base;
+                        })();
+                    return (
+                      <button key={t} title={t === 'low' ? 'Level −1' : t === 'moderate' ? 'At level' : 'Level +1'}
+                        className={`${styles.tierBtn} ${atk.damageTier === t ? styles.tierBtnActive : ''}`}
+                        style={{ gridColumn: ci + 1 }}
+                        onClick={() => updateAttack(i, { damageTier: t, damage: dmgVal })}
+                      >{TIER_ABBREV[t]}</button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={styles.tierBtns}>
+                  {AC_TIERS.map(t => (
+                    <button key={t} title={t} className={`${styles.tierBtn} ${atk.damageTier === t ? styles.tierBtnActive : ''}`}
+                      style={{ gridColumn: TIER_COL[t] }}
+                      onClick={() => updateAttack(i, { damageTier: t, damage: lookupDamage(level, t) })}
+                    >{TIER_ABBREV[t]}</button>
+                  ))}
+                </div>
+              )}
               <input className={styles.dmgInput} type="text"
                 value={atk.damage} onChange={e => updateAttack(i, { damage: e.target.value })}
                 placeholder="2d8+9" />
@@ -1150,37 +1661,33 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
           <button className={styles.addBtn} onClick={() => setAbilities(prev => [...prev, { name: '', description: '' }])}>+ Add</button>
         </div>
         {abilities.map((ab, i) => {
-          const editorTab = abilityEditorTabs[i] ?? (ab.description ? 'preview' : 'edit');
-          const setEditorTab = (tab: 'edit' | 'preview') => setAbilityEditorTabs(prev => ({ ...prev, [i]: tab }));
-
-          function insertAtCursor(text: string) {
-            const ta = abilityTextareaRefs.current[i];
-            if (!ta) return;
-            const start = ta.selectionStart ?? 0;
-            const end = ta.selectionEnd ?? 0;
-            const before = ab.description.slice(0, start);
-            const after = ab.description.slice(end);
-            const newVal = before + text + after;
-            setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, description: newVal } : a));
-            setTimeout(() => {
-              ta.focus();
-              ta.setSelectionRange(start + text.length, start + text.length);
-            }, 0);
-          }
-
-          function wrapSelection(open: string, close: string) {
-            const ta = abilityTextareaRefs.current[i];
-            if (!ta) return;
-            const start = ta.selectionStart ?? 0;
-            const end = ta.selectionEnd ?? 0;
-            const selected = ab.description.slice(start, end);
-            const newVal = ab.description.slice(0, start) + open + selected + close + ab.description.slice(end);
-            setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, description: newVal } : a));
-            setTimeout(() => {
-              ta.focus();
-              ta.setSelectionRange(start + open.length, start + open.length + selected.length);
-            }, 0);
-          }
+          // Build toolbar extras for hazard mode
+          const hazardExtras: AbilityEditorToolbarExtras | undefined = entityKind === 'hazard' ? (() => {
+            const offRow = HAZARD_OFFENSE_TABLE[Math.max(-1, Math.min(24, level))];
+            const edc = offRow?.extremeDC ?? 19;
+            const hdc = offRow?.hardDC ?? 16;
+            // L/M/H damage: level-1 / at-level / level+1, same logic as attack tier buttons
+            const dmgDelta = hazardIsComplex ? 2 : 4;
+            const dmgForOffset = (lvOffset: number) => {
+              const targetLv = Math.max(-1, Math.min(24, level + lvOffset));
+              if (HAZARD_OFFENSE_TABLE[targetLv] != null) return lookupHazardDmg(targetLv, hazardIsComplex);
+              const base = lookupHazardDmg(level, hazardIsComplex);
+              const m = base.match(/^(.+[+-])(\d+)$/);
+              if (m) return `${m[1]}${Math.max(0, parseInt(m[2]) + lvOffset * dmgDelta)}`;
+              return base;
+            };
+            return {
+              dcs: [
+                { label: 'EDC', value: edc, title: `Extreme DC (${edc})` },
+                { label: 'HDC', value: hdc, title: `Hard DC (${hdc})` },
+              ],
+              damages: [
+                { label: 'L', value: dmgForOffset(-1), title: `Low damage / level −1 (${dmgForOffset(-1)})` },
+                { label: 'M', value: dmgForOffset(0),  title: `Moderate damage / at level (${dmgForOffset(0)})` },
+                { label: 'H', value: dmgForOffset(1),  title: `High damage / level +1 (${dmgForOffset(1)})` },
+              ],
+            };
+          })() : undefined;
 
           return (
             <div key={i} className={styles.abilityCard}>
@@ -1218,107 +1725,40 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
                 </div>
                 <button className={styles.removeBtn} onClick={() => setAbilities(prev => prev.filter((_, idx) => idx !== i))}>×</button>
               </div>
-              <div className={styles.actionTypeRow}>
-                {([
-                  { value: 'single',   label: '◆',      title: 'Single Action'         },
-                  { value: 'two',      label: '◆◆',     title: 'Two-Action Activity'   },
-                  { value: 'three',    label: '◆◆◆',    title: 'Three-Action Activity' },
-                  { value: 'reaction', label: '↺',      title: 'Reaction'              },
-                  { value: 'free',     label: '⟳',      title: 'Free Action'           },
-                  { value: 'passive',  label: 'Passive', title: 'Passive'               },
-                ] as { value: AbilityActionType; label: string; title: string }[]).map(opt => (
-                  <button
-                    key={opt.value}
-                    title={opt.title}
-                    className={`${styles.actionTypeBtn} ${ab.actionType === opt.value ? styles.actionTypeBtnActive : ''}`}
-                    onClick={() => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, actionType: opt.value } : a))}
-                  >{opt.label}</button>
-                ))}
-              </div>
-              {/* Frequency — always visible */}
-              <input
-                className={styles.attackNameInput}
-                value={ab.frequency ?? ''}
-                onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, frequency: e.target.value } : a))}
-                placeholder="Frequency (e.g. Once per day)"
+              <AbilityEditor
+                value={ab.description}
+                onChange={html => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, description: html } : a))}
+                actionType={ab.actionType}
+                onActionTypeChange={t => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, actionType: t } : a))}
+                showFrequency={ab.actionType !== 'passive'}
+                frequency={ab.frequency ?? ''}
+                onFrequencyChange={v => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, frequency: v } : a))}
+                showTrigger={ab.actionType === 'reaction' || ab.actionType === 'free'}
+                trigger={ab.trigger ?? ''}
+                onTriggerChange={v => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, trigger: v } : a))}
+                requirements={ab.requirements ?? ''}
+                onRequirementsChange={v => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, requirements: v } : a))}
+                toolbarExtras={hazardExtras}
               />
-              {/* Trigger — only for reaction/free */}
-              {(ab.actionType === 'reaction' || ab.actionType === 'free') && (
-                <input
-                  className={styles.attackNameInput}
-                  value={ab.trigger ?? ''}
-                  onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, trigger: e.target.value } : a))}
-                  placeholder="Trigger (e.g. A creature enters your reach)"
-                />
-              )}
-              {/* Requirements — always visible */}
-              <input
-                className={styles.attackNameInput}
-                value={ab.requirements ?? ''}
-                onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, requirements: e.target.value } : a))}
-                placeholder="Requirements (e.g. You are holding a weapon)"
-              />
-              {/* Edit/Preview tab strip */}
-              <div className={styles.abilityEditorTabs}>
-                <button
-                  className={`${styles.abilityEditorTab} ${editorTab === 'edit' ? styles.abilityEditorTabActive : ''}`}
-                  onClick={() => setEditorTab('edit')}
-                >Edit</button>
-                <button
-                  className={`${styles.abilityEditorTab} ${editorTab === 'preview' ? styles.abilityEditorTabActive : ''}`}
-                  onClick={() => setEditorTab('preview')}
-                >Preview</button>
-              </div>
-              {editorTab === 'edit' && (
-                <>
-                  <div className={styles.abilityToolbar}>
-                    {[
-                      { label: '◆',       text: ' ◆ ' },
-                      { label: '◆◆',      text: ' ◆◆ ' },
-                      { label: '◆◆◆',     text: ' ◆◆◆ ' },
-                      { label: '↺',        text: ' ↺ ' },
-                    ].map(btn => (
-                      <button key={btn.label} className={styles.abilityToolbarBtn} title={btn.text.trim()} onMouseDown={e => { e.preventDefault(); insertAtCursor(btn.text); }}>{btn.label}</button>
-                    ))}
-                    <button className={styles.abilityToolbarBtn} title="Insert @Damage macro" onMouseDown={e => { e.preventDefault(); insertAtCursor('@Damage[XdY[type]]{XdY type damage}'); }}>@Dmg</button>
-                    <button className={styles.abilityToolbarBtn} title="Insert @Check macro" onMouseDown={e => { e.preventDefault(); insertAtCursor('@Check[will|dc:15|basic]{DC 15 Will save}'); }}>DC</button>
-                    <button className={styles.abilityToolbarBtn} title="Wrap in <p>" onMouseDown={e => { e.preventDefault(); wrapSelection('<p>', '</p>'); }}>&lt;p&gt;</button>
-                    <button className={styles.abilityToolbarBtn} title="Insert <hr />" onMouseDown={e => { e.preventDefault(); insertAtCursor('<hr />'); }}>&lt;hr&gt;</button>
-                    <button className={styles.abilityToolbarBtn} title="Wrap in <strong>" onMouseDown={e => { e.preventDefault(); wrapSelection('<strong>', '</strong>'); }}><b>B</b></button>
-                  </div>
-                  <textarea
-                    ref={el => { abilityTextareaRefs.current[i] = el; }}
-                    className={styles.descInput}
-                    value={ab.description}
-                    onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, description: e.target.value } : a))}
-                    placeholder="Description (raw HTML or plain text)…"
-                    rows={3}
-                  />
-                </>
-              )}
-              {editorTab === 'preview' && (
-                <div
-                  className={styles.abilityPreview}
-                  dangerouslySetInnerHTML={{ __html: ab.description ? processHtml(ab.description) : '<em style="color:var(--text-mute)">No description</em>' }}
-                />
-              )}
             </div>
           );
         })}
-        {/* Spellcasting */}
-        <div className={styles.sectionHead}>
-          Spellcasting
-          <button className={styles.addBtn} onClick={() => setSpellcasting(prev => [...prev, {
-            id: `spell-${Date.now()}`,
-            name: '',
-            tradition: 'arcane',
-            type: 'innate',
-            dc: lookupSave(level, 'moderate'),
-            attackMod: lookupAttack(level, 'moderate'),
-            spells: [],
-          }])}>+ Add Spellcasting Block</button>
-        </div>
-        {spellcasting.map((entry, ei) => {
+        {/* Spellcasting — creatures only */}
+        {entityKind !== 'hazard' && (
+          <>
+          <div className={styles.sectionHead}>
+            Spellcasting
+            <button className={styles.addBtn} onClick={() => setSpellcasting(prev => [...prev, {
+              id: `spell-${Date.now()}`,
+              name: '',
+              tradition: 'arcane',
+              type: 'innate',
+              dc: lookupSave(level, 'moderate'),
+              attackMod: lookupAttack(level, 'moderate'),
+              spells: [],
+            }])}>+ Add Spellcasting Block</button>
+          </div>
+          {spellcasting.map((entry, ei) => {
           const hasFocusSpell = entry.spells.some(s => s.frequency === 'focus');
           function updateEntry(patch: Partial<CustomSpellcastingEntry>) {
             setSpellcasting(prev => prev.map((e, idx) => idx === ei ? { ...e, ...patch } : e));
@@ -1478,6 +1918,8 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
             </div>
           );
         })}
+          </>
+        )}
 
         {/* Flavor Text */}
         <div className={styles.sectionHead}>Description</div>
@@ -1492,7 +1934,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
       <div className={styles.wizardFooter}>
         <button className={styles.ghostBtn} onClick={() => setStep(0)}>← Back</button>
         <button className={styles.primaryBtn} onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Save Creature'}
+          {saving ? 'Saving…' : isEditing ? 'Save Changes' : entityKind === 'hazard' ? 'Save Hazard' : 'Save Creature'}
         </button>
         <button className={styles.ghostBtn} onClick={onCancel}>Cancel</button>
       </div>

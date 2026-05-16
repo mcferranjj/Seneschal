@@ -53,6 +53,7 @@ export function toRecord(creature: PF2ECreature, packSource: string, blobSha: st
     publication: resolvePublicationTitle(creature.system?.details?.publication?.title, packSource),
     blobSha,
     data: creature,
+    isComplex: isComplexHazard || undefined,
   };
 }
 
