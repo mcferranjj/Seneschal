@@ -1,11 +1,9 @@
 Encounters:
-    - add custom hazard creation, adding to the custom creature wizard
 
     - name generator
     - random monster quirk generator
 
 
-    - for custom abilities, add suggested scaling dcs and damage for both single target and area damage abilities
     - in the custom creature wizard, add functionality for suggesting standard monster abilities (trample, swallow whole, etc.)
         - also add functionality to browse and add/scale abilities from all other monsters, filterable by creature type
     
