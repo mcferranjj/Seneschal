@@ -125,8 +125,9 @@ function DamageTypePicker({ expr, anchorRef, onPick, onClose }: DmgPickerProps) 
   const [showPersistent, setShowPersistent] = useState(false);
   const persistentBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Viewport-safe position: prefer below anchor, flip above if needed, clamp left edge
-  const pos = usePopupPosition(anchorRef, true, { popupWidth: 0, popupMaxHeight: 400 });
+  // Viewport-safe position: prefer below anchor, flip above if needed, clamp left edge.
+  // Pass popupRef so the hook can measure actual width after render and clamp right edge.
+  const pos = usePopupPosition(anchorRef, true, { popupWidth: 0, popupMaxHeight: 400 }, popupRef);
   // Close when clicking outside both the popup and its anchor button
   useOutsideClick(popupRef, onClose, anchorRef);
 
@@ -211,7 +212,7 @@ interface SimpleDropdownProps {
 
 function SimpleDropdown({ items, anchorRef, onClose }: SimpleDropdownProps) {
   const popupRef = useRef<HTMLDivElement>(null);
-  const pos = usePopupPosition(anchorRef, true, { popupWidth: 0, popupMaxHeight: 320 });
+  const pos = usePopupPosition(anchorRef, true, { popupWidth: 0, popupMaxHeight: 320 }, popupRef);
   useOutsideClick(popupRef, onClose, anchorRef);
 
   if (!pos) return null;
@@ -257,7 +258,7 @@ interface TierSubMenuProps {
 
 function TierSubMenu({ tiers, anchorRef, onPickTier, onClose }: TierSubMenuProps) {
   const popupRef = useRef<HTMLDivElement>(null);
-  const pos = usePopupPosition(anchorRef, true, { popupWidth: 0, popupMaxHeight: 300 });
+  const pos = usePopupPosition(anchorRef, true, { popupWidth: 0, popupMaxHeight: 300 }, popupRef);
   useOutsideClick(popupRef, onClose, anchorRef);
 
   if (!pos) return null;

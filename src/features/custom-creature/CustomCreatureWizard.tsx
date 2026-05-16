@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { HAZARD_OFFENSE_TABLE } from '../../data/pf2eTables';
 import type { HpTier, AcTier, SaveTier, AbilityTier, ResWeakTier, HazardDCTier, HazardDefenseTier } from '../../data/pf2eTables';
 import {
   HP_TIERS, AC_TIERS, SAVE_TIERS, ABILITY_TIERS, RES_WEAK_TIERS,
@@ -15,6 +16,7 @@ import { creatureRepository } from '../../db/repositories/CreatureRepository';
 import { getAllTraits } from '../../search/search';
 import { rankSuggestions } from '../../utils/suggestions';
 import { AbilityCard } from './AbilityCard';
+import { GenericAbilityPicker } from './GenericAbilityPicker';
 import styles from './CustomCreatureWizard.module.css';
 
 
@@ -307,6 +309,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
   const [abilities, setAbilities] = useState<CustomAbility[]>(
     initFromEdit(editCreature?.customData?.abilities ?? [], [])
   );
+  const [genericPickerOpen, setGenericPickerOpen] = useState(false);
   const [extraTraits, setExtraTraits] = useState<string[]>(initFromEdit(editExtraTraits, []));
   const [traitInput, setTraitInput] = useState('');
   const traitInputRef = useRef<HTMLInputElement>(null);
@@ -1568,8 +1571,29 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
         {/* Abilities */}
         <div className={styles.sectionHead}>
           Abilities
-          <button className={styles.addBtn} onClick={() => setAbilities(prev => [...prev, { name: '', description: '' }])}>+ Add</button>
+          <div className={styles.addBtnGroup}>
+            <button className={styles.addBtn} onClick={() => { setGenericPickerOpen(false); setAbilities(prev => [...prev, { name: '', description: '' }]); }}>+ Custom</button>
+            {entityKind !== 'hazard' && (
+              <button
+                className={styles.addBtn}
+                onClick={() => setGenericPickerOpen(v => !v)}
+              >
+                {genericPickerOpen ? '− Generic' : '+ Generic'}
+              </button>
+            )}
+          </div>
         </div>
+        {genericPickerOpen && entityKind !== 'hazard' && (
+          <GenericAbilityPicker
+            level={level}
+            strikeNames={attacks.filter(a => a.name.trim()).map(a => a.name.trim())}
+            onInsert={ability => {
+              setAbilities(prev => [...prev, ability]);
+              setGenericPickerOpen(false);
+            }}
+            onClose={() => setGenericPickerOpen(false)}
+          />
+        )}
         {abilities.map((ab, i) => (
           <AbilityCard
             key={i}
@@ -1579,6 +1603,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
             entityKind={entityKind}
             level={level}
             hazardIsComplex={hazardIsComplex}
+            isGeneric={ab.genericAbilityName != null}
           />
         ))}
         {/* Spellcasting — creatures only */}

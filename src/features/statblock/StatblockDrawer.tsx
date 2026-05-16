@@ -1,9 +1,10 @@
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { CreatureRecord } from '../../db/schema';
 import type { PF2ECreature } from '../../types/pf2e';
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import type { Condition, CustomSpellcastingEntry } from '../../types/encounter';
+import type { DamageGroup } from '../../utils/foundryMacros';
 import { computePenalties } from '../../types/conditionEffects';
 import { DiceRoller, MultiDamageRoller } from '../dice/DiceRoller';
 import { CustomCreatureWizard } from '../custom-creature/CustomCreatureWizard';
@@ -33,10 +34,109 @@ import { AttackLine } from './AttackLine';
 import { ItemBlock } from './ItemBlock';
 import { SpellcastingBlock } from './SpellcastingBlock';
 import { TraitChip } from './TraitChip';
+import { ABILITY_GLOSSARY } from '../../data/abilityGlossary';
+import { usePopupPosition } from '../../hooks/usePopupPosition';
+import { useOutsideClick } from '../../hooks/useOutsideClick';
 import styles from './StatblockDrawer.module.css';
 
 function skillDisplayName(raw: string): string {
   return raw.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ── Custom ability block with optional glossary popup ─────────────────────────
+
+interface CustomAbilityBlockProps {
+  ab: {
+    name: string;
+    description?: string;
+    actionType?: string;
+    trigger?: string;
+    requirements?: string;
+    frequency?: string;
+    genericAbilityName?: string;
+  };
+  adjustedDesc: string;
+  dmgMod: number;
+  ewStyle?: React.CSSProperties;
+  onRollDamage: (groups: DamageGroup[], name: string, traits: string[], e: React.MouseEvent) => void;
+}
+
+function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDamage }: CustomAbilityBlockProps) {
+
+  // Glossary lookup — prefer genericAbilityName, then fall back to the ability name itself
+  const glossaryKey = ab.genericAbilityName ?? ab.name;
+  const glossaryDesc = ABILITY_GLOSSARY[glossaryKey];
+
+  const [popupOpen, setPopupOpen] = useState(false);
+  const nameRef = useRef<HTMLElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  const pos = usePopupPosition(nameRef, popupOpen, { popupWidth: 300, popupMaxHeight: 380 }, popupRef);
+  useOutsideClick(popupRef, () => setPopupOpen(false), nameRef);
+
+  const actionSymbols: Record<string, string> = {
+    single: ' ◆', two: ' ◆◆', three: ' ◆◆◆', reaction: ' ↺', free: ' ◇', passive: '',
+  };
+  const sym = ab.actionType ? (actionSymbols[ab.actionType] ?? '') : '';
+
+  const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];
+  const hasDamage = damageGroups.length > 0;
+
+  return (
+    <div className={styles.itemBlock}>
+      <p className={styles.itemHeader}>
+        <strong
+          ref={nameRef}
+          className={`${styles.itemName} ${glossaryDesc ? styles.abilityNameClickable : ''}`}
+          onClick={glossaryDesc ? () => setPopupOpen(o => !o) : undefined}
+          title={glossaryDesc ? 'Click for rules summary' : undefined}
+        >
+          {ab.name}
+        </strong>
+        {sym && <span className={styles.actionSymbol}>{sym}</span>}
+        {ab.trigger && (
+          <> <strong>Trigger</strong> {ab.trigger};</>
+        )}
+        {ab.requirements && (
+          <> <strong>Requirements</strong> {ab.requirements};</>
+        )}
+        {ab.frequency && (
+          <> <strong>Frequency</strong> {ab.frequency}</>
+        )}
+      </p>
+      {adjustedDesc && (
+        <div
+          className={styles.itemDesc}
+          dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc) }}
+        />
+      )}
+      {hasDamage && (
+        <button
+          className={styles.rollAllDmgBtn}
+          style={dmgMod !== 0 ? { borderColor: ewStyle?.color, color: ewStyle?.color } : undefined}
+          onClick={e => onRollDamage(damageGroups, ab.name, [], e)}
+        >
+          🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
+        </button>
+      )}
+
+      {/* Ability glossary popup */}
+      {popupOpen && glossaryDesc && pos && (
+        <div
+          ref={popupRef}
+          className={styles.abilityPopup}
+          style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, maxHeight: pos.maxH }}
+        >
+          <div className={styles.abilityPopupHeader}>
+            <span className={styles.abilityPopupName}>{glossaryKey}</span>
+            <span className={styles.abilityPopupSource}>Monster Core</span>
+            <button className={styles.abilityPopupClose} onClick={() => setPopupOpen(false)}>✕</button>
+          </div>
+          <div className={styles.abilityPopupDesc}>{glossaryDesc}</div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface DrawerProps {
@@ -811,10 +911,6 @@ function StatblockContent({
 
         {/* Custom creature abilities */}
         {creature.publication === 'Custom' && (creature.customData?.abilities ?? []).map((ab, i) => {
-          const actionSymbols: Record<string, string> = {
-            single: ' ◆', two: ' ◆◆', three: ' ◆◆◆', reaction: ' ↺', free: ' ◇', passive: '',
-          };
-          const sym = ab.actionType ? (actionSymbols[ab.actionType] ?? '') : '';
           const limited = ab.frequency != null && ab.frequency !== '';
           const dmgMod = ewMod !== 0 ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2)) : 0;
           const dcMod = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
@@ -822,39 +918,15 @@ function StatblockContent({
           // Apply level scaling first (if active), then elite/weak on top
           const scaledDesc = scaledStats ? scaleAbilityHtml(rawDesc, level, scaledStats.targetLevel) : rawDesc;
           const adjustedDesc = (dmgMod !== 0 || dcMod !== 0) ? applyEliteWeakToHtml(scaledDesc, dmgMod, dcMod) : scaledDesc;
-          const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];
-          const hasDamage = damageGroups.length > 0;
           return (
-            <div key={i} className={styles.itemBlock}>
-              <p className={styles.itemHeader}>
-                <strong className={styles.itemName}>{ab.name}</strong>
-                {sym && <span className={styles.actionSymbol}>{sym}</span>}
-                {ab.trigger && (
-                  <> <strong>Trigger</strong> {ab.trigger};</>
-                )}
-                {ab.requirements && (
-                  <> <strong>Requirements</strong> {ab.requirements};</>
-                )}
-                {ab.frequency && (
-                  <> <strong>Frequency</strong> {ab.frequency}</>
-                )}
-              </p>
-              {adjustedDesc && (
-                <div
-                  className={styles.itemDesc}
-                  dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc) }}
-                />
-              )}
-              {hasDamage && (
-                <button
-                  className={styles.rollAllDmgBtn}
-                  style={dmgMod !== 0 ? { borderColor: ewStyle?.color, color: ewStyle?.color } : undefined}
-                  onClick={e => rollDamage(damageGroups, ab.name, [], e)}
-                >
-                  🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
-                </button>
-              )}
-            </div>
+            <CustomAbilityBlock
+              key={i}
+              ab={ab}
+              adjustedDesc={adjustedDesc}
+              dmgMod={dmgMod}
+              ewStyle={ewStyle}
+              onRollDamage={rollDamage}
+            />
           );
         })}
 

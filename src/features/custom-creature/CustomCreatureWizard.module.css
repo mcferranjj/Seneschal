@@ -404,6 +404,12 @@
   letter-spacing: 0.04em;
 }
 
+.addBtnGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .statRow {
   display: flex;
   align-items: center;
@@ -517,6 +523,20 @@
   background: var(--bg);
   color: var(--text);
   font-size: 0.75rem;
+}
+
+/* Generic ability name — read-only, visually distinct */
+.abilityNameGeneric {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+  font-weight: 700;
+  cursor: default;
+}
+
+.abilityNameGeneric:focus {
+  outline: none;
+  border-color: transparent;
 }
 
 .removeBtn {

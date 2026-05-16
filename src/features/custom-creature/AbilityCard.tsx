@@ -19,17 +19,10 @@ import {
   lookupHazardDmg,
   lookupSpellDC, lookupSpellAttack,
 } from '../../utils/levelScaling';
-import { rankSuggestions } from '../../utils/suggestions';
 import { AbilityEditor } from './AbilityEditor';
 import type { AbilityEditorToolbarExtras } from './AbilityEditor';
 import type { CustomAbility } from '../../types/encounter';
 import styles from './CustomCreatureWizard.module.css';
-
-// ── Autocomplete suggestions for ability names ────────────────────────────────
-
-const ABILITY_NAME_SUGGESTIONS = [
-  'Constrict', 'Swallow Whole', 'Trample', 'Rend', 'Pounce', 'Attach',
-];
 
 // ── Toolbar extras builders ───────────────────────────────────────────────────
 
@@ -130,6 +123,8 @@ interface AbilityCardProps {
   entityKind: 'creature' | 'hazard';
   level: number;
   hazardIsComplex: boolean;
+  /** When true, the ability name was pre-filled from the glossary and is read-only */
+  isGeneric?: boolean;
 }
 
 export function AbilityCard({
@@ -139,8 +134,10 @@ export function AbilityCard({
   entityKind,
   level,
   hazardIsComplex,
+  isGeneric = false,
 }: AbilityCardProps) {
-  const [nameFocused, setNameFocused] = useState(false);
+  // nameFocused kept for potential future use; no suggestions shown anymore
+  const [_nameFocused, setNameFocused] = useState(false);
 
   const isMultiAction = ability.actionType === 'two' || ability.actionType === 'three';
 
@@ -149,43 +146,20 @@ export function AbilityCard({
       ? buildHazardExtras(level, hazardIsComplex)
       : buildMonsterExtras(level, isMultiAction, ability.isLimitedUse ?? false);
 
-  const nameSuggestions =
-    nameFocused && ability.name.length > 0
-      ? rankSuggestions(ABILITY_NAME_SUGGESTIONS, ability.name.toLowerCase()).filter(
-          s => s.toLowerCase() !== ability.name.toLowerCase(),
-        )
-      : [];
-
   return (
     <div className={styles.abilityCard}>
       {/* Name row */}
       <div className={styles.abilityRow1}>
         <div className={styles.abilityNameWrap}>
           <input
-            className={styles.attackNameInput}
+            className={`${styles.attackNameInput} ${isGeneric ? styles.abilityNameGeneric : ''}`}
             value={ability.name}
-            onChange={e => onChange({ name: e.target.value })}
+            onChange={e => !isGeneric && onChange({ name: e.target.value })}
             onFocus={() => setNameFocused(true)}
             onBlur={() => setNameFocused(false)}
-            onKeyDown={e => {
-              if (e.key === 'Tab' && ability.name.length > 0 && nameSuggestions.length > 0) {
-                e.preventDefault();
-                onChange({ name: nameSuggestions[0] });
-              }
-            }}
+            readOnly={isGeneric}
             placeholder="Ability name…"
           />
-          {nameSuggestions.length > 0 && (
-            <ul className={styles.suggestions}>
-              {nameSuggestions.map(s => (
-                <li
-                  key={s}
-                  className={styles.suggestion}
-                  onMouseDown={e => { e.preventDefault(); onChange({ name: s }); }}
-                >{s}</li>
-              ))}
-            </ul>
-          )}
         </div>
         <button className={styles.removeBtn} onClick={onRemove}>×</button>
       </div>

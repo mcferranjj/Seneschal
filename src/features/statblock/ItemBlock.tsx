@@ -64,7 +64,7 @@ export function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle, baseLevel, targ
   const nameRef = useRef<HTMLElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
 
-  const pos = usePopupPosition(nameRef, popupOpen, { popupWidth: 300, popupMaxHeight: 380 });
+  const pos = usePopupPosition(nameRef, popupOpen, { popupWidth: 300, popupMaxHeight: 380 }, popupRef);
   useOutsideClick(popupRef, () => setPopupOpen(false), nameRef);
 
   return (
