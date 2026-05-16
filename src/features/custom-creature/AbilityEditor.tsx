@@ -11,7 +11,7 @@
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { processFoundryHtml } from '../../utils/foundryMacros';
-import { insertTextAtCursor, restoreRange, textBeforeCursor, saveCurrentRange } from '../../utils/contentEditable';
+import { insertTextAtCursor, textBeforeCursor, saveCurrentRange, ensureEditorFocus } from '../../utils/contentEditable';
 import { usePopupPosition } from '../../hooks/usePopupPosition';
 import { useOutsideClick } from '../../hooks/useOutsideClick';
 import type { AbilityActionType } from '../../types/encounter';
@@ -58,8 +58,24 @@ const PERSISTENT_DAMAGE_TYPE_GROUPS: DmgTypeGroup[] = [
 export interface AbilityEditorToolbarExtras {
   /** Plain text DC values to insert (e.g. { label: 'EDC', value: 22 }) */
   dcs?: { label: string; value: number; title?: string }[];
-  /** Plain dice expressions to insert (e.g. { label: 'SDmg', value: '2d8+5' }) */
+  /** Spell attack bonus shortcuts — clicking inserts the number (with leading +) */
+  attackBonuses?: { label: string; value: number; title?: string }[];
+  /**
+   * Flat damage shortcuts (hazard mode) — each opens a damage-type picker.
+   * Used when a single list of labelled expressions is sufficient.
+   */
   damages?: { label: string; value: string; title?: string }[];
+  /**
+   * Grouped damage shortcuts (monster mode) — renders a single button per group
+   * that opens a sub-menu listing the tiers, each of which then opens the
+   * damage-type picker.
+   */
+  damageGroups?: {
+    /** Button label shown in the toolbar (e.g. "Single target") */
+    label: string;
+    /** Tiers shown in the sub-menu dropdown */
+    tiers: { label: string; value: string; title?: string }[];
+  }[];
 }
 
 interface AbilityEditorProps {
@@ -69,8 +85,14 @@ interface AbilityEditorProps {
   /** Currently selected action type */
   actionType?: AbilityActionType;
   onActionTypeChange?: (t: AbilityActionType) => void;
-  /** Show frequency field (hidden for passive) */
-  showFrequency?: boolean;
+  /**
+   * Whether to show the limited-use checkbox + frequency input.
+   * When true, the checkbox is rendered; the frequency input only appears
+   * when the checkbox is checked.
+   */
+  showLimitedUse?: boolean;
+  isLimitedUse?: boolean;
+  onIsLimitedUseChange?: (v: boolean) => void;
   frequency?: string;
   onFrequencyChange?: (v: string) => void;
   /** Show trigger field (for reaction/free) */
@@ -82,6 +104,11 @@ interface AbilityEditorProps {
   onRequirementsChange?: (v: string) => void;
   /** Extra DC/Damage toolbar buttons */
   toolbarExtras?: AbilityEditorToolbarExtras;
+  /**
+   * When false, only the action type row is shown.
+   * Set to true once both a name and an action type have been provided.
+   */
+  ready?: boolean;
 }
 
 // ── Damage type picker popup ──────────────────────────────────────────────────
@@ -99,7 +126,7 @@ function DamageTypePicker({ expr, anchorRef, onPick, onClose }: DmgPickerProps) 
   const persistentBtnRef = useRef<HTMLButtonElement>(null);
 
   // Viewport-safe position: prefer below anchor, flip above if needed, clamp left edge
-  const pos = usePopupPosition(anchorRef, true, { popupWidth: 180, popupMaxHeight: 400 });
+  const pos = usePopupPosition(anchorRef, true, { popupWidth: 0, popupMaxHeight: 400 });
   // Close when clicking outside both the popup and its anchor button
   useOutsideClick(popupRef, onClose, anchorRef);
 
@@ -134,7 +161,7 @@ function DamageTypePicker({ expr, anchorRef, onPick, onClose }: DmgPickerProps) 
             <button
               key={type}
               type="button"
-              className={styles.dmgPickerBtn}
+              className={`${styles.dmgPickerBtn} ${styles.dmgTypeBtn}`}
               onMouseDown={e => { e.preventDefault(); pick(type); }}
             >{type}</button>
           ))}
@@ -159,7 +186,7 @@ function DamageTypePicker({ expr, anchorRef, onPick, onClose }: DmgPickerProps) 
                 <button
                   key={type}
                   type="button"
-                  className={styles.dmgPickerBtn}
+                  className={`${styles.dmgPickerBtn} ${styles.dmgTypeBtn}`}
                   onMouseDown={e => { e.preventDefault(); pickPersistent(type); }}
                 >{type}</button>
               ))}
@@ -172,6 +199,97 @@ function DamageTypePicker({ expr, anchorRef, onPick, onClose }: DmgPickerProps) 
   );
 }
 
+// ── Generic simple dropdown ───────────────────────────────────────────────────
+// A small popup listing labelled items. Clicking an item calls onPick and closes.
+// Used for Action Icons, DC, and Attack Mod dropdowns.
+
+interface SimpleDropdownProps {
+  items: { label: string; title?: string; onPick: () => void }[];
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
+  onClose: () => void;
+}
+
+function SimpleDropdown({ items, anchorRef, onClose }: SimpleDropdownProps) {
+  const popupRef = useRef<HTMLDivElement>(null);
+  const pos = usePopupPosition(anchorRef, true, { popupWidth: 0, popupMaxHeight: 320 });
+  useOutsideClick(popupRef, onClose, anchorRef);
+
+  if (!pos) return null;
+
+  return (
+    <div
+      ref={popupRef}
+      className={styles.dmgPicker}
+      style={{
+        position: 'fixed',
+        top:    pos.top    !== undefined ? pos.top    : undefined,
+        bottom: pos.bottom !== undefined ? pos.bottom : undefined,
+        left:   pos.left,
+        maxHeight: pos.maxH,
+      }}
+      onMouseDown={e => e.preventDefault()}
+    >
+      <div className={styles.dmgPickerGroup}>
+        {items.map(item => (
+          <button
+            key={item.label}
+            type="button"
+            className={styles.dmgPickerBtn}
+            title={item.title}
+            onMouseDown={e => { e.preventDefault(); item.onPick(); onClose(); }}
+          >{item.label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Tier sub-menu popup (monster grouped damage) ─────────────────────────────
+// Shows a small dropdown listing damage tiers (L / M / H / E).
+// Clicking a tier triggers onPickTier; clicking outside closes.
+
+interface TierSubMenuProps {
+  tiers: { label: string; value: string; title?: string }[];
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
+  onPickTier: (label: string, value: string) => void;
+  onClose: () => void;
+}
+
+function TierSubMenu({ tiers, anchorRef, onPickTier, onClose }: TierSubMenuProps) {
+  const popupRef = useRef<HTMLDivElement>(null);
+  const pos = usePopupPosition(anchorRef, true, { popupWidth: 0, popupMaxHeight: 300 });
+  useOutsideClick(popupRef, onClose, anchorRef);
+
+  if (!pos) return null;
+
+  return (
+    <div
+      ref={popupRef}
+      className={styles.dmgPicker}
+      style={{
+        position: 'fixed',
+        top:    pos.top    !== undefined ? pos.top    : undefined,
+        bottom: pos.bottom !== undefined ? pos.bottom : undefined,
+        left:   pos.left,
+        maxHeight: pos.maxH,
+      }}
+      onMouseDown={e => e.preventDefault()}
+    >
+      <div className={styles.dmgPickerGroup}>
+        {tiers.map(tier => (
+          <button
+            key={tier.label}
+            type="button"
+            className={styles.dmgPickerBtn}
+            title={tier.title}
+            onMouseDown={e => { e.preventDefault(); onPickTier(tier.label, tier.value); }}
+          >{tier.label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function AbilityEditor({
@@ -179,7 +297,9 @@ export function AbilityEditor({
   onChange,
   actionType,
   onActionTypeChange,
-  showFrequency = true,
+  showLimitedUse = false,
+  isLimitedUse = false,
+  onIsLimitedUseChange,
   frequency = '',
   onFrequencyChange,
   showTrigger = false,
@@ -188,17 +308,25 @@ export function AbilityEditor({
   requirements = '',
   onRequirementsChange,
   toolbarExtras,
+  ready = true,
 }: AbilityEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const isComposingRef = useRef(false);
   const lastHtmlRef = useRef(value);
 
-  // Which damage button's picker is open (by dmg label), or null
-  const [openDmgPicker, setOpenDmgPicker] = useState<string | null>(null);
-  // Store the pending expr and ref for the open picker
+  // Generic dropdown open key — shared across all toolbar dropdowns.
+  // Keys:
+  //   'icons'              → Action Icons dropdown
+  //   'dc'                 → DC dropdown
+  //   'atk'                → Attack Mod dropdown
+  //   dmg.label            → flat damage type picker (hazard)
+  //   `grp:${grp.label}`   → grouped damage tier sub-menu (monster)
+  //   `tier:${grp}:${tier}`→ damage type picker after tier selected (monster)
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  // Store the pending expr and ref for the open damage-type picker
   const openDmgExpr = useRef<string>('');
-  const dmgBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-  // Saved cursor position at the moment the damage picker is opened
+  const dropdownBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  // Saved cursor position at the moment any insert popup is opened
   const savedRangeRef = useRef<Range | null>(null);
 
   // Sync external value → DOM only on mount
@@ -240,7 +368,9 @@ export function AbilityEditor({
   }
 
   function insertDC(dcValue: number) {
-    editorRef.current?.focus();
+    if (!editorRef.current) return;
+    ensureEditorFocus(editorRef.current, savedRangeRef.current);
+    savedRangeRef.current = null;
     const before = textBeforeCursor();
     const hasDC = /\bDC\s*$/i.test(before);
     const text = hasDC ? String(dcValue) : `DC ${dcValue}`;
@@ -248,18 +378,27 @@ export function AbilityEditor({
     handleInput();
   }
 
+  function insertAttackBonus(bonus: number) {
+    if (!editorRef.current) return;
+    ensureEditorFocus(editorRef.current, savedRangeRef.current);
+    savedRangeRef.current = null;
+    const text = bonus >= 0 ? `+${bonus}` : String(bonus);
+    insertTextAtCursor(text);
+    handleInput();
+  }
+
   function insertDamageText(text: string) {
-    editorRef.current?.focus();
-    if (savedRangeRef.current) {
-      restoreRange(savedRangeRef.current);
-      savedRangeRef.current = null;
-    }
+    if (!editorRef.current) return;
+    ensureEditorFocus(editorRef.current, savedRangeRef.current);
+    savedRangeRef.current = null;
     insertTextAtCursor(text);
     handleInput();
   }
 
   function insertIcon(icon: string) {
-    editorRef.current?.focus();
+    if (!editorRef.current) return;
+    ensureEditorFocus(editorRef.current, savedRangeRef.current);
+    savedRangeRef.current = null;
     insertTextAtCursor(` ${icon} `);
     handleInput();
   }
@@ -271,11 +410,15 @@ export function AbilityEditor({
     }
   }
 
-  function openPickerFor(label: string, expr: string) {
-    // Snapshot the current selection before the button click shifts focus
+  function openPickerFor(key: string, expr: string) {
     savedRangeRef.current = saveCurrentRange();
     openDmgExpr.current = expr;
-    setOpenDmgPicker(prev => prev === label ? null : label);
+    setOpenDropdown(prev => prev === key ? null : key);
+  }
+
+  function toggleDropdown(key: string) {
+    savedRangeRef.current = saveCurrentRange();
+    setOpenDropdown(prev => prev === key ? null : key);
   }
 
   return (
@@ -295,8 +438,30 @@ export function AbilityEditor({
         </div>
       )}
 
-      {/* Frequency — hidden for passive */}
-      {showFrequency && onFrequencyChange && (
+      {ready && <>
+
+      {/* Limited use checkbox + frequency input (monster mode) */}
+      {showLimitedUse && onIsLimitedUseChange && (
+        <label className={styles.limitedUseRow}>
+          <input
+            type="checkbox"
+            checked={isLimitedUse}
+            onChange={e => onIsLimitedUseChange(e.target.checked)}
+          />
+          Limited use?
+        </label>
+      )}
+
+      {/* Frequency input — shown when limited use is checked (monster) or always when not using the checkbox (hazard) */}
+      {!showLimitedUse && onFrequencyChange && actionType !== 'passive' && (
+        <input
+          className={styles.metaInput}
+          value={frequency}
+          onChange={e => onFrequencyChange(e.target.value)}
+          placeholder="Frequency (e.g. Once per day)"
+        />
+      )}
+      {showLimitedUse && isLimitedUse && onFrequencyChange && (
         <input
           className={styles.metaInput}
           value={frequency}
@@ -325,22 +490,10 @@ export function AbilityEditor({
         />
       )}
 
-      {/* Formatting toolbar */}
+      {/* Toolbar */}
       <div className={styles.toolbar}>
-        {/* Inline icon inserts */}
-        {(['◆', '◆◆', '◆◆◆', '↺', '◇'] as const).map(icon => (
-          <button
-            key={icon}
-            type="button"
-            className={styles.toolbarBtn}
-            title={`Insert ${icon}`}
-            onMouseDown={e => { e.preventDefault(); insertIcon(icon); }}
-          >{icon}</button>
-        ))}
 
-        <span className={styles.toolbarSep} />
-
-        {/* Text formatting */}
+        {/* ── Formatting group ── */}
         <button type="button" className={`${styles.toolbarBtn} ${styles.bold}`}
           title="Bold (Ctrl+B)"
           onMouseDown={e => { e.preventDefault(); execFmt('bold'); }}>B</button>
@@ -351,37 +504,101 @@ export function AbilityEditor({
           title="Underline (Ctrl+U)"
           onMouseDown={e => { e.preventDefault(); execFmt('underline'); }}>U</button>
         <button type="button" className={styles.toolbarBtn}
-          title="Heading (wraps selection in h3)"
+          title="Heading"
           onMouseDown={e => { e.preventDefault(); execFmt('formatBlock', '<h3>'); }}>H</button>
 
-        {/* DC inserts */}
+        <span className={styles.toolbarSep} />
+
+        {/* ── Action Icons dropdown ── */}
+        <span className={styles.dmgPickerAnchor}>
+          <button
+            ref={el => { if (el) dropdownBtnRefs.current.set('icons', el); else dropdownBtnRefs.current.delete('icons'); }}
+            type="button"
+            className={`${styles.toolbarBtn} ${openDropdown === 'icons' ? styles.toolbarBtnActive : ''}`}
+            title="Insert action icon"
+            onMouseDown={e => { e.preventDefault(); toggleDropdown('icons'); }}
+          >Icons ▾</button>
+          {openDropdown === 'icons' && (
+            <SimpleDropdown
+              anchorRef={{ current: dropdownBtnRefs.current.get('icons') ?? null }}
+              onClose={() => setOpenDropdown(null)}
+              items={[
+                { label: '◆  Single Action',   title: 'Insert Single Action icon',   onPick: () => insertIcon('◆')   },
+                { label: '◆◆  Two Actions',    title: 'Insert Two Actions icon',     onPick: () => insertIcon('◆◆')  },
+                { label: '◆◆◆  Three Actions', title: 'Insert Three Actions icon',   onPick: () => insertIcon('◆◆◆') },
+                { label: '↺  Reaction',         title: 'Insert Reaction icon',        onPick: () => insertIcon('↺')   },
+                { label: '◇  Free Action',      title: 'Insert Free Action icon',     onPick: () => insertIcon('◇')   },
+              ]}
+            />
+          )}
+        </span>
+
+        {/* ── DC dropdown ── */}
         {toolbarExtras?.dcs && toolbarExtras.dcs.length > 0 && (
           <>
             <span className={styles.toolbarSep} />
-            {toolbarExtras.dcs.map(dc => (
+            <span className={styles.dmgPickerAnchor}>
               <button
-                key={dc.label}
+                ref={el => { if (el) dropdownBtnRefs.current.set('dc', el); else dropdownBtnRefs.current.delete('dc'); }}
                 type="button"
-                className={styles.toolbarBtn}
-                title={dc.title ?? `Insert DC ${dc.value}`}
-                onMouseDown={e => { e.preventDefault(); insertDC(dc.value); }}
-              >{dc.label}</button>
-            ))}
+                className={`${styles.toolbarBtn} ${openDropdown === 'dc' ? styles.toolbarBtnActive : ''}`}
+                title="Insert DC value"
+                onMouseDown={e => { e.preventDefault(); toggleDropdown('dc'); }}
+              >DC ▾</button>
+              {openDropdown === 'dc' && (
+                <SimpleDropdown
+                  anchorRef={{ current: dropdownBtnRefs.current.get('dc') ?? null }}
+                  onClose={() => setOpenDropdown(null)}
+                  items={toolbarExtras.dcs.map(dc => ({
+                    label: dc.label,
+                    title: dc.title ?? `Insert DC ${dc.value}`,
+                    onPick: () => insertDC(dc.value),
+                  }))}
+                />
+              )}
+            </span>
           </>
         )}
 
-        {/* Damage inserts — each button opens a damage-type picker */}
+        {/* ── Attack Mod dropdown ── */}
+        {toolbarExtras?.attackBonuses && toolbarExtras.attackBonuses.length > 0 && (
+          <>
+            <span className={styles.toolbarSep} />
+            <span className={styles.dmgPickerAnchor}>
+              <button
+                ref={el => { if (el) dropdownBtnRefs.current.set('atk', el); else dropdownBtnRefs.current.delete('atk'); }}
+                type="button"
+                className={`${styles.toolbarBtn} ${openDropdown === 'atk' ? styles.toolbarBtnActive : ''}`}
+                title="Insert spell attack modifier"
+                onMouseDown={e => { e.preventDefault(); toggleDropdown('atk'); }}
+              >Atk ▾</button>
+              {openDropdown === 'atk' && (
+                <SimpleDropdown
+                  anchorRef={{ current: dropdownBtnRefs.current.get('atk') ?? null }}
+                  onClose={() => setOpenDropdown(null)}
+                  items={toolbarExtras.attackBonuses.map(atk => ({
+                    label: atk.label,
+                    title: atk.title ?? `Insert spell attack ${atk.value >= 0 ? '+' : ''}${atk.value}`,
+                    onPick: () => insertAttackBonus(atk.value),
+                  }))}
+                />
+              )}
+            </span>
+          </>
+        )}
+
+        {/* ── Flat damage buttons (hazard mode) — L ▾ / M ▾ / H ▾, each opens damage-type picker ── */}
         {toolbarExtras?.damages && toolbarExtras.damages.length > 0 && (
           <>
             <span className={styles.toolbarSep} />
             {toolbarExtras.damages.map(dmg => {
-              const isOpen = openDmgPicker === dmg.label;
+              const isOpen = openDropdown === dmg.label;
               return (
                 <span key={dmg.label} className={styles.dmgPickerAnchor}>
                   <button
                     ref={el => {
-                      if (el) dmgBtnRefs.current.set(dmg.label, el);
-                      else dmgBtnRefs.current.delete(dmg.label);
+                      if (el) dropdownBtnRefs.current.set(dmg.label, el);
+                      else dropdownBtnRefs.current.delete(dmg.label);
                     }}
                     type="button"
                     className={`${styles.toolbarBtn} ${isOpen ? styles.toolbarBtnActive : ''}`}
@@ -391,9 +608,9 @@ export function AbilityEditor({
                   {isOpen && (
                     <DamageTypePicker
                       expr={openDmgExpr.current}
-                      anchorRef={{ current: dmgBtnRefs.current.get(dmg.label) ?? null }}
+                      anchorRef={{ current: dropdownBtnRefs.current.get(dmg.label) ?? null }}
                       onPick={text => insertDamageText(text)}
-                      onClose={() => setOpenDmgPicker(null)}
+                      onClose={() => setOpenDropdown(null)}
                     />
                   )}
                 </span>
@@ -401,6 +618,59 @@ export function AbilityEditor({
             })}
           </>
         )}
+
+        {/* ── Grouped damage dropdowns (monster mode) — "Single-Target Damage ▾" / "Area Damage ▾" ── */}
+        {toolbarExtras?.damageGroups && toolbarExtras.damageGroups.length > 0 && (
+          <>
+            <span className={styles.toolbarSep} />
+            {toolbarExtras.damageGroups.map(grp => {
+              const grpKey = `grp:${grp.label}`;
+              const grpIsOpen = openDropdown === grpKey;
+              return (
+                <span key={grp.label} className={styles.dmgPickerAnchor}>
+                  <button
+                    ref={el => {
+                      if (el) dropdownBtnRefs.current.set(grpKey, el);
+                      else dropdownBtnRefs.current.delete(grpKey);
+                    }}
+                    type="button"
+                    className={`${styles.toolbarBtn} ${grpIsOpen ? styles.toolbarBtnActive : ''}`}
+                    title={grp.label}
+                    onMouseDown={e => { e.preventDefault(); toggleDropdown(grpKey); }}
+                  >{grp.label} ▾</button>
+
+                  {/* Tier sub-menu — L / M / H / E labels only, no dice expressions */}
+                  {grpIsOpen && (
+                    <TierSubMenu
+                      tiers={grp.tiers}
+                      anchorRef={{ current: dropdownBtnRefs.current.get(grpKey) ?? null }}
+                      onPickTier={(tierLabel, tierValue) => {
+                        openDmgExpr.current = tierValue;
+                        setOpenDropdown(`tier:${grp.label}:${tierLabel}`);
+                      }}
+                      onClose={() => setOpenDropdown(null)}
+                    />
+                  )}
+
+                  {/* Damage type picker — opens once a tier is selected */}
+                  {grp.tiers.map(tier => {
+                    const tierKey = `tier:${grp.label}:${tier.label}`;
+                    return openDropdown === tierKey ? (
+                      <DamageTypePicker
+                        key={tierKey}
+                        expr={openDmgExpr.current}
+                        anchorRef={{ current: dropdownBtnRefs.current.get(grpKey) ?? null }}
+                        onPick={text => insertDamageText(text)}
+                        onClose={() => setOpenDropdown(null)}
+                      />
+                    ) : null;
+                  })}
+                </span>
+              );
+            })}
+          </>
+        )}
+
       </div>
 
       {/* WYSIWYG editor surface */}
@@ -414,6 +684,8 @@ export function AbilityEditor({
         data-placeholder="Description…"
         spellCheck
       />
+
+      </>}
     </div>
   );
 }

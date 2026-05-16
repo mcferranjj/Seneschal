@@ -20,6 +20,8 @@ export interface CustomAbility {
   name: string;
   description: string;
   actionType?: AbilityActionType;
+  /** Whether this ability is limited-use (affects area damage tier and frequency visibility) */
+  isLimitedUse?: boolean;
   frequency?: string;
   trigger?: string;
   requirements?: string;

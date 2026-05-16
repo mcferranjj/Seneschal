@@ -19,14 +19,6 @@ export function insertTextAtCursor(text: string): void {
   sel.addRange(range);
 }
 
-/** Restore a previously saved Range into the current selection. */
-export function restoreRange(saved: Range): void {
-  const sel = window.getSelection();
-  if (!sel) return;
-  sel.removeAllRanges();
-  sel.addRange(saved);
-}
-
 /**
  * Returns the plain text immediately before the cursor within its text node.
  * Useful for context-sensitive inserts (e.g. detecting "DC " before a number).
@@ -51,4 +43,36 @@ export function textBeforeCursor(): string {
 export function saveCurrentRange(): Range | null {
   const sel = window.getSelection();
   return sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+}
+
+/**
+ * Ensures the selection is inside `editor` before inserting.
+ *
+ * - If `saved` is non-null and lies inside `editor`, restores it.
+ * - Otherwise collapses the selection to the very end of `editor`'s content.
+ *
+ * Call this at the start of any insert operation so text never lands in a
+ * different input that happened to hold focus last.
+ */
+export function ensureEditorFocus(editor: HTMLElement, saved: Range | null): void {
+  editor.focus();
+
+  // If we have a saved range and it's inside this editor, use it.
+  if (saved && editor.contains(saved.commonAncestorContainer)) {
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(saved);
+    }
+    return;
+  }
+
+  // Otherwise place the cursor at the end of the editor content.
+  const sel = window.getSelection();
+  if (!sel) return;
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  range.collapse(false); // collapse to end
+  sel.removeAllRanges();
+  sel.addRange(range);
 }

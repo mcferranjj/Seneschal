@@ -1,18 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
-import {
-  HP_TABLE, AC_TABLE, SAVE_TABLE, ATTACK_TABLE, DAMAGE_TABLE,
-  ABILITY_TABLE, PERCEPTION_TABLE, RES_WEAK_TABLE,
-  HAZARD_STEALTH_DISABLE_TABLE, HAZARD_DEFENSE_TABLE, HAZARD_OFFENSE_TABLE,
-} from '../../data/pf2eTables';
 import type { HpTier, AcTier, SaveTier, AbilityTier, ResWeakTier, HazardDCTier, HazardDefenseTier } from '../../data/pf2eTables';
+import {
+  HP_TIERS, AC_TIERS, SAVE_TIERS, ABILITY_TIERS, RES_WEAK_TIERS,
+  lookupHp, lookupAc, lookupSave, lookupAttack, lookupDamage,
+  lookupAbility, lookupPerception, lookupResWeak,
+  lookupHazardStealth, lookupHazardAc, lookupHazardSave, lookupHazardHp, lookupHazardHardness,
+  lookupHazardAtk, lookupHazardDmg,
+  closestTier,
+} from '../../utils/levelScaling';
 import { CREATURE_TYPES, HAZARD_TYPES, SIZES, DAMAGE_TYPES } from '../../data/pf2eConstants';
 import type { CreatureRecord } from '../../db/schema';
 import type { CustomAttack, CustomAbility, AbilityActionType, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, SpeedType, CustomSpellcastingEntry, CustomSpell, SpellTradition, SpellcastingType, SpellFrequency, CustomSkill } from '../../types/encounter';
 import { creatureRepository } from '../../db/repositories/CreatureRepository';
 import { getAllTraits } from '../../search/search';
 import { rankSuggestions } from '../../utils/suggestions';
-import { AbilityEditor } from './AbilityEditor';
-import type { AbilityEditorToolbarExtras } from './AbilityEditor';
+import { AbilityCard } from './AbilityCard';
 import styles from './CustomCreatureWizard.module.css';
 
 
@@ -38,9 +40,6 @@ const MONSTER_ATTACK_TRAITS = [
   'disease', 'curse', 'incapacitation',
 ];
 
-const MONSTER_ABILITY_SUGGESTIONS = [
-  'Constrict', 'Swallow Whole', 'Trample', 'Rend', 'Pounce', 'Attach',
-];
 
 const COMMON_SENSES = [
   'low-light vision', 'darkvision', 'greater darkvision',
@@ -73,12 +72,6 @@ interface AttackDraft {
   traitInput: string;
 }
 
-const HP_TIERS:       HpTier[]      = ['low', 'moderate', 'high'];
-const AC_TIERS:       AcTier[]      = ['low', 'moderate', 'high', 'extreme'];
-const SAVE_TIERS:     SaveTier[]    = ['terrible', 'low', 'moderate', 'high', 'extreme'];
-const ABILITY_TIERS:  AbilityTier[] = ['terrible', 'low', 'moderate', 'high', 'extreme'];
-const RES_WEAK_TIERS: ResWeakTier[] = ['low', 'moderate', 'high'];
-
 const HAZARD_DC_TIERS:      HazardDCTier[]      = ['low', 'high', 'extreme'];
 const HAZARD_DEFENSE_TIERS: HazardDefenseTier[] = ['low', 'high', 'extreme'];
 
@@ -95,88 +88,6 @@ const TIER_COL: Record<HpTier | AcTier | SaveTier, number> = {
 const HAZARD_TIER_ABBREV: Record<HazardDCTier, string> = { low: 'L', high: 'H', extreme: 'E' };
 /** Grid column for hazard 3-tier buttons (L H E → columns 1 2 3) */
 const HAZARD_TIER_COL: Record<HazardDCTier, number> = { low: 1, high: 2, extreme: 3 };
-
-function lookupHazardStealth(level: number, tier: HazardDCTier): number {
-  const l = Math.max(-1, Math.min(24, level));
-  return (HAZARD_STEALTH_DISABLE_TABLE[l] ?? HAZARD_STEALTH_DISABLE_TABLE[0])[tier];
-}
-function lookupHazardAc(level: number, tier: HazardDefenseTier): number {
-  const l = Math.max(-1, Math.min(24, level));
-  return (HAZARD_DEFENSE_TABLE[l] ?? HAZARD_DEFENSE_TABLE[0]).ac[tier];
-}
-function lookupHazardSave(level: number, tier: HazardDefenseTier): number {
-  const l = Math.max(-1, Math.min(24, level));
-  return (HAZARD_DEFENSE_TABLE[l] ?? HAZARD_DEFENSE_TABLE[0]).save[tier];
-}
-function lookupHazardHp(level: number): number {
-  const l = Math.max(-1, Math.min(24, level));
-  return (HAZARD_DEFENSE_TABLE[l] ?? HAZARD_DEFENSE_TABLE[0]).hp;
-}
-function lookupHazardHardness(level: number): number {
-  const l = Math.max(-1, Math.min(24, level));
-  return (HAZARD_DEFENSE_TABLE[l] ?? HAZARD_DEFENSE_TABLE[0]).hardness;
-}
-function lookupHazardAtk(level: number, isComplex: boolean): number {
-  const l = Math.max(-1, Math.min(24, level));
-  const row = HAZARD_OFFENSE_TABLE[l] ?? HAZARD_OFFENSE_TABLE[0];
-  return isComplex ? row.complexAtk : row.simpleAtk;
-}
-function lookupHazardDmg(level: number, isComplex: boolean): string {
-  const l = Math.max(-1, Math.min(24, level));
-  const row = HAZARD_OFFENSE_TABLE[l] ?? HAZARD_OFFENSE_TABLE[0];
-  return isComplex ? row.complexDmg : row.simpleDmg;
-}
-
-
-function lookupAbility(level: number, tier: AbilityTier): number {
-  const l = Math.max(-1, Math.min(25, level));
-  return (ABILITY_TABLE[l] ?? ABILITY_TABLE[0])[tier];
-}
-function lookupPerception(level: number, tier: SaveTier): number {
-  const l = Math.max(-1, Math.min(25, level));
-  return (PERCEPTION_TABLE[l] ?? PERCEPTION_TABLE[0])[tier];
-}
-function lookupResWeak(level: number, tier: ResWeakTier): number {
-  const l = Math.max(-1, Math.min(25, level));
-  return (RES_WEAK_TABLE[l] ?? RES_WEAK_TABLE[0])[tier];
-}
-
-function lookupHp(level: number, tier: HpTier): number {
-  const l = Math.max(-1, Math.min(25, level));
-  return (HP_TABLE[l] ?? HP_TABLE[0])[tier];
-}
-function lookupAc(level: number, tier: AcTier): number {
-  const l = Math.max(-1, Math.min(25, level));
-  return (AC_TABLE[l] ?? AC_TABLE[0])[tier];
-}
-function lookupSave(level: number, tier: SaveTier): number {
-  const l = Math.max(-1, Math.min(25, level));
-  return (SAVE_TABLE[l] ?? SAVE_TABLE[0])[tier];
-}
-function lookupAttack(level: number, tier: AcTier): number {
-  const l = Math.max(-1, Math.min(25, level));
-  return (ATTACK_TABLE[l] ?? ATTACK_TABLE[0])[tier];
-}
-function lookupDamage(level: number, tier: AcTier): string {
-  const l = Math.max(-1, Math.min(25, level));
-  return (DAMAGE_TABLE[l] ?? DAMAGE_TABLE[0])[tier];
-}
-
-/** Return whichever tier in `tiers` produces a value numerically closest to `value`. */
-function closestTier<T extends string>(
-  tiers: readonly T[],
-  lookup: (tier: T) => number,
-  value: number,
-  fallback: T,
-): T {
-  let best = fallback;
-  let bestDist = Infinity;
-  for (const t of tiers) {
-    const dist = Math.abs(lookup(t) - value);
-    if (dist < bestDist) { bestDist = dist; best = t; }
-  }
-  return best;
-}
 
 function defaultAttack(level: number): AttackDraft {
   return {
@@ -401,7 +312,6 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
   const traitInputRef = useRef<HTMLInputElement>(null);
   const [allTraits, setAllTraits] = useState<string[]>([]);
   const [focusedAttackIdx, setFocusedAttackIdx] = useState<number | null>(null);
-  const [focusedAbilityIdx, setFocusedAbilityIdx] = useState<number | null>(null);
   const [flavorText, setFlavorText] = useState(initFromEdit(editCreature?.customData?.flavorText ?? '', ''));
 
   // Ability modifiers
@@ -1660,89 +1570,17 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
           Abilities
           <button className={styles.addBtn} onClick={() => setAbilities(prev => [...prev, { name: '', description: '' }])}>+ Add</button>
         </div>
-        {abilities.map((ab, i) => {
-          // Build toolbar extras for hazard mode
-          const hazardExtras: AbilityEditorToolbarExtras | undefined = entityKind === 'hazard' ? (() => {
-            const offRow = HAZARD_OFFENSE_TABLE[Math.max(-1, Math.min(24, level))];
-            const edc = offRow?.extremeDC ?? 19;
-            const hdc = offRow?.hardDC ?? 16;
-            // L/M/H damage: level-1 / at-level / level+1, same logic as attack tier buttons
-            const dmgDelta = hazardIsComplex ? 2 : 4;
-            const dmgForOffset = (lvOffset: number) => {
-              const targetLv = Math.max(-1, Math.min(24, level + lvOffset));
-              if (HAZARD_OFFENSE_TABLE[targetLv] != null) return lookupHazardDmg(targetLv, hazardIsComplex);
-              const base = lookupHazardDmg(level, hazardIsComplex);
-              const m = base.match(/^(.+[+-])(\d+)$/);
-              if (m) return `${m[1]}${Math.max(0, parseInt(m[2]) + lvOffset * dmgDelta)}`;
-              return base;
-            };
-            return {
-              dcs: [
-                { label: 'EDC', value: edc, title: `Extreme DC (${edc})` },
-                { label: 'HDC', value: hdc, title: `Hard DC (${hdc})` },
-              ],
-              damages: [
-                { label: 'L', value: dmgForOffset(-1), title: `Low damage (${dmgForOffset(-1)})` },
-                { label: 'M', value: dmgForOffset(0),  title: `Moderate damage (${dmgForOffset(0)})` },
-                { label: 'H', value: dmgForOffset(1),  title: `High damage (${dmgForOffset(1)})` },
-              ],
-            };
-          })() : undefined;
-
-          return (
-            <div key={i} className={styles.abilityCard}>
-              <div className={styles.abilityRow1}>
-                <div className={styles.abilityNameWrap}>
-                  <input
-                    className={styles.attackNameInput}
-                    value={ab.name}
-                    onChange={e => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, name: e.target.value } : a))}
-                    onFocus={() => setFocusedAbilityIdx(i)}
-                    onBlur={() => setFocusedAbilityIdx(null)}
-                    onKeyDown={e => {
-                      if (e.key === 'Tab' && ab.name.length > 0) {
-                        const q = ab.name.toLowerCase();
-                        const suggestions = rankSuggestions(MONSTER_ABILITY_SUGGESTIONS, q).filter(s => s.toLowerCase() !== ab.name.toLowerCase());
-                        if (suggestions.length > 0) { e.preventDefault(); setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, name: suggestions[0] } : a)); }
-                      }
-                    }}
-                    placeholder="Ability name…"
-                  />
-                  {focusedAbilityIdx === i && ab.name.length > 0 && (() => {
-                    const q = ab.name.toLowerCase();
-                    const suggestions = rankSuggestions(MONSTER_ABILITY_SUGGESTIONS, q).filter(s => s.toLowerCase() !== ab.name.toLowerCase());
-                    return suggestions.length > 0 ? (
-                      <ul className={styles.suggestions}>
-                        {suggestions.map(s => (
-                          <li key={s} className={styles.suggestion} onMouseDown={e => {
-                            e.preventDefault();
-                            setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, name: s } : a));
-                          }}>{s}</li>
-                        ))}
-                      </ul>
-                    ) : null;
-                  })()}
-                </div>
-                <button className={styles.removeBtn} onClick={() => setAbilities(prev => prev.filter((_, idx) => idx !== i))}>×</button>
-              </div>
-              <AbilityEditor
-                value={ab.description}
-                onChange={html => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, description: html } : a))}
-                actionType={ab.actionType}
-                onActionTypeChange={t => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, actionType: t } : a))}
-                showFrequency={ab.actionType !== 'passive'}
-                frequency={ab.frequency ?? ''}
-                onFrequencyChange={v => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, frequency: v } : a))}
-                showTrigger={ab.actionType === 'reaction' || ab.actionType === 'free'}
-                trigger={ab.trigger ?? ''}
-                onTriggerChange={v => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, trigger: v } : a))}
-                requirements={ab.requirements ?? ''}
-                onRequirementsChange={v => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, requirements: v } : a))}
-                toolbarExtras={hazardExtras}
-              />
-            </div>
-          );
-        })}
+        {abilities.map((ab, i) => (
+          <AbilityCard
+            key={i}
+            ability={ab}
+            onChange={patch => setAbilities(prev => prev.map((a, idx) => idx === i ? { ...a, ...patch } : a))}
+            onRemove={() => setAbilities(prev => prev.filter((_, idx) => idx !== i))}
+            entityKind={entityKind}
+            level={level}
+            hazardIsComplex={hazardIsComplex}
+          />
+        ))}
         {/* Spellcasting — creatures only */}
         {entityKind !== 'hazard' && (
           <>

@@ -195,12 +195,12 @@
   border: 1px solid var(--border);
   border-radius: 5px;
   padding: 5px 6px;
-  min-width: 160px;
   box-shadow: 0 4px 14px rgba(0,0,0,0.5);
   display: flex;
   flex-direction: column;
   gap: 0;
   overflow-y: auto;
+  width: max-content;
 }
 
 /* One row of related types (separated by a subtle rule from neighbors) */
@@ -215,7 +215,7 @@
   border-top: 1px solid var(--border);
 }
 
-/* Individual type button */
+/* Individual popup button (damage types, action icons, DC/Atk items) */
 .dmgPickerBtn {
   padding: 2px 7px;
   border-radius: 3px;
@@ -227,6 +227,10 @@
   line-height: 1.5;
   font-family: inherit;
   white-space: nowrap;
+}
+
+/* Capitalize only for damage type names (applied via the DamageTypePicker wrapper) */
+.dmgTypeBtn {
   text-transform: capitalize;
 }
 
@@ -268,4 +272,20 @@
   padding: 2px 2px 0;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* Limited-use checkbox row */
+.limitedUseRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.73rem;
+  color: var(--text-mid);
+  cursor: pointer;
+  user-select: none;
+}
+
+.limitedUseRow input[type='checkbox'] {
+  cursor: pointer;
+  accent-color: var(--crimson);
 }
