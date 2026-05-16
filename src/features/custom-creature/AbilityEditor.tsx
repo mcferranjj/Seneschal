@@ -4,13 +4,16 @@
  * • contenteditable div: user sees formatted text directly, no raw HTML
  * • Toolbar: action icons, Bold/Italic/Underline/Heading, DC/Damage inserts
  * • DC insert: checks for "DC" at cursor; inserts number only if already present, else "DC <n>"
- * • Damage insert: inserts the plain dice expression (e.g. "2d8+5")
+ * • Damage insert: opens a grouped damage-type picker; inserts "<expr> <type> damage"
  * • Uses execCommand for inline formatting so no tags are ever visible to the user
  * • Stores content as HTML string via onChange
  */
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { processFoundryHtml } from '../../utils/foundryMacros';
+import { insertTextAtCursor, restoreRange, textBeforeCursor, saveCurrentRange } from '../../utils/contentEditable';
+import { usePopupPosition } from '../../hooks/usePopupPosition';
+import { useOutsideClick } from '../../hooks/useOutsideClick';
 import type { AbilityActionType } from '../../types/encounter';
 import styles from './AbilityEditor.module.css';
 
@@ -23,6 +26,34 @@ const ACTION_ICONS: { value: AbilityActionType; label: string; title: string }[]
   { value: 'free',     label: '◇',     title: 'Free Action'           },
   { value: 'passive',  label: 'Passive', title: 'Passive'             },
 ];
+
+// ── Damage type groups ────────────────────────────────────────────────────────
+
+interface DmgTypeGroup {
+  types: string[];
+}
+
+// Ordered groups for the main damage type picker.
+// Persistent is a special entry rendered last with its own submenu.
+const DAMAGE_TYPE_GROUPS: DmgTypeGroup[] = [
+  { types: ['bludgeoning', 'piercing', 'slashing'] },
+  { types: ['acid', 'cold', 'electricity', 'fire', 'sonic'] },
+  { types: ['force', 'spirit', 'vitality', 'void'] },
+  { types: ['mental', 'poison', 'precision'] },
+  { types: ['untyped'] },
+];
+
+// Types available under "persistent <type>":
+// excludes bludgeoning/piercing/slashing/precision; adds bleed first.
+const PERSISTENT_DAMAGE_TYPE_GROUPS: DmgTypeGroup[] = [
+  { types: ['bleed'] },
+  { types: ['acid', 'cold', 'electricity', 'fire', 'sonic'] },
+  { types: ['force', 'spirit', 'vitality', 'void'] },
+  { types: ['mental', 'poison'] },
+  { types: ['untyped'] },
+];
+
+// ── Component interface ───────────────────────────────────────────────────────
 
 export interface AbilityEditorToolbarExtras {
   /** Plain text DC values to insert (e.g. { label: 'EDC', value: 22 }) */
@@ -53,34 +84,95 @@ interface AbilityEditorProps {
   toolbarExtras?: AbilityEditorToolbarExtras;
 }
 
-/** Insert a text node at the current selection, or at end if no selection. */
-function insertTextAtCursor(text: string) {
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) return;
-  const range = sel.getRangeAt(0);
-  range.deleteContents();
-  const textNode = document.createTextNode(text);
-  range.insertNode(textNode);
-  range.setStartAfter(textNode);
-  range.setEndAfter(textNode);
-  sel.removeAllRanges();
-  sel.addRange(range);
+// ── Damage type picker popup ──────────────────────────────────────────────────
+
+interface DmgPickerProps {
+  expr: string;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
+  onPick: (text: string) => void;
+  onClose: () => void;
 }
 
-/** Return the text immediately before the cursor in the current line/paragraph. */
-function textBeforeCursor(): string {
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) return '';
-  const range = sel.getRangeAt(0).cloneRange();
-  range.collapse(true);
-  // expand to start of container
-  const node = range.startContainer;
-  const offset = range.startOffset;
-  if (node.nodeType === Node.TEXT_NODE) {
-    return (node.textContent ?? '').slice(0, offset);
+function DamageTypePicker({ expr, anchorRef, onPick, onClose }: DmgPickerProps) {
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [showPersistent, setShowPersistent] = useState(false);
+  const persistentBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Viewport-safe position: prefer below anchor, flip above if needed, clamp left edge
+  const pos = usePopupPosition(anchorRef, true, { popupWidth: 180, popupMaxHeight: 400 });
+  // Close when clicking outside both the popup and its anchor button
+  useOutsideClick(popupRef, onClose, anchorRef);
+
+  function pick(type: string) {
+    onPick(`${expr} ${type} damage`);
+    onClose();
   }
-  return '';
+
+  function pickPersistent(type: string) {
+    onPick(`${expr} persistent ${type} damage`);
+    onClose();
+  }
+
+  if (!pos) return null;
+
+  return (
+    <div
+      ref={popupRef}
+      className={styles.dmgPicker}
+      style={{
+        position: 'fixed',
+        top:    pos.top    !== undefined ? pos.top    : undefined,
+        bottom: pos.bottom !== undefined ? pos.bottom : undefined,
+        left:   pos.left,
+        maxHeight: pos.maxH,
+      }}
+      onMouseDown={e => e.preventDefault()}
+    >
+      {!showPersistent && DAMAGE_TYPE_GROUPS.map((group, gi) => (
+        <div key={gi} className={styles.dmgPickerGroup}>
+          {group.types.map(type => (
+            <button
+              key={type}
+              type="button"
+              className={styles.dmgPickerBtn}
+              onMouseDown={e => { e.preventDefault(); pick(type); }}
+            >{type}</button>
+          ))}
+        </div>
+      ))}
+
+      {/* Persistent trigger — always visible */}
+      <div className={styles.dmgPickerGroup}>
+        <button
+          ref={persistentBtnRef}
+          type="button"
+          className={`${styles.dmgPickerBtn} ${styles.dmgPickerPersistent} ${showPersistent ? styles.dmgPickerPersistentActive : ''}`}
+          onMouseDown={e => { e.preventDefault(); setShowPersistent(v => !v); }}
+        >{showPersistent ? '◀ persistent' : 'persistent ▶'}</button>
+      </div>
+
+      {showPersistent && (
+        <div className={styles.dmgPickerSub} onMouseDown={e => e.preventDefault()}>
+          {PERSISTENT_DAMAGE_TYPE_GROUPS.map((group, gi) => (
+            <div key={gi} className={styles.dmgPickerGroup}>
+              {group.types.map(type => (
+                <button
+                  key={type}
+                  type="button"
+                  className={styles.dmgPickerBtn}
+                  onMouseDown={e => { e.preventDefault(); pickPersistent(type); }}
+                >{type}</button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+    </div>
+  );
 }
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export function AbilityEditor({
   value,
@@ -98,39 +190,40 @@ export function AbilityEditor({
   toolbarExtras,
 }: AbilityEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
-  // Track whether we're in the middle of a user-initiated change to avoid cursor reset
   const isComposingRef = useRef(false);
   const lastHtmlRef = useRef(value);
 
-  // Sync external value → DOM only when it differs from what the editor already shows
-  // (i.e. on initial mount or external programmatic change, not on user typing)
+  // Which damage button's picker is open (by dmg label), or null
+  const [openDmgPicker, setOpenDmgPicker] = useState<string | null>(null);
+  // Store the pending expr and ref for the open picker
+  const openDmgExpr = useRef<string>('');
+  const dmgBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  // Saved cursor position at the moment the damage picker is opened
+  const savedRangeRef = useRef<Range | null>(null);
+
+  // Sync external value → DOM only on mount
   useEffect(() => {
     const el = editorRef.current;
     if (!el) return;
-    // Convert stored plain/Foundry HTML to display HTML on initial load
     const displayHtml = processFoundryHtml(value || '');
     if (el.innerHTML !== displayHtml && !isComposingRef.current) {
       el.innerHTML = displayHtml;
       lastHtmlRef.current = value;
     }
-  // Only run on mount and when value changes externally
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When the editor content changes, serialize back to the stored format
   const handleInput = useCallback(() => {
     const el = editorRef.current;
     if (!el) return;
     isComposingRef.current = true;
-    // We store the innerHTML as-is (it will be plain HTML from execCommand)
     const html = el.innerHTML;
     lastHtmlRef.current = html;
     onChange(html);
-    // Allow next external sync
     requestAnimationFrame(() => { isComposingRef.current = false; });
   }, [onChange]);
 
-  // Re-sync if value changes externally (e.g. load from DB)
+  // Re-sync if value changes externally
   useEffect(() => {
     const el = editorRef.current;
     if (!el || isComposingRef.current) return;
@@ -141,24 +234,27 @@ export function AbilityEditor({
     }
   }, [value]);
 
-  function execFmt(command: string, value?: string) {
+  function execFmt(command: string, val?: string) {
     editorRef.current?.focus();
-    document.execCommand(command, false, value);
+    document.execCommand(command, false, val);
   }
 
   function insertDC(dcValue: number) {
     editorRef.current?.focus();
     const before = textBeforeCursor();
-    // If the last non-whitespace chars are "DC" or "dc", just insert the number
     const hasDC = /\bDC\s*$/i.test(before);
     const text = hasDC ? String(dcValue) : `DC ${dcValue}`;
     insertTextAtCursor(text);
     handleInput();
   }
 
-  function insertDamage(expr: string) {
+  function insertDamageText(text: string) {
     editorRef.current?.focus();
-    insertTextAtCursor(expr);
+    if (savedRangeRef.current) {
+      restoreRange(savedRangeRef.current);
+      savedRangeRef.current = null;
+    }
+    insertTextAtCursor(text);
     handleInput();
   }
 
@@ -168,12 +264,18 @@ export function AbilityEditor({
     handleInput();
   }
 
-  // Prevent Enter from creating <div> instead of <br>
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter') {
       e.preventDefault();
       document.execCommand('insertLineBreak');
     }
+  }
+
+  function openPickerFor(label: string, expr: string) {
+    // Snapshot the current selection before the button click shifts focus
+    savedRangeRef.current = saveCurrentRange();
+    openDmgExpr.current = expr;
+    setOpenDmgPicker(prev => prev === label ? null : label);
   }
 
   return (
@@ -268,19 +370,35 @@ export function AbilityEditor({
           </>
         )}
 
-        {/* Damage inserts */}
+        {/* Damage inserts — each button opens a damage-type picker */}
         {toolbarExtras?.damages && toolbarExtras.damages.length > 0 && (
           <>
-            {!toolbarExtras?.dcs?.length && <span className={styles.toolbarSep} />}
-            {toolbarExtras.damages.map(dmg => (
-              <button
-                key={dmg.label}
-                type="button"
-                className={styles.toolbarBtn}
-                title={dmg.title ?? `Insert ${dmg.value}`}
-                onMouseDown={e => { e.preventDefault(); insertDamage(dmg.value); }}
-              >{dmg.label}</button>
-            ))}
+            <span className={styles.toolbarSep} />
+            {toolbarExtras.damages.map(dmg => {
+              const isOpen = openDmgPicker === dmg.label;
+              return (
+                <span key={dmg.label} className={styles.dmgPickerAnchor}>
+                  <button
+                    ref={el => {
+                      if (el) dmgBtnRefs.current.set(dmg.label, el);
+                      else dmgBtnRefs.current.delete(dmg.label);
+                    }}
+                    type="button"
+                    className={`${styles.toolbarBtn} ${isOpen ? styles.toolbarBtnActive : ''}`}
+                    title={dmg.title ?? `Insert ${dmg.value} damage`}
+                    onMouseDown={e => { e.preventDefault(); openPickerFor(dmg.label, dmg.value); }}
+                  >{dmg.label} ▾</button>
+                  {isOpen && (
+                    <DamageTypePicker
+                      expr={openDmgExpr.current}
+                      anchorRef={{ current: dmgBtnRefs.current.get(dmg.label) ?? null }}
+                      onPick={text => insertDamageText(text)}
+                      onClose={() => setOpenDmgPicker(null)}
+                    />
+                  )}
+                </span>
+              );
+            })}
           </>
         )}
       </div>

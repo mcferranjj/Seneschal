@@ -1682,9 +1682,9 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
                 { label: 'HDC', value: hdc, title: `Hard DC (${hdc})` },
               ],
               damages: [
-                { label: 'L', value: dmgForOffset(-1), title: `Low damage / level −1 (${dmgForOffset(-1)})` },
-                { label: 'M', value: dmgForOffset(0),  title: `Moderate damage / at level (${dmgForOffset(0)})` },
-                { label: 'H', value: dmgForOffset(1),  title: `High damage / level +1 (${dmgForOffset(1)})` },
+                { label: 'L', value: dmgForOffset(-1), title: `Low damage (${dmgForOffset(-1)})` },
+                { label: 'M', value: dmgForOffset(0),  title: `Moderate damage (${dmgForOffset(0)})` },
+                { label: 'H', value: dmgForOffset(1),  title: `High damage (${dmgForOffset(1)})` },
               ],
             };
           })() : undefined;

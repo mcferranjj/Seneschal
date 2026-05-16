@@ -177,6 +177,9 @@ export function applyEliteWeakToHtml(rawHtml: string, dmgMod: number, dcMod: num
 /**
  * Extract all @Damage macros from raw Foundry HTML, returned as { expr, label } pairs
  * suitable for the multi-damage roller.
+ *
+ * Falls back to scanning plain text for dice expressions (e.g. custom creature abilities)
+ * when no @Damage macros are present.
  */
 export function extractDamageGroups(rawHtml: string): DamageGroup[] {
   const groups: DamageGroup[] = [];
@@ -205,6 +208,28 @@ export function extractDamageGroups(rawHtml: string): DamageGroup[] {
       groups.push({ expr, label });
     });
   }
+
+  // Fallback: if no @Damage macros found, scan plain text for dice expressions.
+  // Matches patterns like "2d8+7 bludgeoning damage", "3d6 fire damage", "1d4 damage"
+  // Operates on stripped text so HTML tags don't interfere.
+  if (groups.length === 0) {
+    const plainText = rawHtml.replace(/<[^>]*>/g, ' ');
+    // Match: <dice_expr> [optional whitespace] <optional damage-type word(s)> [optional " damage"]
+    // e.g. "2d8+7 bludgeoning damage", "3d6 fire damage", "1d4 damage", "2d6+3 negative damage"
+    // Capture: <dice> <type-word(s)> "damage"  OR  <dice> "damage" (no type)
+    // Type words are 1–2 non-"damage" words immediately before the word "damage".
+    const plainRe = /\b(\d+d\d+(?:[+-]\d+)?)\s+(?:((?!damage\b)\w+(?:\s+(?!damage\b)\w+)?)\s+damage\b|(damage\b))/gi;
+    let pm: RegExpExecArray | null;
+    while ((pm = plainRe.exec(plainText)) !== null) {
+      const expr = pm[1];
+      // pm[2] is the damage type words (e.g. "bludgeoning", "fire", "negative"),
+      // pm[3] is "damage" when there's no type word before it
+      const damageType = pm[2] ?? null;
+      const label = damageType ? `${damageType} damage` : 'damage';
+      groups.push({ expr, label });
+    }
+  }
+
   return groups;
 }
 

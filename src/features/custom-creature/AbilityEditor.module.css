@@ -173,3 +173,99 @@
   border-bottom: 1px dotted var(--text-mute);
   cursor: help;
 }
+
+/* ── Active state for toolbar buttons (e.g. open damage picker) ── */
+.toolbarBtnActive {
+  background: var(--border-l);
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+/* ── Damage type picker popup ── */
+
+/* Wrapper for the anchor button — no positioning context needed (popup is fixed) */
+.dmgPickerAnchor {
+  display: inline-block;
+}
+
+/* The dropdown popup itself — position/top/bottom/left/maxHeight set inline via usePopupPosition */
+.dmgPicker {
+  z-index: 200;
+  background: var(--bg-mid, #2a2118);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 6px;
+  min-width: 160px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+}
+
+/* One row of related types (separated by a subtle rule from neighbors) */
+.dmgPickerGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 4px 0;
+}
+
+.dmgPickerGroup + .dmgPickerGroup {
+  border-top: 1px solid var(--border);
+}
+
+/* Individual type button */
+.dmgPickerBtn {
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-mid);
+  font-size: 0.68rem;
+  cursor: pointer;
+  line-height: 1.5;
+  font-family: inherit;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+
+.dmgPickerBtn:hover {
+  background: var(--border-l);
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+/* "persistent ▶" button — slightly distinguished */
+.dmgPickerPersistent {
+  color: var(--text);
+  font-style: italic;
+}
+
+.dmgPickerPersistent:hover {
+  background: var(--border-l);
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+.dmgPickerPersistentActive {
+  background: var(--border-l);
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+/* Persistent sub-panel — inline below the trigger row */
+.dmgPickerSub {
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+  padding-top: 2px;
+}
+
+.dmgPickerSubHeader {
+  font-size: 0.62rem;
+  font-style: italic;
+  color: var(--text-mute);
+  padding: 2px 2px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
