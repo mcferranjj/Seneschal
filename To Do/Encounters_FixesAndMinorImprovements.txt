@@ -5,12 +5,12 @@ Minor Improvements:
         - not implemented
     - make ability damage scaler use dice more rather than applying the flat damage difference right in the damage description (e.g. magma dragon breath)
     - look into why some descriptions are missing (e.g. Tooth Fairy)
+    - fix cases where formatting text (markdown, etc.) is appearing in descriptions of abilities in copy-and-edit windows
     
 Backend Cleanup/Improvements:
     - consolidate custom creature and official creature storage formats, and consolidate their display
 
 Bug Fixes:
-    - GM Core and Core Rulebook need to be added in their relevant legacy/remastered sections as togglable filters
     - make sure "custom" is always present as a source, even when no custom creatures are in the database. Only turn it on by default if custom creatures are found
 
 Unanswered Questions:

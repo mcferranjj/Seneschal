@@ -1,11 +1,16 @@
 Encounters:
+    - right click on rollable dice to be able to enter an IRL roll, where it then computes and adds it to dice history
+    - flesh out settings
+        - default preferences
+        - color preferences
+
+    - add ability to export/import monsters, full database, encounters, etc.
 
     - name generator
     - random monster quirk generator
 
 
-    - in the custom creature wizard, add functionality for suggesting standard monster abilities (trample, swallow whole, etc.)
-        - also add functionality to browse and add/scale abilities from all other monsters, filterable by creature type
+    - in the custom creature wizard, add functionality to browse and add/scale abilities from all other monsters, filterable by creature type
     
     - party tracker (currently the "characters" tab):
         - move party manager from "Characters" tab to "Encounters" ("Characters" tab should be for player characters)

@@ -31,7 +31,7 @@ import { buildScaledCreature, scaleAbilityHtml, eliteWeakHpDelta, eliteWeakLevel
 import { useRollState } from '../../hooks/useRollState';
 import { AttackBlock } from './AttackBlock';
 import { AttackLine } from './AttackLine';
-import { ItemBlock } from './ItemBlock';
+import { ItemBlock, AbilityPopup } from './ItemBlock';
 import { SpellcastingBlock } from './SpellcastingBlock';
 import { TraitChip } from './TraitChip';
 import { ABILITY_GLOSSARY } from '../../data/abilityGlossary';
@@ -122,18 +122,13 @@ function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDamage }:
 
       {/* Ability glossary popup */}
       {popupOpen && glossaryDesc && pos && (
-        <div
-          ref={popupRef}
-          className={styles.abilityPopup}
-          style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, maxHeight: pos.maxH }}
-        >
-          <div className={styles.abilityPopupHeader}>
-            <span className={styles.abilityPopupName}>{glossaryKey}</span>
-            <span className={styles.abilityPopupSource}>Monster Core</span>
-            <button className={styles.abilityPopupClose} onClick={() => setPopupOpen(false)}>✕</button>
-          </div>
-          <div className={styles.abilityPopupDesc}>{glossaryDesc}</div>
-        </div>
+        <AbilityPopup
+          name={glossaryKey}
+          desc={glossaryDesc}
+          pos={pos}
+          popupRef={popupRef}
+          onClose={() => setPopupOpen(false)}
+        />
       )}
     </div>
   );

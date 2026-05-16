@@ -531,6 +531,18 @@
   line-height: 1.55;
 }
 
+/* Clickable ability name link inside a glossary popup description */
+.glossaryLink {
+  cursor: pointer;
+  color: var(--crimson);
+  border-bottom: 1px dotted var(--crimson);
+  transition: opacity 0.1s;
+}
+
+.glossaryLink:hover {
+  opacity: 0.75;
+}
+
 /* Clickable ability name (has glossary entry) */
 .abilityNameClickable {
   cursor: pointer;
