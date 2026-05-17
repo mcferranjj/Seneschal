@@ -47,7 +47,14 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
         ? `range ${range.value} feet`
         : undefined;
 
-  const fullDamage = [damage, ...effects].filter(Boolean).join(' plus ');
+  // Convert hyphenated slugs (e.g. "improved-push") to title-case display names
+  // (e.g. "Improved Push") so they can be looked up in ABILITY_GLOSSARY and
+  // rendered as clickable links by AttackLine's StrikeAbilityLink.
+  const strikeAbilities = effects.map((slug: string) =>
+    slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  );
+
+  const fullDamage = damage;
 
   // Combine condition damage penalty and elite/weak damage modifier
   const totalDmgMod = dmgPen + ewMod;
@@ -84,6 +91,7 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
       attackStyle={attackStyle}
       damageStyle={damageStyle}
       isAgile={isAgile}
+      strikeAbilities={strikeAbilities}
       onRollAttack={(mod, label, e) => {
         onRollAttack(mod, label, damageGroups, `${item.name} damage`, traits, e);
       }}
