@@ -1,5 +1,4 @@
 Encounters:
-    - right click on rollable dice to be able to enter an IRL roll, where it then computes and adds it to dice history
     - flesh out settings
         - default preferences
         - color preferences

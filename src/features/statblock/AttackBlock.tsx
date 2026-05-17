@@ -10,6 +10,8 @@ interface AttackBlockProps {
   item: PF2EItem;
   onRollAttack: (mod: number, label: string, damageGroups: DamageGroupInput[], damageLabel: string, damageTraits: string[], e: React.MouseEvent) => void;
   onRollDamage: (groups: DamageGroupInput[], label: string, traits: string[], e: React.MouseEvent) => void;
+  onManualRollAttack?: (mod: number, label: string, damageGroups: DamageGroupInput[], damageTraits: string[], e: React.MouseEvent) => void;
+  onManualRollDamage?: (groups: DamageGroupInput[], label: string, e: React.MouseEvent) => void;
   conditions?: Condition[];
   strMod?: number;
   dexMod?: number;
@@ -17,7 +19,7 @@ interface AttackBlockProps {
   ewStyle?: React.CSSProperties;
 }
 
-export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod, dexMod, ewMod = 0, ewStyle }: AttackBlockProps) {
+export function AttackBlock({ item, onRollAttack, onRollDamage, onManualRollAttack, onManualRollDamage, conditions = [], strMod, dexMod, ewMod = 0, ewStyle }: AttackBlockProps) {
   const bonus = item.system?.bonus?.value;
   const damage = getDamageString(item.system?.damageRolls);
   const traits = item.system?.traits?.value ?? [];
@@ -93,6 +95,12 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
         onRollAttack(mod, label, damageGroups, `${item.name} damage`, traits, e);
       }}
       onRollDamage={e => onRollDamage(damageGroups, `${item.name} damage`, traits, e)}
+      onManualRollAttack={onManualRollAttack
+        ? (mod, label, e) => onManualRollAttack(mod, label, damageGroups, traits, e)
+        : undefined}
+      onManualRollDamage={onManualRollDamage
+        ? e => onManualRollDamage(damageGroups, `${item.name} damage`, e)
+        : undefined}
     />
   );
 }

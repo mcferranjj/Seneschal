@@ -4,6 +4,7 @@ import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbili
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
 import { DiceRoller } from '../dice/DiceRoller';
+import { ManualRollInput } from '../dice/ManualRollInput';
 import { cryptoD } from '../../utils/dice';
 import styles from './EncounterManager.module.css';
 import { eliteWeakLevel } from '../../utils/levelScaling';
@@ -194,6 +195,8 @@ export function EncounterManager({
 
   // Dice roller
   const [diceRoll, setDiceRoll] = useState<{ expr: string; label?: string; x: number; y: number } | null>(null);
+  // Manual roll input (right-click)
+  const [manualRoll, setManualRoll] = useState<{ expr: string; label?: string; x: number; y: number } | null>(null);
 
   // Encounter tab rename/delete/drag
   const [renamingTab, setRenamingTab] = useState<number | null>(null);
@@ -865,8 +868,9 @@ export function EncounterManager({
                         </span>
                         <span
                           className={styles.combatDefStat}
-                          title="Fortitude"
+                          title="Fortitude · right-click to input"
                           onClick={effFort != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effFort >= 0 ? `+${effFort}` : effFort}`, label: `${c.name} · Fortitude`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                          onContextMenu={effFort != null ? e => { e.preventDefault(); e.stopPropagation(); setManualRoll({ expr: `1d20${effFort >= 0 ? `+${effFort}` : effFort}`, label: `${c.name} · Fortitude`, x: e.clientX, y: e.clientY - 160 }); } : undefined}
                         >
                           <span className={styles.combatDefLabel}>F</span>
                           <span className={styles.combatDefVal} style={pen.fort !== 0 ? debuffStyle : combatEwMod !== 0 && effFort != null ? combatEwStyle : undefined}>
@@ -875,8 +879,9 @@ export function EncounterManager({
                         </span>
                         <span
                           className={styles.combatDefStat}
-                          title="Reflex"
+                          title="Reflex · right-click to input"
                           onClick={effRef != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effRef >= 0 ? `+${effRef}` : effRef}`, label: `${c.name} · Reflex`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                          onContextMenu={effRef != null ? e => { e.preventDefault(); e.stopPropagation(); setManualRoll({ expr: `1d20${effRef >= 0 ? `+${effRef}` : effRef}`, label: `${c.name} · Reflex`, x: e.clientX, y: e.clientY - 160 }); } : undefined}
                         >
                           <span className={styles.combatDefLabel}>R</span>
                           <span className={styles.combatDefVal} style={pen.ref !== 0 ? debuffStyle : combatEwMod !== 0 && effRef != null ? combatEwStyle : undefined}>
@@ -885,8 +890,9 @@ export function EncounterManager({
                         </span>
                         <span
                           className={styles.combatDefStat}
-                          title="Will"
+                          title="Will · right-click to input"
                           onClick={effWill != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effWill >= 0 ? `+${effWill}` : effWill}`, label: `${c.name} · Will`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                          onContextMenu={effWill != null ? e => { e.preventDefault(); e.stopPropagation(); setManualRoll({ expr: `1d20${effWill >= 0 ? `+${effWill}` : effWill}`, label: `${c.name} · Will`, x: e.clientX, y: e.clientY - 160 }); } : undefined}
                         >
                           <span className={styles.combatDefLabel}>W</span>
                           <span className={styles.combatDefVal} style={pen.will !== 0 ? debuffStyle : combatEwMod !== 0 && effWill != null ? combatEwStyle : undefined}>
@@ -914,16 +920,18 @@ export function EncounterManager({
                             <span className={styles.combatAtkIcon}>{atk.type === 'melee' ? '⚔' : '🏹'}</span>
                             <span
                               className={`${styles.combatAtkName} ${styles.rollable}`}
-                              title="Click to roll attack"
+                              title="Click to roll attack · right-click to input"
                               onClick={e => { e.stopPropagation(); setDiceRoll({ expr: `1d20${effBonus >= 0 ? `+${effBonus}` : effBonus}`, label: `${c.name} · ${atk.name}`, x: e.clientX, y: e.clientY - 160 }); }}
+                              onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setManualRoll({ expr: `1d20${effBonus >= 0 ? `+${effBonus}` : effBonus}`, label: `${c.name} · ${atk.name}`, x: e.clientX, y: e.clientY - 160 }); }}
                               style={atkRollPen !== 0 ? { color: '#c0392b' } : undefined}
                             >
                               {atk.name} {effBonus >= 0 ? `+${effBonus}` : effBonus}
                             </span>
                             <span
                               className={`${styles.combatAtkDmg} ${styles.rollable}`}
-                              title="Click to roll damage"
+                              title="Click to roll damage · right-click to input"
                               onClick={e => { e.stopPropagation(); setDiceRoll({ expr: dmgExpr, label: `${c.name} · ${atk.name} dmg`, x: e.clientX, y: e.clientY - 160 }); }}
+                              onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setManualRoll({ expr: dmgExpr, label: `${c.name} · ${atk.name} dmg`, x: e.clientX, y: e.clientY - 160 }); }}
                               style={dmgPen !== 0 ? { color: '#c0392b' } : undefined}
                             >
                               {dmgExpr}
@@ -1055,6 +1063,16 @@ export function EncounterManager({
           anchorX={diceRoll.x}
           anchorY={diceRoll.y}
           onClose={() => setDiceRoll(null)}
+          onRoll={onRoll}
+        />
+      )}
+      {manualRoll && (
+        <ManualRollInput
+          expression={manualRoll.expr}
+          label={manualRoll.label}
+          anchorX={manualRoll.x}
+          anchorY={manualRoll.y}
+          onClose={() => setManualRoll(null)}
           onRoll={onRoll}
         />
       )}

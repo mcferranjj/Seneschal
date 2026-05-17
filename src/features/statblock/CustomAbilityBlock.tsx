@@ -24,9 +24,10 @@ export interface CustomAbilityBlockProps {
   dmgMod: number;
   ewStyle?: React.CSSProperties;
   onRollDamage: (groups: DamageGroup[], name: string, traits: string[], e: React.MouseEvent) => void;
+  onManualRollDamage?: (groups: DamageGroup[], name: string, e: React.MouseEvent) => void;
 }
 
-export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDamage }: CustomAbilityBlockProps) {
+export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDamage, onManualRollDamage }: CustomAbilityBlockProps) {
   // Glossary lookup — prefer genericAbilityName, then fall back to the ability name itself
   const glossaryKey = ab.genericAbilityName ?? ab.name;
   const glossaryDesc = ABILITY_GLOSSARY[glossaryKey];
@@ -63,7 +64,9 @@ export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDa
         <button
           className={styles.rollAllDmgBtn}
           style={dmgMod !== 0 ? { borderColor: ewStyle?.color, color: ewStyle?.color } : undefined}
+          title="Roll damage · right-click to input"
           onClick={e => onRollDamage(damageGroups, ab.name, [], e)}
+          onContextMenu={onManualRollDamage ? e => { e.preventDefault(); onManualRollDamage(damageGroups, ab.name, e); } : undefined}
         >
           🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
         </button>

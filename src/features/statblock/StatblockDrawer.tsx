@@ -7,6 +7,7 @@ import type { RollHistoryEntry } from '../../types/diceHistory';
 import type { Condition, CustomSpellcastingEntry } from '../../types/encounter';
 import { computePenalties } from '../../types/conditionEffects';
 import { DiceRoller, MultiDamageRoller } from '../dice/DiceRoller';
+import { ManualRollInput } from '../dice/ManualRollInput';
 import { CustomCreatureWizard } from '../custom-creature/CustomCreatureWizard';
 import {
   getLevel,
@@ -185,9 +186,10 @@ function StatblockContent({
   const { containerRef: pf2kwRef, tooltip: pf2kwTooltip } = usePf2kwTooltip();
 
   const {
-    diceRoll, multiDamageRoll,
+    diceRoll, multiDamageRoll, manualRoll,
     clearRolls,
     roll, rollAttack, rollDamage, rollExpr,
+    manualRoll1d20, manualRollExpr, manualRollAttack, manualRollDamage,
     setCreatureName,
   } = useRollState();
 
@@ -200,6 +202,23 @@ function StatblockContent({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleBodyContextMenu = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    // Suppress the browser context menu for any rollable element (use closest() to
+    // handle clicks on child nodes like <strong> inside the span).
+    const rollMod = target.closest(`.${styles.rollMod}, .${styles.mapRoll}, .pf2roll`);
+    if (rollMod) {
+      e.preventDefault();
+      if (rollMod.classList.contains('pf2roll')) {
+        const expr = (rollMod as HTMLElement).dataset.expr ?? '';
+        const label = (rollMod as HTMLElement).dataset.label ?? undefined;
+        if (expr) manualRollExpr(expr, label, e);
+      }
+      // For .rollMod / .mapRoll the individual onContextMenu on each span handles the action
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manualRollExpr]);
 
   // Close scale dropdown on outside click
   useEffect(() => {
@@ -329,7 +348,7 @@ function StatblockContent({
     : `https://raw.githubusercontent.com/foundryvtt/pf2e/v14-dev/static/${imgPath.replace('systems/pf2e/', '')}`;
 
   return (
-    <div className={styles.content} ref={pf2kwRef} onClick={handleBodyClick}>
+    <div className={styles.content} ref={pf2kwRef} onClick={handleBodyClick} onContextMenu={handleBodyContextMenu}>
       {pf2kwTooltip && createPortal(
         <span className={styles.traitTooltip} style={{ top: pf2kwTooltip.top, bottom: pf2kwTooltip.bottom, left: pf2kwTooltip.left, maxHeight: pf2kwTooltip.maxH, opacity: 1 }}>
           {pf2kwTooltip.text}
@@ -530,8 +549,9 @@ function StatblockContent({
                 <>
                   <span
                     className={styles.rollMod}
-                    title="Roll Perception"
+                    title="Roll Perception (right-click to input)"
                     onClick={e => roll(effPercMod, 'Perception', e)}
+                    onContextMenu={e => manualRoll1d20(effPercMod, 'Perception', e)}
                     style={percStyle}
                   >
                     <strong>Perception</strong> {formatMod(effPercMod)}
@@ -562,8 +582,9 @@ function StatblockContent({
                   {i > 0 && ', '}
                   <span
                     className={styles.rollMod}
-                    title={`Roll ${displayName}`}
+                    title={`Roll ${displayName} (right-click to input)`}
                     onClick={e => roll(effSkillMod, displayName, e)}
+                    onContextMenu={e => manualRoll1d20(effSkillMod, displayName, e)}
                     style={ewMod !== 0 ? ewStyle : undefined}
                   >
                     {displayName} {formatMod(effSkillMod)}
@@ -589,8 +610,9 @@ function StatblockContent({
                 {i > 0 && ', '}
                 <span
                   className={styles.rollMod}
-                  title={`Roll ${label} check`}
+                  title={`Roll ${label} check (right-click to input)`}
                   onClick={e => roll(mod, label, e)}
+                  onContextMenu={e => manualRoll1d20(mod, label, e)}
                 >
                   <strong>{label}</strong> {formatMod(mod)}
                 </span>
@@ -618,8 +640,9 @@ function StatblockContent({
               {acDetail && ` (${acDetail})`};{' '}
               <span
                 className={styles.rollMod}
-                title="Roll Fortitude"
+                title="Roll Fortitude (right-click to input)"
                 onClick={e => roll(effFort, 'Fortitude', e)}
+                onContextMenu={e => manualRoll1d20(effFort, 'Fortitude', e)}
                 style={fortStyle}
               >
                 <strong>Fort</strong> {formatMod(effFort)}
@@ -627,8 +650,9 @@ function StatblockContent({
               {fortDetail && `, ${fortDetail}`},{' '}
               <span
                 className={styles.rollMod}
-                title="Roll Reflex"
+                title="Roll Reflex (right-click to input)"
                 onClick={e => roll(effRef, 'Reflex', e)}
+                onContextMenu={e => manualRoll1d20(effRef, 'Reflex', e)}
                 style={refStyle}
               >
                 <strong>Ref</strong> {formatMod(effRef)}
@@ -636,8 +660,9 @@ function StatblockContent({
               {refDetail && `, ${refDetail}`},{' '}
               <span
                 className={styles.rollMod}
-                title="Roll Will"
+                title="Roll Will (right-click to input)"
                 onClick={e => roll(effWill, 'Will', e)}
+                onContextMenu={e => manualRoll1d20(effWill, 'Will', e)}
                 style={willStyle}
               >
                 <strong>Will</strong> {formatMod(effWill)}
@@ -699,10 +724,10 @@ function StatblockContent({
         )}
 
         {passives.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
         ))}
         {reactions.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
         ))}
 
         <hr className={styles.divider} />
@@ -733,6 +758,8 @@ function StatblockContent({
             item={item}
             onRollAttack={rollAttack}
             onRollDamage={rollDamage}
+            onManualRollAttack={manualRollAttack}
+            onManualRollDamage={manualRollDamage}
             conditions={activeConditionList}
             strMod={str}
             dexMod={dex}
@@ -828,6 +855,8 @@ function StatblockContent({
                 strikeAbilities={strikeAbilities}
                 onRollAttack={(mod, label, e) => rollAttack(mod, label, damageGroups, damageLabel, atk.traits ?? [], e)}
                 onRollDamage={e => rollDamage(damageGroups, damageLabel, atk.traits ?? [], e)}
+                onManualRollAttack={(mod, label, e) => manualRollAttack(mod, label, damageGroups, atk.traits ?? [], e)}
+                onManualRollDamage={e => manualRollDamage(damageGroups, damageLabel, e)}
               />
             );
           });
@@ -845,7 +874,7 @@ function StatblockContent({
         ))}
 
         {offenseActions.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel} />
         ))}
 
         {/* Routine — complex hazards only */}
@@ -901,6 +930,7 @@ function StatblockContent({
               dmgMod={dmgMod}
               ewStyle={ewStyle}
               onRollDamage={rollDamage}
+              onManualRollDamage={manualRollDamage}
             />
           );
         })}
@@ -976,6 +1006,19 @@ function StatblockContent({
           traits={multiDamageRoll.traits}
           anchorX={multiDamageRoll.x}
           anchorY={multiDamageRoll.y}
+          onClose={clearRolls}
+          onRoll={onRoll}
+        />
+      )}
+      {manualRoll && (
+        <ManualRollInput
+          expression={manualRoll.expr}
+          label={manualRoll.label}
+          creatureName={manualRoll.creatureName}
+          damageGroups={manualRoll.damageGroups}
+          damageTraits={manualRoll.damageTraits}
+          anchorX={manualRoll.x}
+          anchorY={manualRoll.y}
           onClose={clearRolls}
           onRoll={onRoll}
         />

@@ -28,13 +28,14 @@ function actionSymbol(item: PF2EItem): string {
 interface ItemBlockProps {
   item: PF2EItem;
   onRollAll?: (groups: DamageGroup[], abilityName: string, traits: string[], e: React.MouseEvent) => void;
+  onManualRollDamage?: (groups: DamageGroup[], abilityName: string, e: React.MouseEvent) => void;
   ewMod?: number;
   ewStyle?: React.CSSProperties;
   baseLevel?: number;
   targetLevel?: number;
 }
 
-export function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle, baseLevel, targetLevel }: ItemBlockProps) {
+export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewStyle, baseLevel, targetLevel }: ItemBlockProps) {
   const symbol = actionSymbol(item);
   const rawDesc = item.system?.description?.value ?? '';
   const traits = item.system?.traits?.value ?? [];
@@ -92,7 +93,9 @@ export function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle, baseLevel, targ
         <button
           className={styles.rollAllDmgBtn}
           style={dmgMod !== 0 ? { borderColor: ewStyle?.color, color: ewStyle?.color } : undefined}
+          title="Roll damage · right-click to input"
           onClick={e => onRollAll!(damageGroups, item.name, [], e)}
+          onContextMenu={onManualRollDamage ? e => { e.preventDefault(); onManualRollDamage(damageGroups, item.name, e); } : undefined}
         >
           🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
         </button>
