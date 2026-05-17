@@ -59,28 +59,4 @@ textarea {
   display: inline;
 }
 
-.pf2kw::after {
-  content: attr(data-tip);
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: #2a1a0e;
-  color: #f4ead6;
-  font-size: 0.72rem;
-  font-style: normal;
-  line-height: 1.45;
-  padding: 6px 9px;
-  border-radius: 5px;
-  width: 240px;
-  white-space: normal;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.12s;
-  z-index: 200;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.35);
-}
-
-.pf2kw:hover::after {
-  opacity: 1;
-}
+/* .pf2kw::after tooltip removed — now handled by usePf2kwTooltip portal */

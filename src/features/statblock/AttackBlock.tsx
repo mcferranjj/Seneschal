@@ -2,6 +2,7 @@ import type { PF2EItem } from '../../types/pf2e';
 import type { Condition } from '../../types/encounter';
 import { computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
 import { getDamageString, getDamageGroups } from './statblockHelpers';
+import { slugToTitle } from '../../utils/formatters';
 import type { DamageGroupInput } from '../dice/DiceRoller';
 import { AttackLine } from './AttackLine';
 
@@ -9,6 +10,8 @@ interface AttackBlockProps {
   item: PF2EItem;
   onRollAttack: (mod: number, label: string, damageGroups: DamageGroupInput[], damageLabel: string, damageTraits: string[], e: React.MouseEvent) => void;
   onRollDamage: (groups: DamageGroupInput[], label: string, traits: string[], e: React.MouseEvent) => void;
+  onManualRollAttack?: (mod: number, label: string, damageGroups: DamageGroupInput[], damageTraits: string[], e: React.MouseEvent) => void;
+  onManualRollDamage?: (groups: DamageGroupInput[], label: string, e: React.MouseEvent) => void;
   conditions?: Condition[];
   strMod?: number;
   dexMod?: number;
@@ -16,7 +19,7 @@ interface AttackBlockProps {
   ewStyle?: React.CSSProperties;
 }
 
-export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [], strMod, dexMod, ewMod = 0, ewStyle }: AttackBlockProps) {
+export function AttackBlock({ item, onRollAttack, onRollDamage, onManualRollAttack, onManualRollDamage, conditions = [], strMod, dexMod, ewMod = 0, ewStyle }: AttackBlockProps) {
   const bonus = item.system?.bonus?.value;
   const damage = getDamageString(item.system?.damageRolls);
   const traits = item.system?.traits?.value ?? [];
@@ -47,18 +50,21 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
         ? `range ${range.value} feet`
         : undefined;
 
-  const fullDamage = [damage, ...effects].filter(Boolean).join(' plus ');
+  // Convert hyphenated slugs (e.g. "improved-push") to title-case display names
+  // (e.g. "Improved Push") so they match ABILITY_GLOSSARY keys and render as
+  // clickable links via GlossaryNameLink in AttackLine.
+  const strikeAbilities = effects.map(slugToTitle);
 
   // Combine condition damage penalty and elite/weak damage modifier
   const totalDmgMod = dmgPen + ewMod;
 
   // Build one group per damage type so multi-type attacks (e.g. slashing + fire) all roll
   const baseDamageGroups = getDamageGroups(item.system?.damageRolls, totalDmgMod);
-  // If there are no structured rolls but fullDamage has a dice expression, fall back
+  // If there are no structured rolls but damage has a dice expression, fall back
   const damageGroups: DamageGroupInput[] = baseDamageGroups.length > 0
     ? baseDamageGroups
     : (() => {
-        const m = fullDamage.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
+        const m = damage.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
         if (!m) return [];
         const expr = m[2] ? `${m[1]}${m[2].replace(/\s/g, '')}` : m[1];
         const modifiedExpr = totalDmgMod !== 0 ? `${expr}${totalDmgMod >= 0 ? `+${totalDmgMod}` : totalDmgMod}` : expr;
@@ -76,7 +82,7 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
       name={item.name}
       type={attackType}
       bonus={effBonus}
-      damage={fullDamage}
+      damage={damage}
       damageExpr={damageExpr}
       damageModified={isDebuffedDmg || ewMod !== 0}
       traits={traits}
@@ -84,10 +90,17 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
       attackStyle={attackStyle}
       damageStyle={damageStyle}
       isAgile={isAgile}
+      strikeAbilities={strikeAbilities}
       onRollAttack={(mod, label, e) => {
         onRollAttack(mod, label, damageGroups, `${item.name} damage`, traits, e);
       }}
       onRollDamage={e => onRollDamage(damageGroups, `${item.name} damage`, traits, e)}
+      onManualRollAttack={onManualRollAttack
+        ? (mod, label, e) => onManualRollAttack(mod, label, damageGroups, traits, e)
+        : undefined}
+      onManualRollDamage={onManualRollDamage
+        ? e => onManualRollDamage(damageGroups, `${item.name} damage`, e)
+        : undefined}
     />
   );
 }

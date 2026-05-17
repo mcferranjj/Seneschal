@@ -1,0 +1,78 @@
+/* ── DamageTypePicker popup ── */
+
+/* The dropdown popup — position/top/bottom/left/maxHeight set inline via usePopupPosition */
+.dmgPicker {
+  z-index: 200;
+  background: var(--bg-mid, #2a2118);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  width: max-content;
+}
+
+/* One row of related types, separated by a subtle rule */
+.dmgPickerGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 4px 0;
+}
+
+.dmgPickerGroup + .dmgPickerGroup {
+  border-top: 1px solid var(--border);
+}
+
+/* Individual popup button */
+.dmgPickerBtn {
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-mid);
+  font-size: 0.68rem;
+  cursor: pointer;
+  line-height: 1.5;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+/* Capitalize damage type names */
+.dmgTypeBtn {
+  text-transform: capitalize;
+}
+
+.dmgPickerBtn:hover {
+  background: var(--border-l);
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+/* "persistent ▶" toggle button */
+.dmgPickerPersistent {
+  color: var(--text);
+  font-style: italic;
+}
+
+.dmgPickerPersistent:hover {
+  background: var(--border-l);
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+.dmgPickerPersistentActive {
+  background: var(--border-l);
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+/* Persistent sub-panel */
+.dmgPickerSub {
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+  padding-top: 2px;
+}

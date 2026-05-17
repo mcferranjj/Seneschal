@@ -1,78 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
-import { HAZARD_OFFENSE_TABLE } from '../../data/pf2eTables';
 import type { HpTier, AcTier, SaveTier, AbilityTier, ResWeakTier, HazardDCTier, HazardDefenseTier } from '../../data/pf2eTables';
 import {
   HP_TIERS, AC_TIERS, SAVE_TIERS, ABILITY_TIERS, RES_WEAK_TIERS,
-  lookupHp, lookupAc, lookupSave, lookupAttack, lookupDamage,
+  lookupHp, lookupAc, lookupSave, lookupAttack,
   lookupAbility, lookupPerception, lookupResWeak,
   lookupHazardStealth, lookupHazardAc, lookupHazardSave, lookupHazardHp, lookupHazardHardness,
-  lookupHazardAtk, lookupHazardDmg,
   closestTier,
 } from '../../utils/levelScaling';
-import { CREATURE_TYPES, HAZARD_TYPES, SIZES, DAMAGE_TYPES } from '../../data/pf2eConstants';
+import { CREATURE_TYPES, HAZARD_TYPES, SIZES, DAMAGE_TYPES, COMMON_SENSES, OFFICIAL_SKILLS, LANGUAGE_SUGGESTIONS } from '../../data/pf2eConstants';
 import type { CreatureRecord } from '../../db/schema';
-import type { CustomAttack, CustomAbility, AbilityActionType, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, SpeedType, CustomSpellcastingEntry, CustomSpell, SpellTradition, SpellcastingType, SpellFrequency, CustomSkill } from '../../types/encounter';
+import type { CustomAttack, CustomAttackDamageType, CustomAbility, AbilityActionType, CustomSpeed, CustomSense, CustomImmunity, CustomResistance, SpeedType, CustomSpellcastingEntry, CustomSpell, SpellTradition, SpellcastingType, SpellFrequency, CustomSkill } from '../../types/encounter';
 import { creatureRepository } from '../../db/repositories/CreatureRepository';
 import { getAllTraits } from '../../search/search';
 import { rankSuggestions } from '../../utils/suggestions';
 import { AbilityCard } from './AbilityCard';
 import { GenericAbilityPicker } from './GenericAbilityPicker';
+import { AttackCard, defaultAttack, defaultHazardAttack, buildDamageString } from './AttackCard';
+import type { AttackDraft } from './AttackCard';
 import styles from './CustomCreatureWizard.module.css';
 
-
-
-const WEAPON_TRAITS = [
-  'agile', 'backstabber', 'backswing', 'deadly', 'disarm',
-  'fatal', 'finesse', 'forceful', 'free-hand', 'grapple', 'jousting',
-  'modular', 'nonlethal', 'parry', 'precision', 'propulsive', 'ranged trip',
-  'reach', 'shove', 'sweep', 'thrown', 'trip', 'twin', 'two-hand', 'unarmed',
-  'versatile b', 'versatile p', 'versatile s', 'volley',
-  'bludgeoning', 'piercing', 'slashing',
-  'cold iron', 'silver', 'magical', 'adamantine', 'mithral',
-];
-
-const MONSTER_ATTACK_TRAITS = [
-  'brutal',
-  'grab', 'improved grab',
-  'knockdown', 'improved knockdown',
-  'push', 'improved push',
-  'improved trip', 'improved disarm', 'improved shove',
-  'acid', 'cold', 'electricity', 'fire', 'sonic', 'force',
-  'negative', 'positive', 'mental', 'poison', 'bleed', 'void', 'spirit',
-  'disease', 'curse', 'incapacitation',
-];
-
-
-const COMMON_SENSES = [
-  'low-light vision', 'darkvision', 'greater darkvision',
-  'scent', 'tremorsense', 'echolocation', 'motion sense', 'lifesense',
-];
-
-const OFFICIAL_SKILLS = [
-  'Acrobatics', 'Arcana', 'Athletics', 'Crafting', 'Deception', 'Diplomacy',
-  'Intimidation', 'Medicine', 'Nature', 'Occultism', 'Performance', 'Religion',
-  'Society', 'Stealth', 'Survival', 'Thievery',
-];
-
-const LANGUAGE_SUGGESTIONS = [
-  'Common', 'Draconic', 'Dwarven', 'Elven', 'Fey', 'Gnomish', 'Goblin', 'Halfling',
-  'Jotun', 'Orcish', 'Sakvroth',
-  'Aklo', 'Chthonian', 'Diabolic', 'Empyrean', 'Kholo', 'Necril', 'Petran', 'Pyric',
-  'Shadowtongue', 'Sussuran', 'Thalassic', 'Muan', 'Talican',
-];
-
-
-interface AttackDraft {
-  name: string;
-  type: 'melee' | 'ranged';
-  bonus: number;
-  bonusTier: AcTier;
-  damage: string;
-  damageTier: AcTier;
-  range?: number;
-  traits: string[];
-  traitInput: string;
-}
 
 const HAZARD_DC_TIERS:      HazardDCTier[]      = ['low', 'high', 'extreme'];
 const HAZARD_DEFENSE_TIERS: HazardDefenseTier[] = ['low', 'high', 'extreme'];
@@ -91,32 +37,8 @@ const HAZARD_TIER_ABBREV: Record<HazardDCTier, string> = { low: 'L', high: 'H', 
 /** Grid column for hazard 3-tier buttons (L H E → columns 1 2 3) */
 const HAZARD_TIER_COL: Record<HazardDCTier, number> = { low: 1, high: 2, extreme: 3 };
 
-function defaultAttack(level: number): AttackDraft {
-  return {
-    name: 'Strike',
-    type: 'melee',
-    bonus: lookupAttack(level, 'moderate'),
-    bonusTier: 'moderate',
-    damage: lookupDamage(level, 'moderate'),
-    damageTier: 'moderate',
-    traits: [],
-    traitInput: '',
-  };
-}
 
-// Hazard attacks default to at-level (moderate = M button)
-function defaultHazardAttack(level: number, isComplex: boolean): AttackDraft {
-  return {
-    name: 'Strike',
-    type: 'melee',
-    bonus: lookupHazardAtk(level, isComplex),
-    bonusTier: 'moderate',
-    damage: lookupHazardDmg(level, isComplex),
-    damageTier: 'moderate',
-    traits: [],
-    traitInput: '',
-  };
-}
+// ── ResWeakRow ────────────────────────────────────────────────────────────────
 
 function ResWeakRow({
   entry,
@@ -226,17 +148,35 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
       : editCreature!.traits.filter(t => !CREATURE_TYPES.map(c => c.toLowerCase()).includes(t))
     : [];
   const editAttacks: AttackDraft[] = isEditing && editCreature!.customData?.attacks
-    ? editCreature!.customData.attacks.map(a => ({
-        name: a.name,
-        type: a.type,
-        bonus: a.bonus,
-        bonusTier: closestTier(AC_TIERS, t => lookupAttack(editCreature!.level, t), a.bonus, 'moderate'),
-        damage: a.damage,
-        damageTier: 'moderate' as AcTier,
-        range: a.range,
-        traits: a.traits ?? [],
-        traitInput: '',
-      }))
+    ? editCreature!.customData.attacks.map(a => {
+        // Restore structured damage types if saved; otherwise parse from legacy string
+        const savedTypes = a.damageTypes;
+        let damageTypes: CustomAttackDamageType[];
+        let primaryDmgExpr: string;
+        if (savedTypes && savedTypes.length > 0) {
+          damageTypes = savedTypes;
+          primaryDmgExpr = savedTypes[0].expr;
+        } else {
+          // Legacy: extract first dice expr from the damage string
+          const m = a.damage.match(/^(\d+d\d+(?:[+-]\d+)?)/);
+          primaryDmgExpr = m ? m[1] : a.damage;
+          damageTypes = [{ expr: primaryDmgExpr, type: '' }];
+        }
+        return {
+          name: a.name,
+          type: a.type,
+          bonus: a.bonus,
+          bonusTier: closestTier(AC_TIERS, t => lookupAttack(editCreature!.level, t), a.bonus, 'moderate'),
+          primaryDmgExpr,
+          damageTier: 'moderate' as AcTier,
+          damageTypes,
+          strikeAbilities: a.strikeAbilities ?? [],
+          strikeAbilityInput: '',
+          range: a.range,
+          traits: a.traits ?? [],
+          traitInput: '',
+        };
+      })
     : [];
 
   const [step, setStep] = useState(isEditing ? 0 : 0);
@@ -463,6 +403,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
     setAbilities([]);
     setSenses([]); setImmunities([]); setResistances([]); setWeaknesses([]); setSpellcasting([]);
     setSkills([]); setLanguages([]); setAllSavesNote('');
+
   }
 
   function applyHazardTiers(lv: number, isComplex: boolean) {
@@ -519,10 +460,19 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
     setSaving(true);
     const cleanAttacks: CustomAttack[] = attacks
       .filter(a => a.name.trim())
-      .map(({ name: n, type, bonus, damage, range, traits }) => ({
-        name: n.trim(), type, bonus, damage, range,
-        traits: traits.length ? traits : undefined,
-      }));
+      .map(a => {
+        const dmgStr = buildDamageString(a);
+        return {
+          name: a.name.trim(),
+          type: a.type,
+          bonus: a.bonus,
+          damage: dmgStr,
+          range: a.range,
+          traits: a.traits.length ? a.traits : undefined,
+          damageTypes: a.damageTypes.length ? a.damageTypes : undefined,
+          strikeAbilities: a.strikeAbilities.length ? a.strikeAbilities : undefined,
+        };
+      });
     const cleanAbilities: CustomAbility[] = abilities
       .filter(a => a.name.trim())
       .map(({ name: n, description, actionType, frequency, trigger, requirements }) => ({
@@ -1416,156 +1366,18 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
           ])}>+ Add</button>
         </div>
         {attacks.map((atk, i) => (
-          <div key={i} className={styles.attackCard}>
-            <div className={styles.attackRow1}>
-              <button
-                className={`${styles.typeToggle} ${atk.type === 'melee' ? styles.typeToggleMelee : styles.typeToggleRanged}`}
-                title={atk.type === 'melee' ? 'Melee (click to switch)' : 'Ranged (click to switch)'}
-                onClick={() => updateAttack(i, { type: atk.type === 'melee' ? 'ranged' : 'melee', range: atk.type === 'melee' ? 30 : undefined })}
-              >{atk.type === 'melee' ? '⚔' : '🏹'}</button>
-              <input
-                className={styles.attackNameInput}
-                value={atk.name}
-                onChange={e => updateAttack(i, { name: e.target.value })}
-                placeholder="Name…"
-              />
-              <button className={styles.removeBtn} onClick={() => setAttacks(prev => prev.filter((_, idx) => idx !== i))}>×</button>
-            </div>
-            <div className={styles.attackRow2}>
-              <span className={styles.subLabel}>Atk</span>
-              {entityKind === 'hazard' ? (
-                // L=level-1, M=at-level, H=level+1 (relative to the hazard's base attack for its complexity)
-                <div className={styles.tierBtns} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-                  {(['low', 'moderate', 'high'] as const).map((t, ci) => {
-                    const lvOffset = t === 'low' ? -1 : t === 'high' ? 1 : 0;
-                    const targetLv = Math.max(-1, Math.min(24, level + lvOffset));
-                    const hasRow = HAZARD_OFFENSE_TABLE[targetLv] != null;
-                    const atkVal = hasRow
-                      ? lookupHazardAtk(targetLv, hazardIsComplex)
-                      : lookupHazardAtk(level, hazardIsComplex) + (lvOffset > 0 ? 1 : -1);
-                    return (
-                      <button key={t} title={t === 'low' ? 'Level −1' : t === 'moderate' ? 'At level' : 'Level +1'}
-                        className={`${styles.tierBtn} ${atk.bonusTier === t ? styles.tierBtnActive : ''}`}
-                        style={{ gridColumn: ci + 1 }}
-                        onClick={() => updateAttack(i, { bonusTier: t, bonus: atkVal })}
-                      >{TIER_ABBREV[t]}</button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className={styles.tierBtns}>
-                  {AC_TIERS.map(t => (
-                    <button key={t} title={t} className={`${styles.tierBtn} ${atk.bonusTier === t ? styles.tierBtnActive : ''}`}
-                      style={{ gridColumn: TIER_COL[t] }}
-                      onClick={() => updateAttack(i, { bonusTier: t, bonus: lookupAttack(level, t) })}
-                    >{TIER_ABBREV[t]}</button>
-                  ))}
-                </div>
-              )}
-              <input className={styles.statInput} type="number" min={-10} max={70}
-                value={atk.bonus} onChange={e => updateAttack(i, { bonus: Number(e.target.value) })} />
-              <span className={styles.subLabel}>Dmg</span>
-              {entityKind === 'hazard' ? (
-                <div className={styles.tierBtns} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-                  {(['low', 'moderate', 'high'] as const).map((t, ci) => {
-                    const lvOffset = t === 'low' ? -1 : t === 'high' ? 1 : 0;
-                    const targetLv = Math.max(-1, Math.min(24, level + lvOffset));
-                    const hasRow = HAZARD_OFFENSE_TABLE[targetLv] != null;
-                    const dmgDelta = hazardIsComplex ? 2 : 4;
-                    const dmgVal = hasRow
-                      ? lookupHazardDmg(targetLv, hazardIsComplex)
-                      : (() => {
-                          // parse base damage and adjust constant by dmgDelta
-                          const base = lookupHazardDmg(level, hazardIsComplex);
-                          const m = base.match(/^(.+[+-])(\d+)$/);
-                          if (m) return `${m[1]}${Math.max(0, parseInt(m[2]) + lvOffset * dmgDelta)}`;
-                          return base;
-                        })();
-                    return (
-                      <button key={t} title={t === 'low' ? 'Level −1' : t === 'moderate' ? 'At level' : 'Level +1'}
-                        className={`${styles.tierBtn} ${atk.damageTier === t ? styles.tierBtnActive : ''}`}
-                        style={{ gridColumn: ci + 1 }}
-                        onClick={() => updateAttack(i, { damageTier: t, damage: dmgVal })}
-                      >{TIER_ABBREV[t]}</button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className={styles.tierBtns}>
-                  {AC_TIERS.map(t => (
-                    <button key={t} title={t} className={`${styles.tierBtn} ${atk.damageTier === t ? styles.tierBtnActive : ''}`}
-                      style={{ gridColumn: TIER_COL[t] }}
-                      onClick={() => updateAttack(i, { damageTier: t, damage: lookupDamage(level, t) })}
-                    >{TIER_ABBREV[t]}</button>
-                  ))}
-                </div>
-              )}
-              <input className={styles.dmgInput} type="text"
-                value={atk.damage} onChange={e => updateAttack(i, { damage: e.target.value })}
-                placeholder="2d8+9" />
-            </div>
-            {atk.type === 'ranged' && (
-              <div className={styles.attackRow3}>
-                <span className={styles.subLabel}>Range</span>
-                <input className={styles.statInput} type="number" min={5} max={500} step={5}
-                  value={atk.range ?? 30}
-                  onChange={e => updateAttack(i, { range: Number(e.target.value) })} />
-                <span className={styles.subLabel}>ft</span>
-              </div>
-            )}
-            <div className={styles.attackTraitRow}>
-              {atk.traits.map(t => (
-                <span key={t} className={styles.attackTraitChip}>
-                  {t}
-                  <button className={styles.traitRemove} onClick={() => updateAttack(i, { traits: atk.traits.filter(x => x !== t) })}>×</button>
-                </span>
-              ))}
-              <div className={styles.attackTraitInputWrap}>
-                <input
-                  className={styles.attackTraitInput}
-                  value={atk.traitInput}
-                  onChange={e => updateAttack(i, { traitInput: e.target.value })}
-                  onFocus={() => setFocusedAttackIdx(i)}
-                  onBlur={() => setFocusedAttackIdx(null)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' || e.key === ',') {
-                      e.preventDefault();
-                      const t = atk.traitInput.trim().toLowerCase();
-                      if (t && !atk.traits.includes(t)) updateAttack(i, { traits: [...atk.traits, t], traitInput: '' });
-                      else if (t) updateAttack(i, { traitInput: '' });
-                    }
-                    if (e.key === 'Tab' && atk.traitInput.length > 0) {
-                      const q = atk.traitInput.toLowerCase();
-                      const weapon = rankSuggestions(WEAPON_TRAITS, q).filter(t => !atk.traits.includes(t));
-                      const monster = rankSuggestions(MONSTER_ATTACK_TRAITS, q).filter(t => !atk.traits.includes(t));
-                      const topSugg = weapon.length > 0 ? weapon[0] : monster.length > 0 ? monster[0] : null;
-                      if (topSugg) { e.preventDefault(); updateAttack(i, { traits: [...atk.traits, topSugg], traitInput: '' }); }
-                    }
-                  }}
-                  placeholder="Add trait…"
-                />
-                {focusedAttackIdx === i && atk.traitInput.length > 0 && (() => {
-                  const q = atk.traitInput.toLowerCase();
-                  const weapon = WEAPON_TRAITS.filter(t => t.includes(q) && !atk.traits.includes(t));
-                  const monster = MONSTER_ATTACK_TRAITS.filter(t => t.includes(q) && !atk.traits.includes(t));
-                  if (!weapon.length && !monster.length) return null;
-                  const addTrait = (t: string) => updateAttack(i, { traits: [...atk.traits, t], traitInput: '' });
-                  return (
-                    <ul className={styles.suggestions}>
-                      {weapon.length > 0 && <li className={styles.suggestionGroup}>Weapon</li>}
-                      {weapon.map(t => (
-                        <li key={t} className={styles.suggestion} onMouseDown={e => { e.preventDefault(); addTrait(t); }}>{t}</li>
-                      ))}
-                      {monster.length > 0 && <li className={styles.suggestionGroup}>Monster</li>}
-                      {monster.map(t => (
-                        <li key={t} className={styles.suggestion} onMouseDown={e => { e.preventDefault(); addTrait(t); }}>{t}</li>
-                      ))}
-                    </ul>
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
+          <AttackCard
+            key={i}
+            atk={atk}
+            attackIdx={i}
+            level={level}
+            entityKind={entityKind}
+            hazardIsComplex={hazardIsComplex}
+            focusedAttackIdx={focusedAttackIdx}
+            setFocusedAttackIdx={setFocusedAttackIdx}
+            updateAttack={updateAttack}
+            onRemove={() => setAttacks(prev => prev.filter((_, idx) => idx !== i))}
+          />
         ))}
 
         {/* Abilities */}

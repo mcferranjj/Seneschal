@@ -1,0 +1,255 @@
+.panel {
+  position: fixed;
+  z-index: 501;
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  padding: 10px 14px 10px;
+  width: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transform: translateX(-50%);
+  cursor: default;
+}
+
+.dragHandle {
+  width: 100%;
+  cursor: grab;
+  user-select: none;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.labelText {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.expr {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-mute);
+  font-weight: 600;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--text-mute);
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.closeBtn:hover {
+  color: var(--crimson);
+}
+
+/* ── Input form ── */
+
+.prompt {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  width: 100%;
+}
+
+.rangeHint {
+  font-size: 0.68rem;
+  color: var(--text-mute);
+  text-align: center;
+}
+
+.modHint {
+  font-size: 0.65rem;
+  color: var(--text-mute);
+}
+
+.modValue {
+  font-family: 'DM Mono', monospace;
+  color: var(--text-mid);
+}
+
+.input {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 1rem;
+  font-family: 'DM Mono', monospace;
+  font-weight: 700;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg, #fff);
+  color: var(--text);
+  box-sizing: border-box;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--crimson);
+}
+
+.warning {
+  font-size: 0.68rem;
+  color: #c8922a;
+  text-align: center;
+  width: 100%;
+  line-height: 1.4;
+}
+
+.submitBtn {
+  width: 100%;
+  background: var(--crimson);
+  color: #f0e6cc;
+  border: none;
+  border-radius: 5px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.12s;
+  margin-top: 2px;
+}
+
+.submitBtn:hover {
+  opacity: 0.88;
+}
+
+/* ── Result view ── */
+
+.total {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 0 2px;
+  width: 100%;
+  text-align: center;
+}
+
+.totalNormal {
+  color: var(--text);
+}
+
+.totalCrit {
+  color: var(--gold, #c8922a);
+}
+
+.breakdown {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--text-mute);
+  text-align: center;
+  line-height: 1.5;
+  width: 100%;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.critBanner {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--gold, #c8922a);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+/* ── Damage sub-section (auto-rolled for strikes) ── */
+
+.damageSection {
+  width: 100%;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.damageSectionLabel {
+  width: 100%;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dmgGroup {
+  width: 100%;
+  padding: 4px 0 2px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.dmgGroupLabel {
+  width: 100%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dmgTotal {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 0 1px;
+  text-align: center;
+  width: 100%;
+}
+
+.closeResultBtn {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-mid);
+  cursor: pointer;
+  margin-top: 2px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.closeResultBtn:hover {
+  background: var(--border);
+  color: var(--text);
+}

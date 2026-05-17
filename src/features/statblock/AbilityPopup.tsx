@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ABILITY_GLOSSARY } from '../../data/abilityGlossary';
+import { useGlossaryPopup } from '../../hooks/useGlossaryPopup';
 import styles from './StatblockDrawer.module.css';
 
 // ── Module-level constants — computed once, not on every render ───────────────
@@ -97,5 +99,58 @@ export function AbilityPopup({ name, desc, pos, popupRef, onClose }: AbilityPopu
         />
       </div>
     </div>
+  );
+}
+
+// ── GlossaryNameLink ──────────────────────────────────────────────────────────
+
+/**
+ * Renders an ability name inline. If it exists in ABILITY_GLOSSARY it becomes
+ * a clickable dotted-underline link that opens an AbilityPopup via a portal
+ * (portal is required to avoid HTML nesting constraint issues, e.g. inside
+ * a <p> tag). If the name has no glossary entry it renders as plain text.
+ *
+ * @param prefix  Optional text rendered immediately before the name (e.g. " plus ").
+ * @param suffix  Optional text rendered immediately after the name.
+ */
+export function GlossaryNameLink({
+  name,
+  prefix,
+  suffix,
+}: {
+  name: string;
+  prefix?: string;
+  suffix?: string;
+}) {
+  const glossaryDesc = ABILITY_GLOSSARY[name];
+  const { popupOpen, togglePopup, closePopup, nameRef, popupRef, pos } = useGlossaryPopup();
+
+  if (!glossaryDesc) {
+    return <span>{prefix}{name}{suffix}</span>;
+  }
+
+  return (
+    <>
+      {prefix && <span>{prefix}</span>}
+      <span
+        ref={nameRef as React.RefObject<HTMLSpanElement>}
+        className={styles.abilityNameClickable}
+        title="Click for rules summary"
+        onClick={e => { e.stopPropagation(); togglePopup(); }}
+      >
+        {name}
+      </span>
+      {suffix && <span>{suffix}</span>}
+      {popupOpen && pos && createPortal(
+        <AbilityPopup
+          name={name}
+          desc={glossaryDesc}
+          pos={pos}
+          popupRef={popupRef}
+          onClose={closePopup}
+        />,
+        document.body,
+      )}
+    </>
   );
 }

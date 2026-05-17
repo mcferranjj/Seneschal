@@ -1,9 +1,8 @@
-import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ABILITY_GLOSSARY } from '../../data/abilityGlossary';
 import { extractDamageGroups, processFoundryHtml } from '../../utils/foundryMacros';
 import type { DamageGroup } from '../../utils/foundryMacros';
-import { usePopupPosition } from '../../hooks/usePopupPosition';
-import { useOutsideClick } from '../../hooks/useOutsideClick';
+import { useGlossaryPopup } from '../../hooks/useGlossaryPopup';
 import { AbilityPopup } from './AbilityPopup';
 import styles from './StatblockDrawer.module.css';
 
@@ -25,19 +24,15 @@ export interface CustomAbilityBlockProps {
   dmgMod: number;
   ewStyle?: React.CSSProperties;
   onRollDamage: (groups: DamageGroup[], name: string, traits: string[], e: React.MouseEvent) => void;
+  onManualRollDamage?: (groups: DamageGroup[], name: string, e: React.MouseEvent) => void;
 }
 
-export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDamage }: CustomAbilityBlockProps) {
+export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDamage, onManualRollDamage }: CustomAbilityBlockProps) {
   // Glossary lookup — prefer genericAbilityName, then fall back to the ability name itself
   const glossaryKey = ab.genericAbilityName ?? ab.name;
   const glossaryDesc = ABILITY_GLOSSARY[glossaryKey];
 
-  const [popupOpen, setPopupOpen] = useState(false);
-  const nameRef = useRef<HTMLElement>(null);
-  const popupRef = useRef<HTMLDivElement>(null);
-
-  const pos = usePopupPosition(nameRef, popupOpen, { popupWidth: 300, popupMaxHeight: 380 }, popupRef);
-  useOutsideClick(popupRef, () => setPopupOpen(false), nameRef);
+  const { popupOpen, togglePopup, closePopup, nameRef, popupRef, pos } = useGlossaryPopup();
 
   const sym = ab.actionType ? (ACTION_SYMBOLS[ab.actionType] ?? '') : '';
   const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];
@@ -49,7 +44,7 @@ export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDa
         <strong
           ref={nameRef}
           className={`${styles.itemName} ${glossaryDesc ? styles.abilityNameClickable : ''}`}
-          onClick={glossaryDesc ? () => setPopupOpen(o => !o) : undefined}
+          onClick={glossaryDesc ? togglePopup : undefined}
           title={glossaryDesc ? 'Click for rules summary' : undefined}
         >
           {ab.name}
@@ -69,20 +64,23 @@ export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDa
         <button
           className={styles.rollAllDmgBtn}
           style={dmgMod !== 0 ? { borderColor: ewStyle?.color, color: ewStyle?.color } : undefined}
+          title="Roll damage · right-click to input"
           onClick={e => onRollDamage(damageGroups, ab.name, [], e)}
+          onContextMenu={onManualRollDamage ? e => { e.preventDefault(); onManualRollDamage(damageGroups, ab.name, e); } : undefined}
         >
           🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
         </button>
       )}
 
-      {popupOpen && glossaryDesc && pos && (
+      {popupOpen && glossaryDesc && pos && createPortal(
         <AbilityPopup
           name={glossaryKey}
           desc={glossaryDesc}
           pos={pos}
           popupRef={popupRef}
-          onClose={() => setPopupOpen(false)}
-        />
+          onClose={closePopup}
+        />,
+        document.body,
       )}
     </div>
   );

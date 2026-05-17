@@ -7,6 +7,7 @@
  */
 
 import { formatMod } from '../../utils/formatters';
+import { GlossaryNameLink } from './AbilityPopup';
 import { TraitChip } from './TraitChip';
 import styles from './StatblockDrawer.module.css';
 
@@ -15,6 +16,10 @@ export interface AttackLineProps {
   type: 'melee' | 'ranged';
   /** Effective bonus already incorporating ewMod and any condition penalties */
   bonus: number | null;
+  /**
+   * Full display string for the damage dice + type (e.g. "2d6+9 slashing").
+   * Does not include strike abilities — those are passed separately.
+   */
   damage: string;
   damageExpr: string;
   /** True when the damage expression has been modified (condition or elite/weak) */
@@ -28,8 +33,16 @@ export interface AttackLineProps {
   damageStyle?: React.CSSProperties;
   /** Whether MAP brackets should show on the attack (omit when bonus is null) */
   isAgile?: boolean;
+  /**
+   * Named strike abilities displayed after the damage entry (e.g. ["Grab", "Push"]).
+   * Each is rendered as a glossary link if it exists in ABILITY_GLOSSARY,
+   * otherwise as plain " plus Name" text.
+   */
+  strikeAbilities?: string[];
   onRollAttack: (mod: number, label: string, e: React.MouseEvent) => void;
   onRollDamage: (e: React.MouseEvent) => void;
+  onManualRollAttack?: (mod: number, label: string, e: React.MouseEvent) => void;
+  onManualRollDamage?: (e: React.MouseEvent) => void;
 }
 
 export function AttackLine({
@@ -44,8 +57,11 @@ export function AttackLine({
   attackStyle,
   damageStyle,
   isAgile = false,
+  strikeAbilities = [],
   onRollAttack,
   onRollDamage,
+  onManualRollAttack,
+  onManualRollDamage,
 }: AttackLineProps) {
   const typeLabel = type === 'ranged' ? 'Ranged' : 'Melee';
 
@@ -65,9 +81,10 @@ export function AttackLine({
         <>
           <span
             className={styles.rollMod}
-            title="Roll attack (1st action)"
+            title="Roll attack (1st action) · right-click to input"
             style={attackStyle}
             onClick={e => onRollAttack(bonus, name, e)}
+            onContextMenu={onManualRollAttack ? e => onManualRollAttack(bonus, name, e) : undefined}
           >
             <strong>{name}</strong> {formatMod(bonus)}
           </span>
@@ -79,16 +96,18 @@ export function AttackLine({
               {' ['}
               <span
                 className={styles.mapRoll}
-                title="Roll attack (2nd action, MAP)"
+                title="Roll attack (2nd action, MAP) · right-click to input"
                 onClick={e => onRollAttack(map2, `${name} (MAP 2)`, e)}
+                onContextMenu={onManualRollAttack ? e => onManualRollAttack(map2, `${name} (MAP 2)`, e) : undefined}
               >
                 {formatMod(map2)}
               </span>
               {'/'}
               <span
                 className={styles.mapRoll}
-                title="Roll attack (3rd action, MAP)"
+                title="Roll attack (3rd action, MAP) · right-click to input"
                 onClick={e => onRollAttack(map3, `${name} (MAP 3)`, e)}
+                onContextMenu={onManualRollAttack ? e => onManualRollAttack(map3, `${name} (MAP 3)`, e) : undefined}
               >
                 {formatMod(map3)}
               </span>
@@ -122,14 +141,20 @@ export function AttackLine({
         <>
           {', '}
           {damageExpr ? (
-            <span
-              className={styles.rollMod}
-              title="Roll damage"
-              style={damageStyle}
-              onClick={e => onRollDamage(e)}
-            >
-              <strong>Damage</strong> {displayDamage}
-            </span>
+            <>
+              <span
+                className={styles.rollMod}
+                title="Roll damage · right-click to input"
+                style={damageStyle}
+                onClick={e => onRollDamage(e)}
+                onContextMenu={onManualRollDamage ? e => onManualRollDamage(e) : undefined}
+              >
+                <strong>Damage</strong> {displayDamage}
+              </span>
+              {strikeAbilities.map(ab => (
+                <GlossaryNameLink key={ab} name={ab} prefix=" plus " />
+              ))}
+            </>
           ) : (
             <><strong>Damage</strong> {damage}</>
           )}

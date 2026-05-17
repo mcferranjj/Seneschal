@@ -15,6 +15,7 @@ import { insertTextAtCursor, textBeforeCursor, saveCurrentRange, ensureEditorFoc
 import { usePopupPosition } from '../../hooks/usePopupPosition';
 import { useOutsideClick } from '../../hooks/useOutsideClick';
 import type { AbilityActionType } from '../../types/encounter';
+import { DamageTypePicker } from './DamageTypePicker';
 import styles from './AbilityEditor.module.css';
 
 // PF2e action icon characters
@@ -25,32 +26,6 @@ const ACTION_ICONS: { value: AbilityActionType; label: string; title: string }[]
   { value: 'reaction', label: '↺',     title: 'Reaction'              },
   { value: 'free',     label: '◇',     title: 'Free Action'           },
   { value: 'passive',  label: 'Passive', title: 'Passive'             },
-];
-
-// ── Damage type groups ────────────────────────────────────────────────────────
-
-interface DmgTypeGroup {
-  types: string[];
-}
-
-// Ordered groups for the main damage type picker.
-// Persistent is a special entry rendered last with its own submenu.
-const DAMAGE_TYPE_GROUPS: DmgTypeGroup[] = [
-  { types: ['bludgeoning', 'piercing', 'slashing'] },
-  { types: ['acid', 'cold', 'electricity', 'fire', 'sonic'] },
-  { types: ['force', 'spirit', 'vitality', 'void'] },
-  { types: ['mental', 'poison', 'precision'] },
-  { types: ['untyped'] },
-];
-
-// Types available under "persistent <type>":
-// excludes bludgeoning/piercing/slashing/precision; adds bleed first.
-const PERSISTENT_DAMAGE_TYPE_GROUPS: DmgTypeGroup[] = [
-  { types: ['bleed'] },
-  { types: ['acid', 'cold', 'electricity', 'fire', 'sonic'] },
-  { types: ['force', 'spirit', 'vitality', 'void'] },
-  { types: ['mental', 'poison'] },
-  { types: ['untyped'] },
 ];
 
 // ── Component interface ───────────────────────────────────────────────────────
@@ -111,7 +86,10 @@ interface AbilityEditorProps {
   ready?: boolean;
 }
 
-// ── Damage type picker popup ──────────────────────────────────────────────────
+// ── Damage type picker wrapper ────────────────────────────────────────────────
+// AbilityEditor needs onPick to receive a fully-formed text string
+// (e.g. "2d6+4 slashing damage") rather than a raw type, so we wrap the shared
+// DamageTypePicker and bake the expr + "damage" suffix in here.
 
 interface DmgPickerProps {
   expr: string;
@@ -120,83 +98,13 @@ interface DmgPickerProps {
   onClose: () => void;
 }
 
-function DamageTypePicker({ expr, anchorRef, onPick, onClose }: DmgPickerProps) {
-  const popupRef = useRef<HTMLDivElement>(null);
-  const [showPersistent, setShowPersistent] = useState(false);
-  const persistentBtnRef = useRef<HTMLButtonElement>(null);
-
-  // Viewport-safe position: prefer below anchor, flip above if needed, clamp left edge.
-  // Pass popupRef so the hook can measure actual width after render and clamp right edge.
-  const pos = usePopupPosition(anchorRef, true, { popupWidth: 0, popupMaxHeight: 400 }, popupRef);
-  // Close when clicking outside both the popup and its anchor button
-  useOutsideClick(popupRef, onClose, anchorRef);
-
-  function pick(type: string) {
-    onPick(`${expr} ${type} damage`);
-    onClose();
-  }
-
-  function pickPersistent(type: string) {
-    onPick(`${expr} persistent ${type} damage`);
-    onClose();
-  }
-
-  if (!pos) return null;
-
+function AbilityEditorDamageTypePicker({ expr, anchorRef, onPick, onClose }: DmgPickerProps) {
   return (
-    <div
-      ref={popupRef}
-      className={styles.dmgPicker}
-      style={{
-        position: 'fixed',
-        top:    pos.top    !== undefined ? pos.top    : undefined,
-        bottom: pos.bottom !== undefined ? pos.bottom : undefined,
-        left:   pos.left,
-        maxHeight: pos.maxH,
-      }}
-      onMouseDown={e => e.preventDefault()}
-    >
-      {!showPersistent && DAMAGE_TYPE_GROUPS.map((group, gi) => (
-        <div key={gi} className={styles.dmgPickerGroup}>
-          {group.types.map(type => (
-            <button
-              key={type}
-              type="button"
-              className={`${styles.dmgPickerBtn} ${styles.dmgTypeBtn}`}
-              onMouseDown={e => { e.preventDefault(); pick(type); }}
-            >{type}</button>
-          ))}
-        </div>
-      ))}
-
-      {/* Persistent trigger — always visible */}
-      <div className={styles.dmgPickerGroup}>
-        <button
-          ref={persistentBtnRef}
-          type="button"
-          className={`${styles.dmgPickerBtn} ${styles.dmgPickerPersistent} ${showPersistent ? styles.dmgPickerPersistentActive : ''}`}
-          onMouseDown={e => { e.preventDefault(); setShowPersistent(v => !v); }}
-        >{showPersistent ? '◀ persistent' : 'persistent ▶'}</button>
-      </div>
-
-      {showPersistent && (
-        <div className={styles.dmgPickerSub} onMouseDown={e => e.preventDefault()}>
-          {PERSISTENT_DAMAGE_TYPE_GROUPS.map((group, gi) => (
-            <div key={gi} className={styles.dmgPickerGroup}>
-              {group.types.map(type => (
-                <button
-                  key={type}
-                  type="button"
-                  className={`${styles.dmgPickerBtn} ${styles.dmgTypeBtn}`}
-                  onMouseDown={e => { e.preventDefault(); pickPersistent(type); }}
-                >{type}</button>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-
-    </div>
+    <DamageTypePicker
+      anchorRef={anchorRef}
+      onPick={type => onPick(`${expr} ${type} damage`)}
+      onClose={onClose}
+    />
   );
 }
 
@@ -607,7 +515,7 @@ export function AbilityEditor({
                     onMouseDown={e => { e.preventDefault(); openPickerFor(dmg.label, dmg.value); }}
                   >{dmg.label} ▾</button>
                   {isOpen && (
-                    <DamageTypePicker
+                    <AbilityEditorDamageTypePicker
                       expr={openDmgExpr.current}
                       anchorRef={{ current: dropdownBtnRefs.current.get(dmg.label) ?? null }}
                       onPick={text => insertDamageText(text)}
@@ -657,7 +565,7 @@ export function AbilityEditor({
                   {grp.tiers.map(tier => {
                     const tierKey = `tier:${grp.label}:${tier.label}`;
                     return openDropdown === tierKey ? (
-                      <DamageTypePicker
+                      <AbilityEditorDamageTypePicker
                         key={tierKey}
                         expr={openDmgExpr.current}
                         anchorRef={{ current: dropdownBtnRefs.current.get(grpKey) ?? null }}
