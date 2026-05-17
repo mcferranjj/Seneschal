@@ -6,61 +6,10 @@
  * data into AttackLineProps and delegate here.
  */
 
-import { useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { ABILITY_GLOSSARY } from '../../data/abilityGlossary';
-import { usePopupPosition } from '../../hooks/usePopupPosition';
-import { useOutsideClick } from '../../hooks/useOutsideClick';
 import { formatMod } from '../../utils/formatters';
-import { AbilityPopup } from './AbilityPopup';
+import { GlossaryNameLink } from './AbilityPopup';
 import { TraitChip } from './TraitChip';
 import styles from './StatblockDrawer.module.css';
-
-// ── StrikeAbilityLink ─────────────────────────────────────────────────────────
-
-/**
- * Renders a single strike ability name (e.g. "Grab", "Improved Push").
- * If the name exists in ABILITY_GLOSSARY it becomes a clickable link that
- * opens the same AbilityPopup used by the abilities list. Otherwise it
- * renders as plain text.
- */
-function StrikeAbilityLink({ name }: { name: string }) {
-  const glossaryDesc = ABILITY_GLOSSARY[name];
-  const [popupOpen, setPopupOpen] = useState(false);
-  const nameRef = useRef<HTMLSpanElement>(null);
-  const popupRef = useRef<HTMLDivElement>(null);
-
-  const pos = usePopupPosition(nameRef, popupOpen, { popupWidth: 300, popupMaxHeight: 380 }, popupRef);
-  useOutsideClick(popupRef, () => setPopupOpen(false), nameRef);
-
-  if (!glossaryDesc) {
-    return <span> plus {name}</span>;
-  }
-
-  return (
-    <>
-      <span> plus </span>
-      <span
-        ref={nameRef}
-        className={styles.abilityNameClickable}
-        title="Click for rules summary"
-        onClick={e => { e.stopPropagation(); setPopupOpen(o => !o); }}
-      >
-        {name}
-      </span>
-      {popupOpen && pos && createPortal(
-        <AbilityPopup
-          name={name}
-          desc={glossaryDesc}
-          pos={pos}
-          popupRef={popupRef}
-          onClose={() => setPopupOpen(false)}
-        />,
-        document.body,
-      )}
-    </>
-  );
-}
 
 export interface AttackLineProps {
   name: string;
@@ -68,10 +17,8 @@ export interface AttackLineProps {
   /** Effective bonus already incorporating ewMod and any condition penalties */
   bonus: number | null;
   /**
-   * Full display string for the damage section (typed components + ability names),
-   * e.g. "2d6+9 slashing plus 1d6 fire plus Grab".
-   * The rollable portion is determined by damageExpr; anything after the last
-   * dice component is rendered as plain text.
+   * Full display string for the damage dice + type (e.g. "2d6+9 slashing").
+   * Does not include strike abilities — those are passed separately.
    */
   damage: string;
   damageExpr: string;
@@ -88,7 +35,8 @@ export interface AttackLineProps {
   isAgile?: boolean;
   /**
    * Named strike abilities displayed after the damage entry (e.g. ["Grab", "Push"]).
-   * Rendered as plain " plus Ability" text — not part of the rollable span.
+   * Each is rendered as a glossary link if it exists in ABILITY_GLOSSARY,
+   * otherwise as plain " plus Name" text.
    */
   strikeAbilities?: string[];
   onRollAttack: (mod: number, label: string, e: React.MouseEvent) => void;
@@ -196,7 +144,7 @@ export function AttackLine({
                 <strong>Damage</strong> {displayDamage}
               </span>
               {strikeAbilities.map(ab => (
-                <StrikeAbilityLink key={ab} name={ab} />
+                <GlossaryNameLink key={ab} name={ab} prefix=" plus " />
               ))}
             </>
           ) : (

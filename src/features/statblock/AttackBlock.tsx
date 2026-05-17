@@ -2,6 +2,7 @@ import type { PF2EItem } from '../../types/pf2e';
 import type { Condition } from '../../types/encounter';
 import { computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
 import { getDamageString, getDamageGroups } from './statblockHelpers';
+import { slugToTitle } from '../../utils/formatters';
 import type { DamageGroupInput } from '../dice/DiceRoller';
 import { AttackLine } from './AttackLine';
 
@@ -48,24 +49,20 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
         : undefined;
 
   // Convert hyphenated slugs (e.g. "improved-push") to title-case display names
-  // (e.g. "Improved Push") so they can be looked up in ABILITY_GLOSSARY and
-  // rendered as clickable links by AttackLine's StrikeAbilityLink.
-  const strikeAbilities = effects.map((slug: string) =>
-    slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-  );
-
-  const fullDamage = damage;
+  // (e.g. "Improved Push") so they match ABILITY_GLOSSARY keys and render as
+  // clickable links via GlossaryNameLink in AttackLine.
+  const strikeAbilities = effects.map(slugToTitle);
 
   // Combine condition damage penalty and elite/weak damage modifier
   const totalDmgMod = dmgPen + ewMod;
 
   // Build one group per damage type so multi-type attacks (e.g. slashing + fire) all roll
   const baseDamageGroups = getDamageGroups(item.system?.damageRolls, totalDmgMod);
-  // If there are no structured rolls but fullDamage has a dice expression, fall back
+  // If there are no structured rolls but damage has a dice expression, fall back
   const damageGroups: DamageGroupInput[] = baseDamageGroups.length > 0
     ? baseDamageGroups
     : (() => {
-        const m = fullDamage.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
+        const m = damage.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
         if (!m) return [];
         const expr = m[2] ? `${m[1]}${m[2].replace(/\s/g, '')}` : m[1];
         const modifiedExpr = totalDmgMod !== 0 ? `${expr}${totalDmgMod >= 0 ? `+${totalDmgMod}` : totalDmgMod}` : expr;
@@ -83,7 +80,7 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, conditions = [],
       name={item.name}
       type={attackType}
       bonus={effBonus}
-      damage={fullDamage}
+      damage={damage}
       damageExpr={damageExpr}
       damageModified={isDebuffedDmg || ewMod !== 0}
       traits={traits}

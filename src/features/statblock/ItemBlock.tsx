@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import type { PF2EItem } from '../../types/pf2e';
 import {
   applyEliteWeakToHtml,
@@ -9,8 +9,7 @@ import {
 import type { DamageGroup } from '../../utils/foundryMacros';
 import { scaleAbilityHtml, eliteWeakDmgMod, eliteWeakDcMod } from '../../utils/levelScaling';
 import { ABILITY_GLOSSARY } from '../../data/abilityGlossary';
-import { useOutsideClick } from '../../hooks/useOutsideClick';
-import { usePopupPosition } from '../../hooks/usePopupPosition';
+import { useGlossaryPopup } from '../../hooks/useGlossaryPopup';
 import { AbilityPopup } from './AbilityPopup';
 import styles from './StatblockDrawer.module.css';
 
@@ -61,12 +60,7 @@ export function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle, baseLevel, targ
 
   // Ability glossary popup
   const glossaryDesc = ABILITY_GLOSSARY[item.name];
-  const [popupOpen, setPopupOpen] = useState(false);
-  const nameRef = useRef<HTMLElement>(null);
-  const popupRef = useRef<HTMLDivElement>(null);
-
-  const pos = usePopupPosition(nameRef, popupOpen, { popupWidth: 300, popupMaxHeight: 380 }, popupRef);
-  useOutsideClick(popupRef, () => setPopupOpen(false), nameRef);
+  const { popupOpen, togglePopup, closePopup, nameRef, popupRef, pos } = useGlossaryPopup();
 
   return (
     <div className={styles.itemBlock}>
@@ -74,7 +68,7 @@ export function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle, baseLevel, targ
         <strong
           ref={nameRef}
           className={`${styles.itemName} ${glossaryDesc ? styles.abilityNameClickable : ''}`}
-          onClick={glossaryDesc ? () => setPopupOpen(o => !o) : undefined}
+          onClick={glossaryDesc ? togglePopup : undefined}
           title={glossaryDesc ? 'Click for rules summary' : undefined}
         >
           {item.name}
@@ -104,14 +98,15 @@ export function ItemBlock({ item, onRollAll, ewMod = 0, ewStyle, baseLevel, targ
         </button>
       )}
 
-      {popupOpen && glossaryDesc && pos && (
+      {popupOpen && glossaryDesc && pos && createPortal(
         <AbilityPopup
           name={item.name}
           desc={glossaryDesc}
           pos={pos}
           popupRef={popupRef}
-          onClose={() => setPopupOpen(false)}
-        />
+          onClose={closePopup}
+        />,
+        document.body,
       )}
     </div>
   );

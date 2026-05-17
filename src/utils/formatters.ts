@@ -37,3 +37,11 @@ export function formatTime(ts: number): string {
     second: '2-digit',
   });
 }
+
+/**
+ * Converts a hyphenated slug to a title-cased display name.
+ * Example: "improved-push" → "Improved Push"
+ */
+export function slugToTitle(slug: string): string {
+  return slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
