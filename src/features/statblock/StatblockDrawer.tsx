@@ -1,5 +1,6 @@
 
 import { useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { CreatureRecord } from '../../db/schema';
 import type { PF2ECreature } from '../../types/pf2e';
 import type { RollHistoryEntry } from '../../types/diceHistory';
@@ -33,6 +34,7 @@ import { ItemBlock } from './ItemBlock';
 import { CustomAbilityBlock } from './CustomAbilityBlock';
 import { SpellcastingBlock } from './SpellcastingBlock';
 import { TraitChip } from './TraitChip';
+import { usePf2kwTooltip } from '../../hooks/usePf2kwTooltip';
 import styles from './StatblockDrawer.module.css';
 
 function skillDisplayName(raw: string): string {
@@ -180,6 +182,8 @@ function StatblockContent({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [scaleDropdownOpen, setScaleDropdownOpen] = useState(false);
 
+  const { containerRef: pf2kwRef, tooltip: pf2kwTooltip } = usePf2kwTooltip();
+
   const {
     diceRoll, multiDamageRoll,
     clearRolls,
@@ -325,7 +329,13 @@ function StatblockContent({
     : `https://raw.githubusercontent.com/foundryvtt/pf2e/v14-dev/static/${imgPath.replace('systems/pf2e/', '')}`;
 
   return (
-    <div className={styles.content} onClick={handleBodyClick}>
+    <div className={styles.content} ref={pf2kwRef} onClick={handleBodyClick}>
+      {pf2kwTooltip && createPortal(
+        <span className={styles.traitTooltip} style={{ top: pf2kwTooltip.top, bottom: pf2kwTooltip.bottom, left: pf2kwTooltip.left, maxHeight: pf2kwTooltip.maxH, opacity: 1 }}>
+          {pf2kwTooltip.text}
+        </span>,
+        document.body,
+      )}
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerMain}>

@@ -21,7 +21,9 @@ import { calcPopupPosition, type PopupPosition } from './usePopupPosition';
 import { useOutsideClick } from './useOutsideClick';
 
 // Trait tooltips are narrower/shorter than the default popup dimensions.
-const TRAIT_POPUP_OPTIONS = { popupWidth: 260, popupMaxHeight: 200 } as const;
+// centreOnAnchor lets the popup straddle the column border instead of
+// starting flush with the left edge of the chip.
+const TRAIT_POPUP_OPTIONS = { popupWidth: 260, popupMaxHeight: 200, centerOnAnchor: true } as const;
 
 export type { PopupPosition };
 

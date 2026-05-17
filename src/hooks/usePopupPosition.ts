@@ -23,6 +23,9 @@ interface Options {
   popupMaxHeight?: number;
   margin?: number;
   gap?: number;
+  /** Centre the popup horizontally on the anchor instead of left-aligning it.
+   *  Useful for narrow anchors near a column edge (e.g. trait chips). */
+  centerOnAnchor?: boolean;
 }
 
 /**
@@ -42,16 +45,24 @@ export function calcPopupPosition(
     popupMaxHeight = 420,
     margin         = 8,
     gap            = 4,
+    centerOnAnchor = false,
   }: Options = {},
 ): PopupPosition {
   const rect = anchor.getBoundingClientRect();
   const spaceBelow = window.innerHeight - rect.bottom - margin;
   const spaceAbove = rect.top - margin;
 
-  let left = rect.left;
+  // Horizontally: centre on the anchor or left-align with it.
+  let left = centerOnAnchor
+    ? rect.left + rect.width / 2 - popupWidth / 2
+    : rect.left;
+
+  // If it overflows the right edge, shift left.
   if (popupWidth > 0 && left + popupWidth > window.innerWidth - margin) {
     left = window.innerWidth - popupWidth - margin;
   }
+
+  // Clamp to viewport left edge.
   left = Math.max(margin, left);
 
   const openBelow = spaceBelow >= popupMaxHeight || spaceBelow >= spaceAbove;
