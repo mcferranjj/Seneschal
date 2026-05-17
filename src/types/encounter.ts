@@ -5,13 +5,37 @@ export interface Condition {
   value?: number; // for valued conditions like Frightened 2, Slowed 1
 }
 
+export interface CustomAttackDamageType {
+  /** Dice expression for this damage component, e.g. "2d6+9" or "1d6" */
+  expr: string;
+  /** Damage type, e.g. "slashing", "fire", "persistent fire" */
+  type: string;
+}
+
 export interface CustomAttack {
   name: string;
   type: 'melee' | 'ranged';
   bonus: number;
+  /**
+   * Legacy plain-text damage string (e.g. "2d6+9 slashing plus 1d6 fire").
+   * Kept for backwards-compat and as the canonical display/storage string.
+   * When damageTypes is present it is derived from that; otherwise it is
+   * used directly.
+   */
   damage: string;
   range?: number; // feet, ranged only
   traits?: string[];
+  /**
+   * Structured damage breakdown. Each entry is one damage component.
+   * The first entry is the primary roll (carries elite/weak modifier);
+   * subsequent entries are "plus" components.
+   */
+  damageTypes?: CustomAttackDamageType[];
+  /**
+   * Named monster abilities listed after the damage entry,
+   * e.g. ["Grab", "Push"] → rendered as "plus Grab plus Push" in the stat block.
+   */
+  strikeAbilities?: string[];
 }
 
 export type AbilityActionType = 'single' | 'two' | 'three' | 'reaction' | 'free' | 'passive';

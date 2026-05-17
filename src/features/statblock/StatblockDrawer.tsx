@@ -741,36 +741,83 @@ function StatblockContent({
             : creature.publication === 'Custom'
               ? (creature.customData?.attacks ?? []).map(atk => ({ ...atk, isScaled: false as const }))
               : [];
-          return nonOfficialAttacks.map((atk, i) => {
+          return nonOfficialAttacks.map((atkRaw, i) => {
+            // Cast to the richer CustomAttack shape — scaled attacks simply won't
+            // have damageTypes/strikeAbilities (undefined), which is fine.
+            const atk = atkRaw as typeof atkRaw & import('../../types/encounter').CustomAttack;
             const baseStyle = atk.isScaled ? scaledStyle : undefined;
             const atkStyle = ewMod !== 0 ? ewStyle : baseStyle;
             const effBonus = atk.bonus + ewMod;
             const isAgile = atk.traits?.includes('agile') ?? false;
-            const damageExprMatch = atk.damage?.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
-            const baseDamageExpr = damageExprMatch
-              ? (damageExprMatch[2] ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}` : damageExprMatch[1])
-              : '';
-            const damageExpr = baseDamageExpr && ewMod !== 0
-              ? `${baseDamageExpr}${ewMod >= 0 ? `+${ewMod}` : ewMod}`
-              : baseDamageExpr;
             const rangeDisplay = atk.range != null ? `range ${atk.range} ft.` : undefined;
             const damageLabel = `${atk.name} damage`;
+
+            // Build structured damage groups from damageTypes if present,
+            // otherwise fall back to parsing the legacy flat damage string.
+            let damageGroups: { expr: string; label: string }[];
+            let primaryExprForEwMod: string;
+
+            if (atk.damageTypes && atk.damageTypes.length > 0) {
+              // Primary group gets elite/weak modifier; secondaries do not.
+              const primary = atk.damageTypes[0];
+              const primaryExprRaw = primary.expr.replace(/\s/g, '');
+              primaryExprForEwMod = ewMod !== 0
+                ? `${primaryExprRaw}${ewMod >= 0 ? `+${ewMod}` : ewMod}`
+                : primaryExprRaw;
+              damageGroups = [
+                { expr: primaryExprForEwMod, label: primary.type || 'damage' },
+                ...atk.damageTypes.slice(1).map(dt => ({
+                  expr: dt.expr.replace(/\s/g, ''),
+                  label: dt.type || 'damage',
+                })),
+              ];
+            } else {
+              // Legacy path: extract first dice expression from the flat string.
+              const damageExprMatch = atk.damage?.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
+              const baseDamageExpr = damageExprMatch
+                ? (damageExprMatch[2] ? `${damageExprMatch[1]}${damageExprMatch[2].replace(/\s/g, '')}` : damageExprMatch[1])
+                : '';
+              primaryExprForEwMod = baseDamageExpr && ewMod !== 0
+                ? `${baseDamageExpr}${ewMod >= 0 ? `+${ewMod}` : ewMod}`
+                : baseDamageExpr;
+              damageGroups = primaryExprForEwMod ? [{ expr: primaryExprForEwMod, label: 'damage' }] : [];
+            }
+
+            // Build the display damage string: typed dice components joined by " plus ".
+            // Strike abilities are passed separately to AttackLine so they render as
+            // plain text outside the clickable rollMod span.
+            let displayDamage: string;
+            const strikeAbilities = atk.strikeAbilities ?? [];
+            if (atk.damageTypes && atk.damageTypes.length > 0) {
+              const dmgParts = atk.damageTypes.map((dt, di) => {
+                const expr = di === 0 && ewMod !== 0 ? primaryExprForEwMod : dt.expr;
+                return dt.type ? `${expr} ${dt.type}` : expr;
+              });
+              displayDamage = dmgParts.join(' plus ');
+            } else {
+              // Legacy: use stored flat string, with ewMod applied to first expr
+              displayDamage = ewMod !== 0 && primaryExprForEwMod
+                ? (atk.damage ?? '').replace(/(\d+d\d+(?:[+-]\d+)?)/, primaryExprForEwMod)
+                : (atk.damage ?? '');
+            }
+
             return (
               <AttackLine
                 key={i}
                 name={atk.name}
                 type={atk.type}
                 bonus={effBonus}
-                damage={atk.damage ?? ''}
-                damageExpr={damageExpr}
+                damage={displayDamage}
+                damageExpr={damageGroups[0]?.expr ?? ''}
                 damageModified={ewMod !== 0}
                 traits={atk.traits ?? []}
                 rangeDisplay={rangeDisplay}
                 attackStyle={atkStyle}
                 damageStyle={atkStyle}
                 isAgile={isAgile}
-                onRollAttack={(mod, label, e) => rollAttack(mod, label, damageExpr ? [{ expr: damageExpr, label: 'damage' }] : [], damageLabel, atk.traits ?? [], e)}
-                onRollDamage={e => rollDamage(damageExpr ? [{ expr: damageExpr, label: 'damage' }] : [], damageLabel, atk.traits ?? [], e)}
+                strikeAbilities={strikeAbilities}
+                onRollAttack={(mod, label, e) => rollAttack(mod, label, damageGroups, damageLabel, atk.traits ?? [], e)}
+                onRollDamage={e => rollDamage(damageGroups, damageLabel, atk.traits ?? [], e)}
               />
             );
           });

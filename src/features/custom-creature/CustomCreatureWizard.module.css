@@ -615,6 +615,86 @@
   color: var(--text-mute);
 }
 
+/* ── Damage type picker (inline in attack card) ── */
+
+.dmgTypePickerAnchor {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dmgTypeBtn {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.68rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dmgTypeBtn:hover {
+  border-color: var(--crimson);
+}
+
+.dmgTypeBtnActive {
+  border-color: var(--crimson);
+  background: var(--parchment);
+}
+
+.dmgTypeBtnEmpty {
+  color: var(--text-mute);
+  border-style: dashed;
+}
+
+/* Add damage type button */
+.addDmgTypeBtn {
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 3px;
+  color: var(--text-mute);
+  font-size: 0.65rem;
+  cursor: pointer;
+  padding: 1px 6px;
+}
+
+.addDmgTypeBtn:hover {
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+/* Strike abilities row */
+.attackAbilityRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.attackAbilityChips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.attackAbilityChip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 5px 1px 6px;
+  border-radius: 3px;
+  background: var(--crimson);
+  color: #f0e6cc;
+  font-size: 0.63rem;
+}
+
+.suggestionMeta {
+  color: rgba(240,230,204,0.6);
+  font-size: 0.6rem;
+}
+
 /* Ability cards */
 .abilityCard {
   border: 1px solid var(--border-l);

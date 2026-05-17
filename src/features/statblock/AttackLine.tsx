@@ -15,6 +15,12 @@ export interface AttackLineProps {
   type: 'melee' | 'ranged';
   /** Effective bonus already incorporating ewMod and any condition penalties */
   bonus: number | null;
+  /**
+   * Full display string for the damage section (typed components + ability names),
+   * e.g. "2d6+9 slashing plus 1d6 fire plus Grab".
+   * The rollable portion is determined by damageExpr; anything after the last
+   * dice component is rendered as plain text.
+   */
   damage: string;
   damageExpr: string;
   /** True when the damage expression has been modified (condition or elite/weak) */
@@ -28,6 +34,11 @@ export interface AttackLineProps {
   damageStyle?: React.CSSProperties;
   /** Whether MAP brackets should show on the attack (omit when bonus is null) */
   isAgile?: boolean;
+  /**
+   * Named strike abilities displayed after the damage entry (e.g. ["Grab", "Push"]).
+   * Rendered as plain " plus Ability" text — not part of the rollable span.
+   */
+  strikeAbilities?: string[];
   onRollAttack: (mod: number, label: string, e: React.MouseEvent) => void;
   onRollDamage: (e: React.MouseEvent) => void;
 }
@@ -44,6 +55,7 @@ export function AttackLine({
   attackStyle,
   damageStyle,
   isAgile = false,
+  strikeAbilities = [],
   onRollAttack,
   onRollDamage,
 }: AttackLineProps) {
@@ -122,14 +134,19 @@ export function AttackLine({
         <>
           {', '}
           {damageExpr ? (
-            <span
-              className={styles.rollMod}
-              title="Roll damage"
-              style={damageStyle}
-              onClick={e => onRollDamage(e)}
-            >
-              <strong>Damage</strong> {displayDamage}
-            </span>
+            <>
+              <span
+                className={styles.rollMod}
+                title="Roll damage"
+                style={damageStyle}
+                onClick={e => onRollDamage(e)}
+              >
+                <strong>Damage</strong> {displayDamage}
+              </span>
+              {strikeAbilities.map(ab => (
+                <span key={ab}> plus {ab}</span>
+              ))}
+            </>
           ) : (
             <><strong>Damage</strong> {damage}</>
           )}

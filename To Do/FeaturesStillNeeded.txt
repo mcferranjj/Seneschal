@@ -6,7 +6,6 @@ Encounters:
 
     - add ability to export/import monsters, full database, encounters, etc.
 
-    - custom creature strike damage types + multiple damage functionality
     - make sneak attack a toggle on creatures that possess it
     - put it on the web
 

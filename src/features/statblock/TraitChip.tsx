@@ -39,7 +39,7 @@ interface HoverTooltipProps {
   pos: PopupPosition;
 }
 
-function TraitHoverTooltip({ trait, desc, pos, forceVisible }: HoverTooltipProps) {
+function TraitHoverTooltip({ trait, desc, pos }: HoverTooltipProps) {
   return createPortal(
     <span
       className={styles.traitTooltip}
