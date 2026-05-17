@@ -4,14 +4,16 @@ Minor Improvements:
     - pictures?
         - not implemented
     - make ability damage scaler use dice more rather than applying the flat damage difference right in the damage description (e.g. magma dragon breath)
-    - look into why some descriptions are missing (e.g. Tooth Fairy)
-    - fix cases where formatting text (markdown, etc.) is appearing in descriptions of abilities in copy-and-edit windows
+    - default custom creature edit to page two of wizard, not page one
     
 Backend Cleanup/Improvements:
     - consolidate custom creature and official creature storage formats, and consolidate their display
 
 Bug Fixes:
     - make sure "custom" is always present as a source, even when no custom creatures are in the database. Only turn it on by default if custom creatures are found
+    - fix cases where formatting text (markdown, etc.) is appearing in descriptions of abilities in copy-and-edit windows
+    - look into why some descriptions are missing (e.g. Tooth Fairy)
+    - fix whatever is preventing some encounters from being deletable
 
 Unanswered Questions:
     - is it legal to include pics plus the flavor descriptions in a public product if I make someone prove they own the pdf first?
