@@ -121,6 +121,8 @@ export function useSearch(): UseSearchReturn {
     setResults([]);
     setTotalCount(0);
     setLastSynced(null);
+    // Reset the guard so triggerSync isn't blocked by the initial mount sync
+    syncingRef.current = false;
     triggerSync().then(() => initTraitDescriptions()).catch(() => {});
   }, [triggerSync]);
 

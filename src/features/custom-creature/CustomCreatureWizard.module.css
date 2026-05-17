@@ -152,6 +152,96 @@
   color: var(--crimson);
 }
 
+/* Entity kind / complexity toggle row */
+.toggleRow {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+/* Hazard hint row with info button */
+.wizardHintRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px 2px;
+  flex-shrink: 0;
+}
+
+.infoBtn {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-mute);
+  font-size: 0.6rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+}
+
+.infoBtn:hover {
+  background: var(--crimson);
+  border-color: var(--crimson);
+  color: #f0e6cc;
+}
+
+/* Hazard design info panel */
+.hazardInfoPanel {
+  margin: 0 14px 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--parchment);
+  font-size: 0.72rem;
+  color: var(--text-mid);
+  line-height: 1.5;
+  position: relative;
+  flex-shrink: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.hazardInfoClose {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--text-mute);
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.hazardInfoClose:hover {
+  color: var(--crimson);
+}
+
+.hazardInfoHeading {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 8px 0 3px;
+  padding-right: 16px;
+}
+
+.hazardInfoHeading:first-child {
+  margin-top: 0;
+}
+
+.hazardInfoBody {
+  margin: 0 0 5px;
+}
+
 .typeGrid {
   display: flex;
   flex-wrap: wrap;
@@ -314,6 +404,12 @@
   letter-spacing: 0.04em;
 }
 
+.addBtnGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .statRow {
   display: flex;
   align-items: center;
@@ -330,7 +426,8 @@
 }
 
 .tierBtns {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(5, 20px);
   gap: 2px;
 }
 
@@ -426,6 +523,20 @@
   background: var(--bg);
   color: var(--text);
   font-size: 0.75rem;
+}
+
+/* Generic ability name — read-only, visually distinct */
+.abilityNameGeneric {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+  font-weight: 700;
+  cursor: default;
+}
+
+.abilityNameGeneric:focus {
+  outline: none;
+  border-color: transparent;
 }
 
 .removeBtn {

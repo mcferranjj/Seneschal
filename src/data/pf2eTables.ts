@@ -12,7 +12,7 @@
 export type HpTier       = 'low' | 'moderate' | 'high';
 export type AcTier       = 'low' | 'moderate' | 'high' | 'extreme';
 export type SaveTier     = 'terrible' | 'low' | 'moderate' | 'high' | 'extreme';
-export type AbilityTier  = 'low' | 'moderate' | 'high' | 'extreme';
+export type AbilityTier  = 'terrible' | 'low' | 'moderate' | 'high' | 'extreme';
 export type ResWeakTier  = 'low' | 'moderate' | 'high';
 export type AreaDamageTier = 'unlimited' | 'limited';
 
@@ -212,33 +212,33 @@ export const AREA_DAMAGE_TABLE: Record<number, Record<AreaDamageTier, string>> =
 // level -1 and 0 have no extreme in the table; 99 is used as a sentinel (hide tier button)
 
 export const ABILITY_TABLE: Record<number, Record<AbilityTier, number>> = {
-  [-1]: { extreme: 99, high: 3, moderate: 2, low: 0 },
-  [0]:  { extreme: 99, high: 3, moderate: 2, low: 0 },
-  [1]:  { extreme: 5,  high: 4, moderate: 3, low: 1 },
-  [2]:  { extreme: 5,  high: 4, moderate: 3, low: 1 },
-  [3]:  { extreme: 5,  high: 4, moderate: 3, low: 1 },
-  [4]:  { extreme: 6,  high: 5, moderate: 3, low: 2 },
-  [5]:  { extreme: 6,  high: 5, moderate: 4, low: 2 },
-  [6]:  { extreme: 7,  high: 5, moderate: 4, low: 2 },
-  [7]:  { extreme: 7,  high: 6, moderate: 4, low: 2 },
-  [8]:  { extreme: 7,  high: 6, moderate: 4, low: 3 },
-  [9]:  { extreme: 7,  high: 6, moderate: 4, low: 3 },
-  [10]: { extreme: 8,  high: 7, moderate: 5, low: 3 },
-  [11]: { extreme: 8,  high: 7, moderate: 5, low: 3 },
-  [12]: { extreme: 8,  high: 7, moderate: 5, low: 4 },
-  [13]: { extreme: 9,  high: 8, moderate: 5, low: 4 },
-  [14]: { extreme: 9,  high: 8, moderate: 5, low: 4 },
-  [15]: { extreme: 9,  high: 8, moderate: 6, low: 4 },
-  [16]: { extreme: 10, high: 9, moderate: 6, low: 5 },
-  [17]: { extreme: 10, high: 9, moderate: 6, low: 5 },
-  [18]: { extreme: 10, high: 9, moderate: 6, low: 5 },
-  [19]: { extreme: 11, high: 10, moderate: 6, low: 5 },
-  [20]: { extreme: 11, high: 10, moderate: 7, low: 6 },
-  [21]: { extreme: 11, high: 10, moderate: 7, low: 6 },
-  [22]: { extreme: 11, high: 10, moderate: 8, low: 6 },
-  [23]: { extreme: 11, high: 10, moderate: 8, low: 6 },
-  [24]: { extreme: 13, high: 12, moderate: 9, low: 7 },
-  [25]: { extreme: 13, high: 12, moderate: 9, low: 7 },
+  [-1]: { extreme: 99, high: 3,  moderate: 2, low: 0, terrible: -2 },
+  [0]:  { extreme: 99, high: 3,  moderate: 2, low: 0, terrible: -2 },
+  [1]:  { extreme: 5,  high: 4,  moderate: 3, low: 1, terrible: -2 },
+  [2]:  { extreme: 5,  high: 4,  moderate: 3, low: 1, terrible: -2 },
+  [3]:  { extreme: 5,  high: 4,  moderate: 3, low: 1, terrible: -2 },
+  [4]:  { extreme: 6,  high: 5,  moderate: 3, low: 2, terrible: -2 },
+  [5]:  { extreme: 6,  high: 5,  moderate: 4, low: 2, terrible: -2 },
+  [6]:  { extreme: 7,  high: 5,  moderate: 4, low: 2, terrible: -2 },
+  [7]:  { extreme: 7,  high: 6,  moderate: 4, low: 2, terrible: -2 },
+  [8]:  { extreme: 7,  high: 6,  moderate: 4, low: 3, terrible: -2 },
+  [9]:  { extreme: 7,  high: 6,  moderate: 4, low: 3, terrible: -2 },
+  [10]: { extreme: 8,  high: 7,  moderate: 5, low: 3, terrible: -2 },
+  [11]: { extreme: 8,  high: 7,  moderate: 5, low: 3, terrible: -2 },
+  [12]: { extreme: 8,  high: 7,  moderate: 5, low: 4, terrible: -2 },
+  [13]: { extreme: 9,  high: 8,  moderate: 5, low: 4, terrible: -2 },
+  [14]: { extreme: 9,  high: 8,  moderate: 5, low: 4, terrible: -2 },
+  [15]: { extreme: 9,  high: 8,  moderate: 6, low: 4, terrible: -2 },
+  [16]: { extreme: 10, high: 9,  moderate: 6, low: 5, terrible: -2 },
+  [17]: { extreme: 10, high: 9,  moderate: 6, low: 5, terrible: -2 },
+  [18]: { extreme: 10, high: 9,  moderate: 6, low: 5, terrible: -2 },
+  [19]: { extreme: 11, high: 10, moderate: 6, low: 5, terrible: -2 },
+  [20]: { extreme: 11, high: 10, moderate: 7, low: 6, terrible: -2 },
+  [21]: { extreme: 11, high: 10, moderate: 7, low: 6, terrible: -2 },
+  [22]: { extreme: 11, high: 10, moderate: 8, low: 6, terrible: -2 },
+  [23]: { extreme: 11, high: 10, moderate: 8, low: 6, terrible: -2 },
+  [24]: { extreme: 13, high: 12, moderate: 9, low: 7, terrible: -2 },
+  [25]: { extreme: 13, high: 12, moderate: 9, low: 7, terrible: -2 },
 };
 
 // ── Table 9-9: Perception ─────────────────────────────────────────────────────
@@ -271,6 +271,198 @@ export const PERCEPTION_TABLE: Record<number, Record<SaveTier, number>> = {
   [23]: { extreme: 44, high: 40, moderate: 37, low: 34, terrible: 31 },
   [24]: { extreme: 46, high: 42, moderate: 38, low: 36, terrible: 32 },
   [25]: { extreme: 47, high: 43, moderate: 39, low: 37, terrible: 33 },
+};
+
+// ── Hazard Tier Type Aliases ──────────────────────────────────────────────────
+
+export type HazardDCTier      = 'low' | 'high' | 'extreme';
+export type HazardDefenseTier = 'low' | 'high' | 'extreme';
+export type HazardSaveDCTier  = 'high' | 'extreme';
+export type HazardAttackTier  = 'simple' | 'complex';
+
+// ── Table 2-13: Hazard Stealth / Disable DCs ─────────────────────────────────
+// Columns: extreme, high, low (Stealth/Disable DCs)
+
+// Low values are ranges — median (floor) is used: e.g. "12 to 11" → 11, "13 to 12" → 12
+export const HAZARD_STEALTH_DISABLE_TABLE: Record<number, Record<HazardDCTier, number>> = {
+  [-1]: { extreme: 18, high: 15, low: 11 },
+  [0]:  { extreme: 19, high: 16, low: 12 },
+  [1]:  { extreme: 20, high: 17, low: 13 },
+  [2]:  { extreme: 21, high: 18, low: 14 },
+  [3]:  { extreme: 23, high: 20, low: 16 },
+  [4]:  { extreme: 25, high: 22, low: 17 },
+  [5]:  { extreme: 26, high: 23, low: 19 },
+  [6]:  { extreme: 28, high: 25, low: 20 },
+  [7]:  { extreme: 30, high: 27, low: 22 },
+  [8]:  { extreme: 31, high: 28, low: 23 },
+  [9]:  { extreme: 33, high: 30, low: 24 },
+  [10]: { extreme: 35, high: 32, low: 26 },
+  [11]: { extreme: 36, high: 33, low: 27 },
+  [12]: { extreme: 38, high: 35, low: 28 },
+  [13]: { extreme: 40, high: 37, low: 30 },
+  [14]: { extreme: 41, high: 38, low: 31 },
+  [15]: { extreme: 43, high: 40, low: 33 },
+  [16]: { extreme: 45, high: 42, low: 34 },
+  [17]: { extreme: 46, high: 43, low: 36 },
+  [18]: { extreme: 48, high: 45, low: 37 },
+  [19]: { extreme: 50, high: 47, low: 39 },
+  [20]: { extreme: 51, high: 48, low: 40 },
+  [21]: { extreme: 53, high: 50, low: 41 },
+  [22]: { extreme: 55, high: 52, low: 43 },
+  [23]: { extreme: 56, high: 53, low: 44 },
+  [24]: { extreme: 58, high: 55, low: 45 },
+};
+
+// ── Table 2-15: Hazard Defenses ───────────────────────────────────────────────
+// Per level: AC (extreme/high/low), Save (extreme/high/low), Hardness, HP midpoint
+
+export interface HazardDefenseRow {
+  ac:       Record<HazardDefenseTier, number>;
+  save:     Record<HazardDefenseTier, number>;
+  hardness: number;       // typical hardness value
+  hp:       number;       // midpoint of the HP range
+}
+
+// AC uses EAC/HAC/LAC; Save uses E Save/H Save/L Save.
+// Hardness and HP are ranges — median (floor) used: e.g. "2–4" → 3, "11–13" → 12.
+export const HAZARD_DEFENSE_TABLE: Record<number, HazardDefenseRow> = {
+  [-1]: { ac: { extreme: 18, high: 15, low: 12 }, save: { extreme: 9,  high: 8,  low: 2  }, hardness: 3,  hp: 12  },
+  [0]:  { ac: { extreme: 19, high: 16, low: 13 }, save: { extreme: 10, high: 9,  low: 3  }, hardness: 4,  hp: 16  },
+  [1]:  { ac: { extreme: 19, high: 16, low: 13 }, save: { extreme: 11, high: 10, low: 4  }, hardness: 6,  hp: 24  },
+  [2]:  { ac: { extreme: 21, high: 18, low: 15 }, save: { extreme: 12, high: 11, low: 5  }, hardness: 8,  hp: 32  },
+  [3]:  { ac: { extreme: 22, high: 19, low: 16 }, save: { extreme: 14, high: 12, low: 6  }, hardness: 11, hp: 44  },
+  [4]:  { ac: { extreme: 24, high: 21, low: 18 }, save: { extreme: 15, high: 14, low: 8  }, hardness: 12, hp: 48  },
+  [5]:  { ac: { extreme: 25, high: 22, low: 19 }, save: { extreme: 17, high: 15, low: 9  }, hardness: 13, hp: 52  },
+  [6]:  { ac: { extreme: 27, high: 24, low: 21 }, save: { extreme: 18, high: 17, low: 11 }, hardness: 14, hp: 56  },
+  [7]:  { ac: { extreme: 28, high: 25, low: 22 }, save: { extreme: 20, high: 18, low: 12 }, hardness: 15, hp: 60  },
+  [8]:  { ac: { extreme: 30, high: 27, low: 24 }, save: { extreme: 21, high: 19, low: 13 }, hardness: 16, hp: 64  },
+  [9]:  { ac: { extreme: 31, high: 28, low: 25 }, save: { extreme: 23, high: 21, low: 15 }, hardness: 17, hp: 68  },
+  [10]: { ac: { extreme: 33, high: 30, low: 27 }, save: { extreme: 24, high: 22, low: 16 }, hardness: 18, hp: 72  },
+  [11]: { ac: { extreme: 34, high: 31, low: 28 }, save: { extreme: 26, high: 24, low: 18 }, hardness: 20, hp: 80  },
+  [12]: { ac: { extreme: 36, high: 33, low: 30 }, save: { extreme: 27, high: 25, low: 19 }, hardness: 21, hp: 84  },
+  [13]: { ac: { extreme: 37, high: 34, low: 31 }, save: { extreme: 29, high: 26, low: 20 }, hardness: 22, hp: 88  },
+  [14]: { ac: { extreme: 39, high: 36, low: 33 }, save: { extreme: 30, high: 28, low: 22 }, hardness: 23, hp: 92  },
+  [15]: { ac: { extreme: 40, high: 37, low: 34 }, save: { extreme: 32, high: 29, low: 23 }, hardness: 24, hp: 96  },
+  [16]: { ac: { extreme: 42, high: 39, low: 36 }, save: { extreme: 33, high: 30, low: 25 }, hardness: 26, hp: 104 },
+  [17]: { ac: { extreme: 43, high: 40, low: 37 }, save: { extreme: 35, high: 32, low: 26 }, hardness: 28, hp: 112 },
+  [18]: { ac: { extreme: 45, high: 42, low: 39 }, save: { extreme: 36, high: 33, low: 27 }, hardness: 30, hp: 120 },
+  [19]: { ac: { extreme: 46, high: 43, low: 40 }, save: { extreme: 38, high: 35, low: 29 }, hardness: 32, hp: 128 },
+  [20]: { ac: { extreme: 48, high: 45, low: 42 }, save: { extreme: 39, high: 36, low: 30 }, hardness: 34, hp: 136 },
+  [21]: { ac: { extreme: 49, high: 46, low: 43 }, save: { extreme: 41, high: 38, low: 32 }, hardness: 37, hp: 148 },
+  [22]: { ac: { extreme: 51, high: 48, low: 45 }, save: { extreme: 43, high: 39, low: 33 }, hardness: 40, hp: 160 },
+  [23]: { ac: { extreme: 52, high: 49, low: 46 }, save: { extreme: 44, high: 40, low: 34 }, hardness: 45, hp: 172 },
+  [24]: { ac: { extreme: 54, high: 51, low: 48 }, save: { extreme: 46, high: 42, low: 36 }, hardness: 48, hp: 184 },
+};
+
+// ── Table 2-16: Hazard Offense ────────────────────────────────────────────────
+// Simple/Complex attack bonuses, damage strings, and DCs
+
+export interface HazardOffenseRow {
+  simpleAtk: number;
+  complexAtk: number;
+  simpleDmg: string;
+  complexDmg: string;
+  extremeDC: number;
+  hardDC: number;
+}
+
+// S. Atk is the Simple attack bonus; C. Atk is the Complex attack bonus.
+// Simple Dmg deals less; Complex Dmg deals more (the parenthetical is the median used here).
+// EDC = Extreme DC; HDC = Hard DC.
+export const HAZARD_OFFENSE_TABLE: Record<number, HazardOffenseRow> = {
+  [-1]: { simpleAtk: 10, complexAtk: 8,  simpleDmg: '2d4+1',    complexDmg: '1d4+1',    extremeDC: 19, hardDC: 16 },
+  [0]:  { simpleAtk: 11, complexAtk: 8,  simpleDmg: '2d6+3',    complexDmg: '1d6+2',    extremeDC: 19, hardDC: 16 },
+  [1]:  { simpleAtk: 13, complexAtk: 9,  simpleDmg: '2d6+5',    complexDmg: '1d6+3',    extremeDC: 20, hardDC: 17 },
+  [2]:  { simpleAtk: 14, complexAtk: 11, simpleDmg: '2d10+7',   complexDmg: '1d10+4',   extremeDC: 22, hardDC: 18 },
+  [3]:  { simpleAtk: 16, complexAtk: 12, simpleDmg: '2d10+13',  complexDmg: '1d10+6',   extremeDC: 23, hardDC: 20 },
+  [4]:  { simpleAtk: 17, complexAtk: 14, simpleDmg: '4d8+10',   complexDmg: '2d8+5',    extremeDC: 25, hardDC: 21 },
+  [5]:  { simpleAtk: 19, complexAtk: 15, simpleDmg: '4d8+14',   complexDmg: '2d8+7',    extremeDC: 26, hardDC: 22 },
+  [6]:  { simpleAtk: 20, complexAtk: 17, simpleDmg: '4d8+18',   complexDmg: '2d8+9',    extremeDC: 27, hardDC: 24 },
+  [7]:  { simpleAtk: 22, complexAtk: 18, simpleDmg: '4d10+18',  complexDmg: '2d10+9',   extremeDC: 29, hardDC: 25 },
+  [8]:  { simpleAtk: 23, complexAtk: 20, simpleDmg: '4d10+22',  complexDmg: '2d10+11',  extremeDC: 30, hardDC: 26 },
+  [9]:  { simpleAtk: 25, complexAtk: 21, simpleDmg: '4d10+26',  complexDmg: '2d10+13',  extremeDC: 32, hardDC: 28 },
+  [10]: { simpleAtk: 26, complexAtk: 23, simpleDmg: '4d12+26',  complexDmg: '2d12+13',  extremeDC: 33, hardDC: 29 },
+  [11]: { simpleAtk: 28, complexAtk: 24, simpleDmg: '4d12+30',  complexDmg: '2d12+15',  extremeDC: 34, hardDC: 30 },
+  [12]: { simpleAtk: 29, complexAtk: 26, simpleDmg: '6d10+27',  complexDmg: '3d10+14',  extremeDC: 36, hardDC: 32 },
+  [13]: { simpleAtk: 31, complexAtk: 27, simpleDmg: '6d10+31',  complexDmg: '3d10+16',  extremeDC: 37, hardDC: 33 },
+  [14]: { simpleAtk: 32, complexAtk: 29, simpleDmg: '6d10+35',  complexDmg: '3d10+18',  extremeDC: 39, hardDC: 34 },
+  [15]: { simpleAtk: 34, complexAtk: 30, simpleDmg: '6d12+33',  complexDmg: '3d12+17',  extremeDC: 40, hardDC: 36 },
+  [16]: { simpleAtk: 35, complexAtk: 32, simpleDmg: '6d12+35',  complexDmg: '3d12+18',  extremeDC: 41, hardDC: 37 },
+  [17]: { simpleAtk: 37, complexAtk: 33, simpleDmg: '6d12+37',  complexDmg: '3d12+19',  extremeDC: 43, hardDC: 38 },
+  [18]: { simpleAtk: 38, complexAtk: 35, simpleDmg: '6d12+41',  complexDmg: '3d12+20',  extremeDC: 44, hardDC: 40 },
+  [19]: { simpleAtk: 40, complexAtk: 36, simpleDmg: '8d10+40',  complexDmg: '4d10+20',  extremeDC: 46, hardDC: 41 },
+  [20]: { simpleAtk: 41, complexAtk: 38, simpleDmg: '8d10+44',  complexDmg: '4d10+22',  extremeDC: 47, hardDC: 42 },
+  [21]: { simpleAtk: 43, complexAtk: 39, simpleDmg: '8d10+48',  complexDmg: '4d10+24',  extremeDC: 48, hardDC: 44 },
+  [22]: { simpleAtk: 44, complexAtk: 41, simpleDmg: '8d10+52',  complexDmg: '4d10+26',  extremeDC: 50, hardDC: 45 },
+  [23]: { simpleAtk: 46, complexAtk: 42, simpleDmg: '8d12+48',  complexDmg: '4d12+24',  extremeDC: 51, hardDC: 46 },
+  [24]: { simpleAtk: 47, complexAtk: 44, simpleDmg: '8d12+52',  complexDmg: '4d12+26',  extremeDC: 52, hardDC: 48 },
+};
+
+// ── Table 2-11: Spell DC and Spell Attack Bonus ───────────────────────────────
+
+export type SpellDCTier = 'moderate' | 'high' | 'extreme';
+
+export const SPELL_DC_TABLE: Record<number, Record<SpellDCTier, number>> = {
+  [-1]: { extreme: 19, high: 16, moderate: 13 },
+  [0]:  { extreme: 19, high: 16, moderate: 13 },
+  [1]:  { extreme: 20, high: 17, moderate: 14 },
+  [2]:  { extreme: 22, high: 18, moderate: 15 },
+  [3]:  { extreme: 23, high: 20, moderate: 17 },
+  [4]:  { extreme: 25, high: 21, moderate: 18 },
+  [5]:  { extreme: 26, high: 22, moderate: 19 },
+  [6]:  { extreme: 27, high: 24, moderate: 21 },
+  [7]:  { extreme: 29, high: 25, moderate: 22 },
+  [8]:  { extreme: 30, high: 26, moderate: 23 },
+  [9]:  { extreme: 32, high: 28, moderate: 25 },
+  [10]: { extreme: 33, high: 29, moderate: 26 },
+  [11]: { extreme: 34, high: 30, moderate: 27 },
+  [12]: { extreme: 36, high: 32, moderate: 29 },
+  [13]: { extreme: 37, high: 33, moderate: 30 },
+  [14]: { extreme: 39, high: 34, moderate: 31 },
+  [15]: { extreme: 40, high: 36, moderate: 33 },
+  [16]: { extreme: 41, high: 37, moderate: 34 },
+  [17]: { extreme: 43, high: 38, moderate: 35 },
+  [18]: { extreme: 44, high: 40, moderate: 37 },
+  [19]: { extreme: 46, high: 41, moderate: 38 },
+  [20]: { extreme: 47, high: 42, moderate: 39 },
+  [21]: { extreme: 48, high: 44, moderate: 41 },
+  [22]: { extreme: 50, high: 45, moderate: 42 },
+  [23]: { extreme: 51, high: 46, moderate: 43 },
+  [24]: { extreme: 52, high: 48, moderate: 45 },
+  [25]: { extreme: 53, high: 49, moderate: 46 },
+};
+
+// ── Table 2-11: Spell Attack Bonus ────────────────────────────────────────────
+
+export const SPELL_ATTACK_TABLE: Record<number, Record<SpellDCTier, number>> = {
+  // See Table 2-11 above — attack bonus columns only
+  [-1]: { extreme: 11, high: 8,  moderate: 5  },
+  [0]:  { extreme: 11, high: 8,  moderate: 5  },
+  [1]:  { extreme: 12, high: 9,  moderate: 6  },
+  [2]:  { extreme: 14, high: 10, moderate: 7  },
+  [3]:  { extreme: 15, high: 12, moderate: 9  },
+  [4]:  { extreme: 17, high: 13, moderate: 10 },
+  [5]:  { extreme: 18, high: 14, moderate: 11 },
+  [6]:  { extreme: 19, high: 16, moderate: 13 },
+  [7]:  { extreme: 21, high: 17, moderate: 14 },
+  [8]:  { extreme: 22, high: 18, moderate: 15 },
+  [9]:  { extreme: 24, high: 20, moderate: 17 },
+  [10]: { extreme: 25, high: 21, moderate: 18 },
+  [11]: { extreme: 26, high: 22, moderate: 19 },
+  [12]: { extreme: 28, high: 24, moderate: 21 },
+  [13]: { extreme: 29, high: 25, moderate: 22 },
+  [14]: { extreme: 31, high: 26, moderate: 23 },
+  [15]: { extreme: 32, high: 28, moderate: 25 },
+  [16]: { extreme: 33, high: 29, moderate: 26 },
+  [17]: { extreme: 35, high: 30, moderate: 27 },
+  [18]: { extreme: 36, high: 32, moderate: 29 },
+  [19]: { extreme: 38, high: 33, moderate: 30 },
+  [20]: { extreme: 39, high: 34, moderate: 31 },
+  [21]: { extreme: 40, high: 36, moderate: 33 },
+  [22]: { extreme: 42, high: 37, moderate: 34 },
+  [23]: { extreme: 43, high: 38, moderate: 35 },
+  [24]: { extreme: 44, high: 40, moderate: 37 },
+  [25]: { extreme: 45, high: 41, moderate: 38 },
 };
 
 // ── Table 9-10: Resistance / Weakness ────────────────────────────────────────

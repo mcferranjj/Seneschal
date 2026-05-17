@@ -11,8 +11,11 @@ export interface CreatureRecord {
   size: string;
   rarity: string;
   packSource: string;
+  publication: string;
   blobSha: string;
   data: PF2ECreature;
+  /** Indexed for filtering; set for complex hazards only */
+  isComplex?: boolean;
   customData?: {
     attacks?: CustomAttack[];
     abilities?: CustomAbility[];
@@ -26,6 +29,15 @@ export interface CreatureRecord {
     skills?: CustomSkill[];
     languages?: string[];
     allSavesNote?: string;
+    // Hazard-specific fields
+    hardness?: number;
+    hasHealth?: boolean;
+    stealthDC?: number;
+    stealthDetails?: string;
+    isComplex?: boolean;
+    disable?: string;
+    reset?: string;
+    routine?: string;
   };
 }
 

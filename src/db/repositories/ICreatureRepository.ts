@@ -6,13 +6,15 @@
  */
 
 import type { CreatureRecord } from '../schema';
-import type { SearchFilters, SearchResult } from '../../search/search';
+import type { SearchFilters, SearchResult } from '../../search/types';
+import type { PublicationInfo } from '../../sync/publicationRegistry';
 
 export interface ICreatureRepository {
   get(id: string): Promise<CreatureRecord | undefined>;
   search(filters: SearchFilters): Promise<SearchResult>;
   getAllTraits(): Promise<string[]>;
-  getAllPackSources(): Promise<string[]>;
+  getAllPublications(): Promise<string[]>;
+  getAllPublicationsWithMeta(): Promise<PublicationInfo[]>;
   bulkPut(records: CreatureRecord[]): Promise<void>;
   put(record: CreatureRecord): Promise<void>;
   delete(id: string): Promise<void>;

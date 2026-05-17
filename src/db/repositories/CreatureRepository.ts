@@ -7,7 +7,9 @@
 
 import { db } from '../db';
 import type { CreatureRecord } from '../schema';
-import type { SearchFilters, SearchResult } from '../../search/search';
+import type { SearchFilters, SearchResult } from '../../search/types';
+import type { PublicationInfo } from '../../sync/publicationRegistry';
+import { getPublicationMeta } from '../../sync/publicationRegistry';
 import type { ICreatureRepository } from './ICreatureRepository';
 
 export class CreatureRepository implements ICreatureRepository {
@@ -18,7 +20,7 @@ export class CreatureRepository implements ICreatureRepository {
   async search(filters: SearchFilters): Promise<SearchResult> {
     const {
       name, traits, excludeTraits, levelMin, levelMax,
-      creatureTypes, hazardTypes, sizes, rarities, packSources, entityTypes,
+      creatureTypes, hazardTypes, sizes, rarities, publications, entityTypes,
     } = filters;
 
     const nameLower = name.trim().toLowerCase();
@@ -28,22 +30,29 @@ export class CreatureRepository implements ICreatureRepository {
     const hasHazardTypeFilter = hazardTypes.length > 0;
     const hasSizeFilter = sizes.length > 0;
     const hasRarityFilter = rarities.length > 0;
-    const hasPackFilter = packSources.length > 0;
-    const hasTraitFilter = traits.length > 0;
+    const hasPublicationFilter = publications.length > 0;
     const hasExcludeTraitFilter = excludeTraits.length > 0;
     const hasEntityTypeFilter = entityTypes.length > 0;
 
+    // 'complex' is a synthetic trait derived from system.details.isComplex rather than
+    // stored in the traits array on older records. Filter it separately in the .filter()
+    // pass so it works correctly regardless of whether the DB has been re-synced.
+    const filterComplex = traits.includes('complex');
+    const filterExcludeComplex = excludeTraits.includes('complex');
+    const indexableTraits = traits.filter(t => t !== 'complex');
+    const hasTraitFilter = indexableTraits.length > 0;
+
     let collection;
     if (hasTraitFilter) {
-      collection = db.creatures.where('traits').equals(traits[0]);
+      collection = db.creatures.where('traits').equals(indexableTraits[0]);
     } else if (hasLevelFilter) {
       collection = db.creatures.where('level').between(levelMin, levelMax, true, true);
     } else if (hasRarityFilter) {
       collection = db.creatures.where('rarity').anyOf(rarities);
     } else if (hasSizeFilter) {
       collection = db.creatures.where('size').anyOf(sizes);
-    } else if (hasPackFilter) {
-      collection = db.creatures.where('packSource').anyOf(packSources);
+    } else if (hasPublicationFilter) {
+      collection = db.creatures.where('publication').anyOf(publications);
     } else {
       collection = db.creatures.toCollection();
     }
@@ -52,17 +61,21 @@ export class CreatureRepository implements ICreatureRepository {
       .filter(c => {
         if (hasNameFilter && !c.nameLower.includes(nameLower)) return false;
         if (hasTraitFilter) {
-          for (const t of traits.slice(1)) {
+          for (const t of indexableTraits.slice(1)) {
             if (!c.traits.includes(t)) return false;
           }
         }
+        // 'complex' is checked against the raw data blob so it works on un-resynced records
+        const isComplex = c.entityType === 'hazard' && c.data.system?.details?.isComplex === true;
+        if (filterComplex && !isComplex) return false;
+        if (filterExcludeComplex && isComplex) return false;
         if (hasLevelFilter && (c.level < levelMin || c.level > levelMax)) return false;
         if (hasCreatureTypeFilter && !creatureTypes.some(t => c.traits.includes(t))) return false;
         if (hasHazardTypeFilter && !hazardTypes.some(t => c.traits.includes(t))) return false;
         if (hasSizeFilter && !sizes.includes(c.size)) return false;
         if (hasRarityFilter && !rarities.includes(c.rarity)) return false;
-        if (hasPackFilter && !packSources.includes(c.packSource)) return false;
-        if (hasExcludeTraitFilter && excludeTraits.some(t => c.traits.includes(t))) return false;
+        if (hasPublicationFilter && !publications.includes(c.publication)) return false;
+        if (hasExcludeTraitFilter && excludeTraits.filter(t => t !== 'complex').some(t => c.traits.includes(t))) return false;
         if (hasEntityTypeFilter && !entityTypes.includes(c.entityType)) return false;
         return true;
       })
@@ -84,9 +97,20 @@ export class CreatureRepository implements ICreatureRepository {
     return keys as string[];
   }
 
-  async getAllPackSources(): Promise<string[]> {
-    const keys = await db.creatures.orderBy('packSource').uniqueKeys();
+  async getAllPublications(): Promise<string[]> {
+    const keys = await db.creatures.orderBy('publication').uniqueKeys();
     return keys as string[];
+  }
+
+  async getAllPublicationsWithMeta(): Promise<PublicationInfo[]> {
+    const names = await this.getAllPublications();
+    const results: PublicationInfo[] = [];
+    for (const name of names) {
+      const sample = await db.creatures.where('publication').equals(name).first();
+      const isRemaster = sample?.data.system.details?.publication?.remaster ?? false;
+      results.push({ name, ...getPublicationMeta(name, isRemaster) });
+    }
+    return results;
   }
 
   async bulkPut(records: CreatureRecord[]): Promise<void> {

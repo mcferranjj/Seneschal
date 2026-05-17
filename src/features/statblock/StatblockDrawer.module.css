@@ -353,6 +353,206 @@
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 3px;
   padding: 2px 7px;
+  position: relative;
+}
+
+/* Trait tooltip */
+.traitChipHoverable {
+  cursor: help;
+}
+
+/* Pinned state — subtle ring + pointer cursor to signal it's locked open */
+.traitChipPinned {
+  cursor: pointer;
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 1px;
+}
+
+.traitTooltip {
+  opacity: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: 400;
+  width: 260px;
+  max-height: 200px; /* matches TOOLTIP_MAX_H in TraitChip.tsx */
+  overflow-y: auto;
+  background: #2a1a0a;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 5px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+  padding: 7px 10px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #e8d8b8;
+  line-height: 1.5;
+  white-space: normal;
+  transition: opacity 0.1s;
+  /* top/left set via JS on mouseEnter */
+}
+
+.traitTooltipName {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #f0e0c0;
+  display: block;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Pinned trait popup — same dark parchment style as the hover tooltip but
+   with a header row containing the name and an ✕ close button, and no
+   max-height cap so long descriptions are fully scrollable. */
+.traitPinnedPopup {
+  position: fixed;
+  z-index: 450;
+  width: 260px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #2a1a0a;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 5px;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.55);
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #e8d8b8;
+  line-height: 1.5;
+  white-space: normal;
+  /* top/left set via JS on click */
+}
+
+.traitPinnedPopupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px 5px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  position: sticky;
+  top: 0;
+  background: #2a1a0a;
+}
+
+.traitPinnedPopupName {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #f0e0c0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.traitPinnedPopupClose {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+}
+
+.traitPinnedPopupClose:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+.traitPinnedPopupDesc {
+  padding: 7px 10px 9px;
+}
+
+/* Ability glossary popup */
+.abilityPopup {
+  position: fixed;
+  z-index: 300;
+  width: 300px;
+  max-height: 380px;
+  overflow-y: auto;
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  padding: 8px 10px 10px;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.abilityPopupHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border-l);
+  padding-bottom: 5px;
+}
+
+.abilityPopupName {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.abilityPopupSource {
+  font-size: 0.66rem;
+  color: var(--text-mute);
+  font-style: italic;
+  flex-shrink: 0;
+}
+
+.abilityPopupClose {
+  background: none;
+  border: none;
+  color: var(--text-mute);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.abilityPopupClose:hover {
+  background: rgba(0,0,0,0.08);
+  color: var(--text);
+}
+
+.abilityPopupDesc {
+  font-size: 0.78rem;
+  color: var(--text-mid);
+  line-height: 1.55;
+}
+
+/* Clickable ability name link inside a glossary popup description */
+.glossaryLink {
+  cursor: pointer;
+  color: var(--crimson);
+  border-bottom: 1px dotted var(--crimson);
+  transition: opacity 0.1s;
+}
+
+.glossaryLink:hover {
+  opacity: 0.75;
+}
+
+/* Clickable ability name (has glossary entry) */
+.abilityNameClickable {
+  cursor: pointer;
+  border-bottom: 1px dotted var(--text-mid);
+  transition: color 0.1s, border-color 0.1s;
+}
+
+.abilityNameClickable:hover {
+  color: var(--crimson);
+  border-bottom-color: var(--crimson);
 }
 
 /* Body */
@@ -441,6 +641,20 @@
   font-size: 0.82em;
   color: var(--text-mid);
   font-style: italic;
+}
+
+/* Individual trait keyword inside an attack line */
+.attackTraitKw {
+  position: relative;
+  cursor: help;
+  border-bottom: 1px dashed var(--gold);
+  /* inherits italic + color from .attackTraits */
+}
+
+/* Pinned state — underline becomes solid to signal it's locked open */
+.attackTraitKwPinned {
+  cursor: pointer;
+  border-bottom: 2px solid var(--gold);
 }
 
 .actionSymbol {

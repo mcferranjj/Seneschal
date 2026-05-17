@@ -1,17 +1,19 @@
 Encounters:
-    - add custom level scaling options (use the creature builder rules: find what column a given stat is closest to (T/L/M/H/E) plus its offset from that stat, then scale it up to that same column at the desired level, then apply the same offset that was calculated)
+    - right click on rollable dice to be able to enter an IRL roll, where it then computes and adds it to dice history
+    - flesh out settings
+        - default preferences
+        - color preferences
 
-    - add custom hazard creation, adding to the custom creature wizard
+    - add ability to export/import monsters, full database, encounters, etc.
+
+    - custom creature strike damage types + multiple damage functionality
+    - make sneak attack a toggle on creatures that possess it
+    - put it on the web
 
     - name generator
     - random monster quirk generator
 
-    - monster ability index + hover info (e.g. Push, Improved Grab, Trample)
-    - monster traits hover info (e.g. Humanoid, Unholy, Mindless)
-
-    - for custom abilities, add suggested scaling dcs and damage for both single target and area damage abilities
-    - in the custom creature wizard, add functionality for suggesting standard monster abilities (trample, swallow whole, etc.)
-        - also add functionality to browse and add/scale abilities from all other monsters, filterable by creature type
+    - in the custom creature wizard, add functionality to browse and add/scale abilities from all other monsters, filterable by creature type
     
     - party tracker (currently the "characters" tab):
         - move party manager from "Characters" tab to "Encounters" ("Characters" tab should be for player characters)

@@ -17,6 +17,30 @@
   overflow: hidden;
 }
 
+/* Scrollable area that holds the individual tab wrappers */
+.tabsScroll {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--border) transparent; /* Firefox thumb/track */
+}
+
+.tabsScroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.tabsScroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tabsScroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
 .tabWrapper {
   display: flex;
   align-items: center;
@@ -84,23 +108,25 @@
 }
 
 .tabDeleteYes {
-  font-size: 10px;
-  padding: 0 3px;
-  border-radius: 2px;
+  font-size: 13px;
+  padding: 2px 7px;
+  border-radius: 3px;
   border: none;
   background: var(--crimson);
   color: #f0e6cc;
   cursor: pointer;
+  line-height: 1.4;
 }
 
 .tabDeleteNo {
-  font-size: 10px;
-  padding: 0 3px;
-  border-radius: 2px;
+  font-size: 13px;
+  padding: 2px 7px;
+  border-radius: 3px;
   border: 1px solid var(--border);
   background: none;
   color: var(--text-mute);
   cursor: pointer;
+  line-height: 1.4;
 }
 
 .addTabBtn {
@@ -110,8 +136,8 @@
   border: none;
   background: none;
   font-size: 15px;
-  margin-left: auto;
   flex-shrink: 0;
+  border-left: 1px solid var(--border);
   transition: color 0.12s;
 }
 

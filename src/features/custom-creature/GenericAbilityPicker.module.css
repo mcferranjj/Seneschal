@@ -1,0 +1,283 @@
+/* GenericAbilityPicker — inline dropdown panel */
+
+.picker {
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--parchment);
+  position: relative;
+  z-index: 10;
+}
+
+/* ── Search row ── */
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--border-l);
+  min-height: 30px;
+  box-sizing: border-box;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--crimson);
+}
+
+.closeBtn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-mute);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.closeBtn:hover {
+  color: var(--text);
+  background: var(--border-l);
+}
+
+.backBtn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--crimson);
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
+
+.backBtn:hover {
+  background: var(--border-l);
+}
+
+.selectedName {
+  flex: 1;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── List ── */
+.list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 9px;
+  cursor: pointer;
+  gap: 8px;
+}
+
+.listItem:hover {
+  background: var(--border-l);
+}
+
+.listItemName {
+  font-size: 0.75rem;
+  color: var(--text);
+}
+
+.listItemAction {
+  font-size: 0.68rem;
+  color: var(--text-mute);
+  flex-shrink: 0;
+}
+
+.noResults {
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  color: var(--text-mute);
+  font-style: italic;
+}
+
+/* ── Variable fill-in form ── */
+.noVarsNote {
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  color: var(--text-mute);
+  font-style: italic;
+  margin: 0;
+}
+
+.varFields {
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.varRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.varLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-mute);
+}
+
+.varInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-family: inherit;
+}
+
+.varInput:focus {
+  outline: none;
+  border-color: var(--crimson);
+}
+
+.varSelect {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.varSelect:focus {
+  outline: none;
+  border-color: var(--crimson);
+}
+
+/* Remove number input spinner arrows */
+.varInput[type="number"]::-webkit-inner-spin-button,
+.varInput[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.varInput[type="number"] { -moz-appearance: textfield; }
+
+/* DC / Damage field with tier quick-pick buttons */
+.fieldWithTiers {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.fieldWithTiers .varInput {
+  flex: 1;
+}
+
+.tierBtns {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.tierBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text-mid);
+  font-size: 0.6rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.tierBtn:hover {
+  background: var(--border-l);
+}
+
+.tierBtnActive {
+  background: var(--crimson);
+  border-color: var(--crimson);
+  color: #f0e6cc;
+}
+
+/* ── Preview ── */
+.previewLabel {
+  margin: 6px 8px 1px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-mute);
+}
+
+.preview {
+  margin: 0 8px 6px;
+  font-size: 0.7rem;
+  color: var(--text-mid);
+  line-height: 1.5;
+  border: 1px dashed var(--border-l);
+  border-radius: 3px;
+  padding: 4px 6px;
+  background: var(--bg);
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+/* ── Insert button ── */
+.insertBtn {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 0 8px 8px;
+  padding: 5px 0;
+  background: var(--crimson);
+  color: #f0e6cc;
+  border: none;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  text-align: center;
+}
+
+.insertBtn:hover {
+  opacity: 0.88;
+}

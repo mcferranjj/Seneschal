@@ -31,6 +31,7 @@ export default function App() {
     creatureCount,
     syncProgress,
     isSyncing,
+    triggerSync,
     handleResetDatabase,
     handleDeleteCreature,
     handleWizardSave,
@@ -60,9 +61,57 @@ export default function App() {
     addCustomCreature,
   } = useEncounter();
 
-  // Filter + results sidebars
-  const [filtersOpen, setFiltersOpen] = useState(true);
-  const [resultsOpen, setResultsOpen] = useState(true);
+  // Filter + results sidebars.
+  // Open state is tracked in refs and applied directly to the DOM (no re-render)
+  // so CSS animations fire on the very next paint frame without React batching delay.
+  const filtersOpenRef = useRef(true);
+  const resultsOpenRef = useRef(true);
+  // Separate minimal state just for the ResultsList toggle button label & aria.
+  const [filtersOpenLabel, setFiltersOpenLabel] = useState(true);
+  const [resultsOpenLabel, setResultsOpenLabel] = useState(true);
+
+  // Refs to the actual column/handle DOM nodes so we can toggle classes directly.
+  const filterColRef  = useRef<HTMLDivElement>(null);
+  const filterHandleRef = useRef<HTMLDivElement>(null);
+  const resultsColRef = useRef<HTMLDivElement>(null);
+  const resultsHandleRef = useRef<HTMLDivElement>(null);
+
+  const setFiltersOpen = useCallback((open: boolean) => {
+    filtersOpenRef.current = open;
+    const el = filterColRef.current;
+    if (el) {
+      if (open) {
+        // Force the browser to commit the closed (width:0, opacity:0) state before
+        // adding the open class, so the transition always has a visible start frame.
+        void el.offsetWidth;
+      }
+      el.classList.toggle(styles.filterColOpen, open);
+    }
+    // Filter resize handle is visible only when both panels are open
+    filterHandleRef.current?.classList.toggle(
+      styles.resizeHandleHidden,
+      !(open && resultsOpenRef.current),
+    );
+    setFiltersOpenLabel(open);
+  }, []);
+
+  const setResultsOpen = useCallback((open: boolean) => {
+    resultsOpenRef.current = open;
+    const el = resultsColRef.current;
+    if (el) {
+      if (open) {
+        void el.offsetWidth;
+      }
+      el.classList.toggle(styles.resultsColOpen, open);
+    }
+    resultsHandleRef.current?.classList.toggle(styles.resizeHandleHidden, !open);
+    // Filter resize handle also depends on resultsOpen
+    filterHandleRef.current?.classList.toggle(
+      styles.resizeHandleHidden,
+      !(filtersOpenRef.current && open),
+    );
+    setResultsOpenLabel(open);
+  }, []);
 
   // Custom creature wizard
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -209,7 +258,7 @@ export default function App() {
       <div className={styles.content}>
         {activeSection === 'gm' && (
           <div ref={gmLayoutRef} className={styles.gmLayout}>
-            <div className={`${styles.filterCol} ${filtersOpen ? styles.filterColOpen : ''}`}>
+            <div ref={filterColRef} className={`${styles.filterCol} ${styles.filterColOpen}`}>
               <SearchPanel
                 filters={filters}
                 onChange={setFilters}
@@ -218,13 +267,14 @@ export default function App() {
               />
             </div>
             <div
-              className={`${styles.resizeHandle} ${!(filtersOpen && resultsOpen) ? styles.resizeHandleHidden : ''}`}
+              ref={filterHandleRef}
+              className={styles.resizeHandle}
               onPointerDown={onHandlePointerDown('filters')}
               onPointerMove={onHandlePointerMove}
               onPointerUp={onHandlePointerUp}
             />
-            <div className={`${styles.resultsCol} ${resultsOpen ? styles.resultsColOpen : ''}`}>
-              {isSyncing && <SyncProgressBar progress={syncProgress} />}
+            <div ref={resultsColRef} className={`${styles.resultsCol} ${styles.resultsColOpen}`}>
+              {(isSyncing || syncProgress.phase === 'error') && <SyncProgressBar progress={syncProgress} onRetry={triggerSync} />}
               <ResultsList
                 results={results}
                 totalCount={totalCount}
@@ -238,13 +288,14 @@ export default function App() {
                 sortDir={filters.sortDir}
                 onSortChange={s => setFilters({ ...filters, sortBy: s })}
                 onSortDirChange={s => setFilters({ ...filters, sortDir: s })}
-                filtersOpen={filtersOpen}
-                onToggleFilters={() => setFiltersOpen(o => !o)}
+                filtersOpen={filtersOpenLabel}
+                onToggleFilters={() => setFiltersOpen(!filtersOpenRef.current)}
                 onOpenWizard={openWizard}
               />
             </div>
             <div
-              className={`${styles.resizeHandle} ${!resultsOpen ? styles.resizeHandleHidden : ''}`}
+              ref={resultsHandleRef}
+              className={styles.resizeHandle}
               onPointerDown={onHandlePointerDown('results')}
               onPointerMove={onHandlePointerMove}
               onPointerUp={onHandlePointerUp}
@@ -275,9 +326,9 @@ export default function App() {
                 onSetEliteWeak={setEliteWeak}
                 onSetScaledLevel={setScaledLevel}
                 onRoll={addRollEntry}
-                resultsOpen={resultsOpen}
+                resultsOpen={resultsOpenLabel}
                 onToggleResults={() => {
-                  if (resultsOpen) {
+                  if (resultsOpenRef.current) {
                     setResultsOpen(false);
                     setFiltersOpen(false);
                   } else {
@@ -337,12 +388,21 @@ export default function App() {
   );
 }
 
-function SyncProgressBar({ progress }: { progress: SyncProgress }) {
-  const { phase, done, total } = progress;
+function SyncProgressBar({ progress, onRetry }: { progress: SyncProgress; onRetry: () => void }) {
+  const { phase, done, total, message } = progress;
   const pct =
     phase === 'fetching' && total && total > 0
       ? Math.round(((done ?? 0) / total) * 100)
       : null;
+
+  if (phase === 'error') {
+    return (
+      <div className={styles.progressBar} data-error>
+        <div className={styles.progressLabel}>{message ?? 'Sync failed.'}</div>
+        <button className={styles.retryBtn} onClick={onRetry}>Retry</button>
+      </div>
+    );
+  }
 
   const label =
     phase === 'checking'

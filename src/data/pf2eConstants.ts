@@ -46,17 +46,20 @@ export const HAZARD_TYPES: { value: string; label: string }[] = [
   { value: 'environmental', label: 'Environmental' },
   { value: 'magical',       label: 'Magical' },
   { value: 'mechanical',    label: 'Mechanical' },
-  { value: 'curse',         label: 'Curse' },
-  { value: 'disease',       label: 'Disease' },
 ];
 
 // ── Damage types ──────────────────────────────────────────────────────────────
 
+// Canonical PF2e (remaster) damage types used for search suggestions,
+// immunity/resistance/weakness inputs, and the ability-editor damage picker.
+// The picker groups in AbilityEditor.tsx are an ordered subset of this list.
 export const DAMAGE_TYPES = [
-  'acid', 'bludgeoning', 'cold', 'electricity', 'fire', 'force',
-  'mental', 'negative', 'piercing', 'poison', 'positive', 'slashing', 'sonic',
-  'bleed', 'chaotic', 'evil', 'good', 'lawful', 'void', 'vitality',
-  'cold iron', 'silver', 'adamantine', 'magical',
-  'disease', 'death effects', 'doomed', 'drained', 'fatigued',
-  'paralyzed', 'petrified', 'poison', 'sleep', 'unconscious',
+  // Physical
+  'bludgeoning', 'piercing', 'slashing',
+  // Energy
+  'acid', 'cold', 'electricity', 'fire', 'sonic',
+  // Planar / esoteric
+  'force', 'spirit', 'vitality', 'void',
+  // Other
+  'mental', 'poison', 'precision', 'bleed', 'untyped',
 ];

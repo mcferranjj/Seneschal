@@ -226,6 +226,44 @@ export function EncounterManager({
 
   // Click-outside to cancel delete confirmation
   const tabsRef = useRef<HTMLDivElement>(null);
+  const tabsScrollRef = useRef<HTMLDivElement>(null);
+  const tabWrapperRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  // When the active encounter changes, scroll its tab's left edge into view
+  useEffect(() => {
+    const scroll = tabsScrollRef.current;
+    const wrapper = tabWrapperRefs.current.get(activeEnc);
+    if (!scroll || !wrapper) return;
+    const scrollRect = scroll.getBoundingClientRect();
+    const wrapRect = wrapper.getBoundingClientRect();
+    // Position of the wrapper's left edge relative to the scroll container's visible area
+    const relLeft = wrapRect.left - scrollRect.left;
+    const relRight = wrapRect.right - scrollRect.left;
+    if (relLeft < 0) {
+      // Tab is off to the left — scroll so its left edge is flush with the container
+      scroll.scrollTo({ left: scroll.scrollLeft + relLeft, behavior: 'smooth' });
+    } else if (relRight > scrollRect.width) {
+      // Tab is off to the right — scroll so its left edge is flush with the container
+      scroll.scrollTo({ left: scroll.scrollLeft + relLeft, behavior: 'smooth' });
+    }
+  }, [activeEnc]);
+
+  // When the delete-confirm buttons appear, scroll their tab wrapper into view
+  useEffect(() => {
+    if (confirmDeleteTab === null) return;
+    const scroll = tabsScrollRef.current;
+    const wrapper = tabWrapperRefs.current.get(confirmDeleteTab);
+    if (!scroll || !wrapper) return;
+    const scrollRect = scroll.getBoundingClientRect();
+    const wrapRect = wrapper.getBoundingClientRect();
+    const relLeft = wrapRect.left - scrollRect.left;
+    const relRight = wrapRect.right - scrollRect.left;
+    if (relLeft < 0) {
+      scroll.scrollTo({ left: scroll.scrollLeft + relLeft, behavior: 'smooth' });
+    } else if (relRight > scrollRect.width) {
+      scroll.scrollTo({ left: scroll.scrollLeft + (relRight - scrollRect.width), behavior: 'smooth' });
+    }
+  }, [confirmDeleteTab]);
   useEffect(() => {
     if (confirmDeleteTab === null) return;
     function onPointerDown(e: PointerEvent) {
@@ -435,69 +473,72 @@ export function EncounterManager({
         >
           {resultsOpen ? '‹‹' : '››'}
         </button>
-        {encounters.map((en, i) => (
-          <div
-            key={en.id}
-            className={`${styles.tabWrapper} ${i === activeEnc ? styles.tabWrapperActive : ''} ${dragOverIdx === i ? styles.tabWrapperDragOver : ''}`}
-            draggable={renamingTab !== i}
-            onDragStart={() => setDragTabIdx(i)}
-            onDragEnd={() => { setDragTabIdx(null); setDragOverIdx(null); }}
-            onDragOver={e => { e.preventDefault(); setDragOverIdx(i); }}
-            onDragLeave={() => setDragOverIdx(null)}
-            onDrop={() => {
-              if (dragTabIdx !== null && dragTabIdx !== i) {
-                onReorderEncounters(dragTabIdx, i);
-              }
-              setDragTabIdx(null);
-              setDragOverIdx(null);
-            }}
-          >
-            {renamingTab === i ? (
-              <input
-                className={styles.tabRenameInput}
-                value={renameVal}
-                autoFocus
-                onChange={e => setRenameVal(e.target.value)}
-                onBlur={() => {
-                  if (renameVal.trim()) onRenameEncounter(i, renameVal.trim());
-                  setRenamingTab(null);
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
+        <div className={styles.tabsScroll} ref={tabsScrollRef}>
+          {encounters.map((en, i) => (
+            <div
+              key={en.id}
+              ref={el => { if (el) tabWrapperRefs.current.set(i, el); else tabWrapperRefs.current.delete(i); }}
+              className={`${styles.tabWrapper} ${i === activeEnc ? styles.tabWrapperActive : ''} ${dragOverIdx === i ? styles.tabWrapperDragOver : ''}`}
+              draggable={renamingTab !== i}
+              onDragStart={() => setDragTabIdx(i)}
+              onDragEnd={() => { setDragTabIdx(null); setDragOverIdx(null); }}
+              onDragOver={e => { e.preventDefault(); setDragOverIdx(i); }}
+              onDragLeave={() => setDragOverIdx(null)}
+              onDrop={() => {
+                if (dragTabIdx !== null && dragTabIdx !== i) {
+                  onReorderEncounters(dragTabIdx, i);
+                }
+                setDragTabIdx(null);
+                setDragOverIdx(null);
+              }}
+            >
+              {renamingTab === i ? (
+                <input
+                  className={styles.tabRenameInput}
+                  value={renameVal}
+                  autoFocus
+                  onChange={e => setRenameVal(e.target.value)}
+                  onBlur={() => {
                     if (renameVal.trim()) onRenameEncounter(i, renameVal.trim());
                     setRenamingTab(null);
-                  }
-                  if (e.key === 'Escape') setRenamingTab(null);
-                }}
-              />
-            ) : (
-              <button
-                className={`${styles.tab} ${i === activeEnc ? styles.tabActive : ''}`}
-                onClick={() => onActiveEncChange(i)}
-                onDoubleClick={() => { setRenamingTab(i); setRenameVal(en.name); }}
-                title="Double-click to rename"
-              >
-                {en.name}
-              </button>
-            )}
-            {confirmDeleteTab === i ? (
-              <span className={styles.tabDeleteConfirm}>
-                <button className={styles.tabDeleteYes} onClick={() => { onDeleteEncounter(i); setConfirmDeleteTab(null); }}>✓</button>
-                <button className={styles.tabDeleteNo} onClick={() => setConfirmDeleteTab(null)}>✕</button>
-              </span>
-            ) : (
-              i === activeEnc && encounters.length > 1 && (
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      if (renameVal.trim()) onRenameEncounter(i, renameVal.trim());
+                      setRenamingTab(null);
+                    }
+                    if (e.key === 'Escape') setRenamingTab(null);
+                  }}
+                />
+              ) : (
                 <button
-                  className={styles.tabDeleteBtn}
-                  onClick={() => setConfirmDeleteTab(i)}
-                  title="Delete encounter"
+                  className={`${styles.tab} ${i === activeEnc ? styles.tabActive : ''}`}
+                  onClick={() => onActiveEncChange(i)}
+                  onDoubleClick={() => { setRenamingTab(i); setRenameVal(en.name); }}
+                  title="Double-click to rename"
                 >
-                  ×
+                  {en.name}
                 </button>
-              )
-            )}
-          </div>
-        ))}
+              )}
+              {confirmDeleteTab === i ? (
+                <span className={styles.tabDeleteConfirm}>
+                  <button className={styles.tabDeleteYes} onClick={() => { onDeleteEncounter(i); setConfirmDeleteTab(null); }}>✓</button>
+                  <button className={styles.tabDeleteNo} onClick={() => setConfirmDeleteTab(null)}>✕</button>
+                </span>
+              ) : (
+                i === activeEnc && encounters.length > 1 && (
+                  <button
+                    className={styles.tabDeleteBtn}
+                    onClick={() => setConfirmDeleteTab(i)}
+                    title="Delete encounter"
+                  >
+                    ×
+                  </button>
+                )
+              )}
+            </div>
+          ))}
+        </div>
         <button className={styles.addTabBtn} onClick={onAddEncounter} title="New encounter">
           ＋
         </button>

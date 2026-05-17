@@ -20,9 +20,18 @@ export interface CustomAbility {
   name: string;
   description: string;
   actionType?: AbilityActionType;
+  /** Whether this ability is limited-use (affects area damage tier and frequency visibility) */
+  isLimitedUse?: boolean;
   frequency?: string;
   trigger?: string;
   requirements?: string;
+  /**
+   * If set, this ability was inserted from the generic ability glossary.
+   * The value is the canonical glossary name (may differ from `name` if the
+   * user renames it). Used to look up the full glossary description for the
+   * popup in the statblock view.
+   */
+  genericAbilityName?: string;
 }
 
 export interface CustomSkill {

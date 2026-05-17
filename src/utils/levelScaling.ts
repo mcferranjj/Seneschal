@@ -24,22 +24,25 @@ import {
   ABILITY_TABLE,
   PERCEPTION_TABLE,
   RES_WEAK_TABLE,
+  HAZARD_STEALTH_DISABLE_TABLE,
+  HAZARD_DEFENSE_TABLE,
+  HAZARD_OFFENSE_TABLE,
+  SPELL_DC_TABLE,
+  SPELL_ATTACK_TABLE,
+} from '../data/pf2eTables';
+import type {
+  HpTier, AcTier, SaveTier, AbilityTier, ResWeakTier,
+  HazardDCTier, HazardDefenseTier, AreaDamageTier, SpellDCTier,
 } from '../data/pf2eTables';
 import { importSpellcasting } from './importCreature';
 
-// ── Tier definitions ──────────────────────────────────────────────────────────
-
-type HpTier      = 'low' | 'moderate' | 'high';
-type AcTier      = 'low' | 'moderate' | 'high' | 'extreme';
-type SaveTier    = 'terrible' | 'low' | 'moderate' | 'high' | 'extreme';
-type AbilityTier = 'low' | 'moderate' | 'high' | 'extreme';
-type ResWeakTier = 'low' | 'moderate' | 'high';
+// ── Tier arrays ───────────────────────────────────────────────────────────────
 
 export const HP_TIERS:       HpTier[]      = ['low', 'moderate', 'high'];
 export const AC_TIERS:       AcTier[]      = ['low', 'moderate', 'high', 'extreme'];
 export const SAVE_TIERS:     SaveTier[]    = ['terrible', 'low', 'moderate', 'high', 'extreme'];
-const ABILITY_TIERS:  AbilityTier[] = ['low', 'moderate', 'high', 'extreme'];
-const RES_WEAK_TIERS: ResWeakTier[] = ['low', 'moderate', 'high'];
+export const ABILITY_TIERS:  AbilityTier[] = ['terrible', 'low', 'moderate', 'high', 'extreme'];
+export const RES_WEAK_TIERS: ResWeakTier[] = ['low', 'moderate', 'high'];
 
 // ── Core algorithm ────────────────────────────────────────────────────────────
 
@@ -72,6 +75,99 @@ export function lookupAttack(level: number, tier: AcTier): number {
 /** Look up a creature's damage expression for a given level and tier. */
 export function lookupDamage(level: number, tier: AcTier): string {
   return (DAMAGE_TABLE[clampLevel(level)] ?? DAMAGE_TABLE[0])[tier];
+}
+
+/** Look up area damage for a given level; limited = higher damage (limited-use ability). */
+export function lookupAreaDamage(level: number, tier: AreaDamageTier): string {
+  return (AREA_DAMAGE_TABLE[clampLevel(level)] ?? AREA_DAMAGE_TABLE[0])[tier];
+}
+
+/** Look up a creature's ability modifier for a given level and tier. */
+export function lookupAbility(level: number, tier: AbilityTier): number {
+  return (ABILITY_TABLE[clampLevel(level)] ?? ABILITY_TABLE[0])[tier];
+}
+
+/** Look up a creature's Perception modifier for a given level and tier. */
+export function lookupPerception(level: number, tier: SaveTier): number {
+  return (PERCEPTION_TABLE[clampLevel(level)] ?? PERCEPTION_TABLE[0])[tier];
+}
+
+/** Look up a resistance or weakness value for a given level and tier. */
+export function lookupResWeak(level: number, tier: ResWeakTier): number {
+  return (RES_WEAK_TABLE[clampLevel(level)] ?? RES_WEAK_TABLE[0])[tier];
+}
+
+/** Look up a hazard's Stealth/Disable DC for a given level and tier. */
+export function lookupHazardStealth(level: number, tier: HazardDCTier): number {
+  const l = Math.max(-1, Math.min(24, level));
+  return (HAZARD_STEALTH_DISABLE_TABLE[l] ?? HAZARD_STEALTH_DISABLE_TABLE[0])[tier];
+}
+
+/** Look up a hazard's AC for a given level and defense tier. */
+export function lookupHazardAc(level: number, tier: HazardDefenseTier): number {
+  const l = Math.max(-1, Math.min(24, level));
+  return (HAZARD_DEFENSE_TABLE[l] ?? HAZARD_DEFENSE_TABLE[0]).ac[tier];
+}
+
+/** Look up a hazard's save modifier for a given level and defense tier. */
+export function lookupHazardSave(level: number, tier: HazardDefenseTier): number {
+  const l = Math.max(-1, Math.min(24, level));
+  return (HAZARD_DEFENSE_TABLE[l] ?? HAZARD_DEFENSE_TABLE[0]).save[tier];
+}
+
+/** Look up a hazard's HP (single midpoint value) for a given level. */
+export function lookupHazardHp(level: number): number {
+  const l = Math.max(-1, Math.min(24, level));
+  return (HAZARD_DEFENSE_TABLE[l] ?? HAZARD_DEFENSE_TABLE[0]).hp;
+}
+
+/** Look up a hazard's hardness for a given level. */
+export function lookupHazardHardness(level: number): number {
+  const l = Math.max(-1, Math.min(24, level));
+  return (HAZARD_DEFENSE_TABLE[l] ?? HAZARD_DEFENSE_TABLE[0]).hardness;
+}
+
+/** Look up a hazard's attack bonus for a given level. isComplex selects the column. */
+export function lookupHazardAtk(level: number, isComplex: boolean): number {
+  const l = Math.max(-1, Math.min(24, level));
+  const row = HAZARD_OFFENSE_TABLE[l] ?? HAZARD_OFFENSE_TABLE[0];
+  return isComplex ? row.complexAtk : row.simpleAtk;
+}
+
+/** Look up a hazard's damage expression for a given level. isComplex selects the column. */
+export function lookupHazardDmg(level: number, isComplex: boolean): string {
+  const l = Math.max(-1, Math.min(24, level));
+  const row = HAZARD_OFFENSE_TABLE[l] ?? HAZARD_OFFENSE_TABLE[0];
+  return isComplex ? row.complexDmg : row.simpleDmg;
+}
+
+/** Look up a spell DC for a given level and tier (moderate/high/extreme). */
+export function lookupSpellDC(level: number, tier: SpellDCTier): number {
+  return (SPELL_DC_TABLE[clampLevel(level)] ?? SPELL_DC_TABLE[0])[tier];
+}
+
+/** Look up a spell attack bonus for a given level and tier (moderate/high/extreme). */
+export function lookupSpellAttack(level: number, tier: SpellDCTier): number {
+  return (SPELL_ATTACK_TABLE[clampLevel(level)] ?? SPELL_ATTACK_TABLE[0])[tier];
+}
+
+/**
+ * Return whichever tier in `tiers` produces the table value numerically
+ * closest to `value`. Falls back to `fallback` if no closer match is found.
+ */
+export function closestTier<T extends string>(
+  tiers: readonly T[],
+  lookup: (tier: T) => number,
+  value: number,
+  fallback: T,
+): T {
+  let best = fallback;
+  let bestDist = Infinity;
+  for (const t of tiers) {
+    const dist = Math.abs(lookup(t) - value);
+    if (dist < bestDist) { bestDist = dist; best = t; }
+  }
+  return best;
 }
 
 /**
@@ -559,7 +655,7 @@ export function buildScaledCreature(creature: CreatureRecord, targetLevel: numbe
   });
 
   // ── Spellcasting ──────────────────────────────────────────────────────────
-  const rawSpellcasting: CustomSpellcastingEntry[] = creature.packSource === 'custom'
+  const rawSpellcasting: CustomSpellcastingEntry[] = creature.publication === 'Custom'
     ? (creature.customData?.spellcasting ?? [])
     : importSpellcasting(creature);
 

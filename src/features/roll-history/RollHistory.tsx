@@ -47,6 +47,7 @@ export function RollHistory({ entries, onClear, onClose }: RollHistoryProps) {
             return (
               <div key={entry.id} className={styles.entry}>
                 <div className={styles.entryLeft}>
+                  {entry.creatureName && <span className={styles.entryCreature}>{entry.creatureName}</span>}
                   {entry.label && <span className={styles.entryLabel}>{entry.label}</span>}
                   <span className={styles.entryExpr}>{entry.expression}</span>
                   <span className={styles.entryBreakdown}>

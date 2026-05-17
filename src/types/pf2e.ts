@@ -15,6 +15,12 @@ export interface PF2ESystem {
     publication?: { title?: string; authors?: string; license?: string; remaster?: boolean };
     publicNotes?: string;
     privateNotes?: string;
+    // Hazard-specific
+    description?: string;
+    disable?: string;
+    reset?: string;
+    routine?: string;
+    isComplex?: boolean;
   };
   attributes?: {
     ac?: { value: number; details?: string };
@@ -24,6 +30,10 @@ export interface PF2ESystem {
     resistances?: Array<{ type: string; value: number; exceptions?: string[] }>;
     weaknesses?: Array<{ type: string; value: number; exceptions?: string[] }>;
     allSaves?: { value: string };
+    // Hazard-specific
+    hardness?: number;
+    hasHealth?: boolean;
+    stealth?: { value?: number; details?: string };
   };
   abilities?: {
     str?: { mod: number };
