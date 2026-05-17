@@ -107,6 +107,7 @@
 
 .totalNormal {
   color: var(--text);
+  text-align: center;
 }
 
 .totalCrit {
