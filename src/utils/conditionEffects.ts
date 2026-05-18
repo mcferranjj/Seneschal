@@ -261,16 +261,23 @@ export function computeAttackPenalty(
   const hasFinesse = t.has('finesse');
 
   // Determine whether this attack uses Dex or Str to hit:
-  // - Melee + finesse: uses whichever ability is higher (tie → no penalty either way)
-  // - Melee (no finesse): uses Str
-  // - Ranged + brutal: uses Str
-  // - Ranged (no brutal): uses Dex
+  // - Melee, no finesse: uses Str
+  // - Ranged, no brutal: uses Dex
+  // - Ranged, brutal:    uses Str
+  // - Melee, finesse, Dex > Str: uses Dex → Clumsy applies, Enfeebled doesn't
+  // - Melee, finesse, Str > Dex: uses Str → Enfeebled applies, Clumsy doesn't
+  // - Melee, finesse, Str = Dex: creature chooses freely each attack. The best
+  //   play is to pick whichever ability has the lesser penalty, so the net attack
+  //   penalty is min(clumsyPenalty, enfeebledPenalty). We handle this via the
+  //   `isFinessesTie` flag below rather than the usesDex/usesStr booleans.
   let usesDex: boolean;
   let usesStr: boolean;
+  let isFinessesTie = false;
   if (isMelee) {
     if (hasFinesse && dexMod != null && strMod != null) {
       usesDex = dexMod > strMod;
       usesStr = strMod > dexMod;
+      isFinessesTie = dexMod === strMod;
     } else {
       usesDex = false;
       usesStr = true;
@@ -283,6 +290,10 @@ export function computeAttackPenalty(
   const statusBucket       = emptyBuckets();
   const circumstanceBucket = emptyBuckets();
 
+  // Collect Clumsy and Enfeebled values separately for the finesse-tie case.
+  let clumsyPen    = 0; // worst status from Clumsy / Encumbered (non-positive)
+  let enfeebledPen = 0; // worst status from Enfeebled (non-positive)
+
   for (const cond of conditions) {
     const name = cond.name.toLowerCase();
     const v = cond.value ?? 0;
@@ -292,13 +303,21 @@ export function computeAttackPenalty(
       // Status –v to all Dex-based rolls: ranged attacks (non-brutal) and melee
       // finesse attacks where Dex > Str.
       case 'clumsy':
-        if (usesDex) applyStatus(statusBucket, -v);
+        if (isFinessesTie) {
+          clumsyPen = Math.min(clumsyPen, -v);
+        } else if (usesDex) {
+          applyStatus(statusBucket, -v);
+        }
         break;
 
       // ── Encumbered ─────────────────────────────────────────────────────────
       // Implies Clumsy 1: –1 status to Dex-based attack rolls.
       case 'encumbered':
-        if (usesDex) applyStatus(statusBucket, -1);
+        if (isFinessesTie) {
+          clumsyPen = Math.min(clumsyPen, -1);
+        } else if (usesDex) {
+          applyStatus(statusBucket, -1);
+        }
         break;
 
       // ── Dazzled ────────────────────────────────────────────────────────────
@@ -309,9 +328,13 @@ export function computeAttackPenalty(
         break;
 
       // ── Enfeebled ──────────────────────────────────────────────────────────
-      // Status –v to Strength-based attack rolls.
+      // Status –v to Strength-based attack rolls (melee, or ranged with brutal).
       case 'enfeebled':
-        if (usesStr) applyStatus(statusBucket, -v);
+        if (isFinessesTie) {
+          enfeebledPen = Math.min(enfeebledPen, -v);
+        } else if (usesStr) {
+          applyStatus(statusBucket, -v);
+        }
         break;
 
       // ── Frightened ─────────────────────────────────────────────────────────
@@ -332,6 +355,14 @@ export function computeAttackPenalty(
         applyStatus(statusBucket, -v);
         break;
     }
+  }
+
+  // Finesse tie: creature picks the ability with the lesser penalty.
+  // The net penalty is whichever option hurts less — i.e. the less-negative of the two.
+  // e.g. Clumsy 1 (–1) vs Enfeebled 2 (–2) → creature uses Dex → penalty is –1.
+  //      Enfeebled 2 (–2), no Clumsy (0)   → creature uses Dex → penalty is 0.
+  if (isFinessesTie && (clumsyPen !== 0 || enfeebledPen !== 0)) {
+    applyStatus(statusBucket, Math.max(clumsyPen, enfeebledPen));
   }
 
   return statusBucket.status + circumstanceBucket.circumstance;
