@@ -7,6 +7,8 @@ import type { RollHistoryEntry } from './types/diceHistory';
 import type { SyncProgress } from './sync/sync';
 import { useEncounter } from './hooks/useEncounter';
 import { useSearch } from './hooks/useSearch';
+import type { SearchFilters } from './search/search';
+import { useUIPrefs } from './hooks/useUIPrefs';
 import { TopBar } from './features/shell/TopBar';
 import { SearchPanel } from './features/creatures/SearchPanel/SearchPanel';
 import { ResultsList } from './features/creatures/ResultsList/ResultsList';
@@ -18,13 +20,21 @@ import { RollHistory } from './features/roll-history/RollHistory';
 import styles from './features/shell/App.module.css';
 
 export default function App() {
-  // Section navigation
-  const [activeSection, setActiveSection] = useState<Section>('gm');
+  // Persisted UI preferences — loaded once from localStorage on mount
+  const { loadedPrefs, persistPrefs } = useUIPrefs();
 
-  // Search + sync state
+  // Section navigation — seeded from persisted prefs
+  const [activeSection, setActiveSectionState] = useState<Section>(loadedPrefs.activeSection);
+
+  const setActiveSection = useCallback((section: Section) => {
+    setActiveSectionState(section);
+    persistPrefs({ activeSection: section });
+  }, [persistPrefs]);
+
+  // Search + sync state — seeded with persisted filters
   const {
     filters,
-    setFilters,
+    setFilters: setFiltersRaw,
     results,
     totalCount,
     searchLoading,
@@ -35,7 +45,12 @@ export default function App() {
     handleResetDatabase,
     handleDeleteCreature,
     handleWizardSave,
-  } = useSearch();
+  } = useSearch(loadedPrefs.filters);
+
+  const setFilters = useCallback((f: SearchFilters) => {
+    setFiltersRaw(f);
+    persistPrefs({ filters: f });
+  }, [setFiltersRaw, persistPrefs]);
 
   // Encounter state + callbacks
   const {
@@ -64,11 +79,11 @@ export default function App() {
   // Filter + results sidebars.
   // Open state is tracked in refs and applied directly to the DOM (no re-render)
   // so CSS animations fire on the very next paint frame without React batching delay.
-  const filtersOpenRef = useRef(true);
-  const resultsOpenRef = useRef(true);
+  const filtersOpenRef = useRef(loadedPrefs.filtersOpen);
+  const resultsOpenRef = useRef(loadedPrefs.resultsOpen);
   // Separate minimal state just for the ResultsList toggle button label & aria.
-  const [filtersOpenLabel, setFiltersOpenLabel] = useState(true);
-  const [resultsOpenLabel, setResultsOpenLabel] = useState(true);
+  const [filtersOpenLabel, setFiltersOpenLabel] = useState(loadedPrefs.filtersOpen);
+  const [resultsOpenLabel, setResultsOpenLabel] = useState(loadedPrefs.resultsOpen);
 
   // Refs to the actual column/handle DOM nodes so we can toggle classes directly.
   const filterColRef  = useRef<HTMLDivElement>(null);
@@ -93,7 +108,8 @@ export default function App() {
       !(open && resultsOpenRef.current),
     );
     setFiltersOpenLabel(open);
-  }, []);
+    persistPrefs({ filtersOpen: open });
+  }, [persistPrefs]);
 
   const setResultsOpen = useCallback((open: boolean) => {
     resultsOpenRef.current = open;
@@ -111,7 +127,8 @@ export default function App() {
       !(filtersOpenRef.current && open),
     );
     setResultsOpenLabel(open);
-  }, []);
+    persistPrefs({ resultsOpen: open });
+  }, [persistPrefs]);
 
   // Custom creature wizard
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -127,15 +144,29 @@ export default function App() {
   }, []);
 
   // Selected creature (statblock drawer)
-  const [selected, setSelected] = useState<CreatureRecord | null>(null);
+  const [selected, setSelectedState] = useState<CreatureRecord | null>(null);
   const [selectedEncounterUid, setSelectedEncounterUid] = useState<string | null>(null);
+
+  const setSelected = useCallback((creature: CreatureRecord | null) => {
+    setSelectedState(creature);
+    persistPrefs({ selectedCreatureId: creature?.id ?? null });
+  }, [persistPrefs]);
+
+  // Restore selected creature from persisted ID on mount
+  useEffect(() => {
+    if (!loadedPrefs.selectedCreatureId) return;
+    creatureRepository.get(loadedPrefs.selectedCreatureId)
+      .then(c => { if (c) setSelectedState(c); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Column widths (px) — React state is the source of truth at rest.
   // During a drag we write directly to the CSS custom property on the layout
   // element to avoid re-rendering the whole tree on every pointermove.
-  const [filtersWidth, setFiltersWidth] = useState(220);
-  const [resultsWidth, setResultsWidth] = useState(260);
-  const [encounterWidth, setEncounterWidth] = useState(280);
+  const [filtersWidth, setFiltersWidth] = useState(loadedPrefs.filtersWidth);
+  const [resultsWidth, setResultsWidth] = useState(loadedPrefs.resultsWidth);
+  const [encounterWidth, setEncounterWidth] = useState(loadedPrefs.encounterWidth);
 
   const gmLayoutRef = useRef<HTMLDivElement>(null);
 
@@ -185,10 +216,10 @@ export default function App() {
     const { prop, min, max } = COL_META[drag.col];
     const raw = parseInt(gmLayoutRef.current.style.getPropertyValue(prop), 10);
     const px = isNaN(raw) ? drag.startW : Math.min(max, Math.max(min, raw));
-    if (drag.col === 'filters') setFiltersWidth(px);
-    else if (drag.col === 'results') setResultsWidth(px);
-    else setEncounterWidth(px);
-  }, []);
+    if (drag.col === 'filters') { setFiltersWidth(px); persistPrefs({ filtersWidth: px }); }
+    else if (drag.col === 'results') { setResultsWidth(px); persistPrefs({ resultsWidth: px }); }
+    else { setEncounterWidth(px); persistPrefs({ encounterWidth: px }); }
+  }, [persistPrefs]);
 
   // Keep CSS custom properties in sync with React state (initial mount + any
   // programmatic changes). During a drag this effect does NOT run — we write
@@ -199,6 +230,15 @@ export default function App() {
     gmLayoutRef.current.style.setProperty('--results-width', `${resultsWidth}px`);
     gmLayoutRef.current.style.setProperty('--encounter-width', `${encounterWidth}px`);
   }, [filtersWidth, resultsWidth, encounterWidth]);
+
+  // Apply persisted sidebar open/closed state on initial mount.
+  // The JSX always renders the columns with the "open" class; this effect
+  // removes it immediately (before paint) if the saved pref says closed.
+  useEffect(() => {
+    if (!loadedPrefs.filtersOpen) setFiltersOpen(false);
+    if (!loadedPrefs.resultsOpen) setResultsOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const selectCreatureById = useCallback(async (id: string, encounterUid?: string) => {
     const creature = await creatureRepository.get(id);
@@ -279,7 +319,7 @@ export default function App() {
                 results={results}
                 totalCount={totalCount}
                 selectedId={selected?.id ?? null}
-                onSelect={c => { setSelected(prev => (prev?.id === c.id ? null : c)); setSelectedEncounterUid(null); }}
+                onSelect={c => { setSelected(selected?.id === c.id ? null : c); setSelectedEncounterUid(null); }}
                 onAddToEncounter={addToEncounter}
                 loading={searchLoading}
                 syncing={isSyncing}

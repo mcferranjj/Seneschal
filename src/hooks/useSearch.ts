@@ -36,8 +36,8 @@ export interface UseSearchReturn {
   handleWizardSave: (creature: CreatureRecord, onSaved: (creature: CreatureRecord) => void) => Promise<void>;
 }
 
-export function useSearch(): UseSearchReturn {
-  const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
+export function useSearch(initialFilters: SearchFilters = DEFAULT_FILTERS): UseSearchReturn {
+  const [filters, setFilters] = useState<SearchFilters>(initialFilters);
   const [results, setResults] = useState<CreatureRecord[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -47,7 +47,7 @@ export function useSearch(): UseSearchReturn {
 
   const syncingRef = useRef(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const filtersRef = useRef<SearchFilters>(DEFAULT_FILTERS);
+  const filtersRef = useRef<SearchFilters>(initialFilters);
   filtersRef.current = filters;
 
   const isSyncing =
