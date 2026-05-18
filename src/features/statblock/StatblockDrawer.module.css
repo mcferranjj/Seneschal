@@ -4,7 +4,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  overflow: clip;
+  overflow: hidden;
   border-left: 1px solid var(--border);
   background: var(--parchment);
 }

@@ -524,9 +524,9 @@ export function scaleAbilityHtml(rawHtml: string, baseLevel: number, targetLevel
   return result;
 }
 
-// ── ScaledStats output type ───────────────────────────────────────────────────
+// ── ScaledCreatureStats output type ──────────────────────────────────────────
 
-export interface ScaledStats {
+export interface ScaledCreatureStats {
   targetLevel: number;
   ac: number;
   hp: number;
@@ -554,14 +554,47 @@ export interface ScaledStats {
   weaknesses: Array<{ type: string; value: number; exceptions?: string }>;
 }
 
+// ── ScaledHazardStats output type ────────────────────────────────────────────
+
+export interface ScaledHazardStats {
+  targetLevel: number;
+  /** Scaled AC (may be undefined for hazards with no physical component) */
+  ac?: number;
+  /** Scaled HP (may be undefined for hazards with no physical component) */
+  hp?: number;
+  /** Scaled hardness (may be undefined for hazards with no physical component) */
+  hardness?: number;
+  fort?: number;
+  ref?: number;
+  will?: number;
+  /** Stealth as a DC (value + 10 if stored as modifier) */
+  stealthDC?: number;
+  /** Stealth as a modifier (stealthDC - 10) */
+  stealthMod?: number;
+  attacks: Array<{
+    name: string;
+    bonus: number;
+    damage: string;
+    traits: string[];
+    type: 'melee' | 'ranged';
+    range?: number;
+  }>;
+  spellcasting: CustomSpellcastingEntry[];
+  resistances: Array<{ type: string; value: number; exceptions?: string }>;
+  weaknesses: Array<{ type: string; value: number; exceptions?: string }>;
+}
+
+/** @deprecated Use ScaledCreatureStats instead */
+export type ScaledStats = ScaledCreatureStats;
+
 // ── Master scaling function ───────────────────────────────────────────────────
 
 /**
- * Build a ScaledStats object by scaling every scalable stat from the original
- * creature data to the target level. Always reads from creature.data — never
- * from a previously-scaled snapshot.
+ * Build a ScaledCreatureStats object by scaling every scalable stat from the
+ * original creature data to the target level. Always reads from creature.data —
+ * never from a previously-scaled snapshot.
  */
-export function buildScaledCreature(creature: CreatureRecord, targetLevel: number): ScaledStats {
+export function buildScaledCreature(creature: CreatureRecord, targetLevel: number): ScaledCreatureStats {
   const c = creature.data as PF2ECreature;
 
   // Determine the creature's actual base level
@@ -707,6 +740,363 @@ export function buildScaledCreature(creature: CreatureRecord, targetLevel: numbe
     wis,
     cha,
     skills,
+    attacks: [...attacks, ...customAttacks],
+    spellcasting,
+    resistances: [...resistances, ...customResistances],
+    weaknesses: [...weaknesses, ...customWeaknesses],
+  };
+}
+
+// ── Hazard-specific scaling helpers ──────────────────────────────────────────
+
+/**
+ * Scale a hazard's stealth/disable DC using HAZARD_STEALTH_DISABLE_TABLE.
+ * The table has three tiers: extreme, high, low.
+ * We use the same tier-differential algorithm as numeric creature stats.
+ */
+const HAZARD_DC_TIERS: HazardDCTier[] = ['low', 'high', 'extreme'];
+
+function scaleHazardDC(value: number, baseLevel: number, targetLevel: number): number {
+  const bl = Math.max(-1, Math.min(24, baseLevel));
+  const tl = Math.max(-1, Math.min(24, targetLevel));
+  const baseRow = HAZARD_STEALTH_DISABLE_TABLE[bl] ?? HAZARD_STEALTH_DISABLE_TABLE[0];
+  const targetRow = HAZARD_STEALTH_DISABLE_TABLE[tl] ?? HAZARD_STEALTH_DISABLE_TABLE[0];
+
+  // Sort tiers ascending by their table value at base level
+  const sorted = [...HAZARD_DC_TIERS].sort((a, b) => (baseRow[a] ?? 0) - (baseRow[b] ?? 0));
+  let bestTier = sorted[0];
+  for (const t of sorted) {
+    if ((baseRow[t] ?? 0) <= value) bestTier = t;
+  }
+  const diff = value - (baseRow[bestTier] ?? 0);
+  return (targetRow[bestTier] ?? 0) + diff;
+}
+
+/**
+ * Scale a hazard's AC using HAZARD_DEFENSE_TABLE (ac sub-table).
+ */
+const HAZARD_DEFENSE_TIERS: HazardDefenseTier[] = ['low', 'high', 'extreme'];
+
+function scaleHazardAC(value: number, baseLevel: number, targetLevel: number): number {
+  const bl = Math.max(-1, Math.min(24, baseLevel));
+  const tl = Math.max(-1, Math.min(24, targetLevel));
+  const baseRow = HAZARD_DEFENSE_TABLE[bl] ?? HAZARD_DEFENSE_TABLE[0];
+  const targetRow = HAZARD_DEFENSE_TABLE[tl] ?? HAZARD_DEFENSE_TABLE[0];
+
+  const sorted = [...HAZARD_DEFENSE_TIERS].sort((a, b) => (baseRow.ac[a] ?? 0) - (baseRow.ac[b] ?? 0));
+  let bestTier = sorted[0];
+  for (const t of sorted) {
+    if ((baseRow.ac[t] ?? 0) <= value) bestTier = t;
+  }
+  const diff = value - (baseRow.ac[bestTier] ?? 0);
+  return (targetRow.ac[bestTier] ?? 0) + diff;
+}
+
+/**
+ * Scale a hazard's save using HAZARD_DEFENSE_TABLE (save sub-table).
+ */
+function scaleHazardSave(value: number, baseLevel: number, targetLevel: number): number {
+  const bl = Math.max(-1, Math.min(24, baseLevel));
+  const tl = Math.max(-1, Math.min(24, targetLevel));
+  const baseRow = HAZARD_DEFENSE_TABLE[bl] ?? HAZARD_DEFENSE_TABLE[0];
+  const targetRow = HAZARD_DEFENSE_TABLE[tl] ?? HAZARD_DEFENSE_TABLE[0];
+
+  const sorted = [...HAZARD_DEFENSE_TIERS].sort((a, b) => (baseRow.save[a] ?? 0) - (baseRow.save[b] ?? 0));
+  let bestTier = sorted[0];
+  for (const t of sorted) {
+    if ((baseRow.save[t] ?? 0) <= value) bestTier = t;
+  }
+  const diff = value - (baseRow.save[bestTier] ?? 0);
+  return (targetRow.save[bestTier] ?? 0) + diff;
+}
+
+/**
+ * Scale a hazard's hardness. The table has a single midpoint value per level
+ * (no tiers), so we compute a flat differential directly against the table value.
+ */
+function scaleHazardHardness(value: number, baseLevel: number, targetLevel: number): number {
+  const bl = Math.max(-1, Math.min(24, baseLevel));
+  const tl = Math.max(-1, Math.min(24, targetLevel));
+  const baseHardness = (HAZARD_DEFENSE_TABLE[bl] ?? HAZARD_DEFENSE_TABLE[0]).hardness;
+  const targetHardness = (HAZARD_DEFENSE_TABLE[tl] ?? HAZARD_DEFENSE_TABLE[0]).hardness;
+  const diff = value - baseHardness;
+  return Math.max(0, targetHardness + diff);
+}
+
+/**
+ * Scale a hazard's HP. Like hardness, the table has a single midpoint per level.
+ */
+function scaleHazardHP(value: number, baseLevel: number, targetLevel: number): number {
+  const bl = Math.max(-1, Math.min(24, baseLevel));
+  const tl = Math.max(-1, Math.min(24, targetLevel));
+  const baseHp = (HAZARD_DEFENSE_TABLE[bl] ?? HAZARD_DEFENSE_TABLE[0]).hp;
+  const targetHp = (HAZARD_DEFENSE_TABLE[tl] ?? HAZARD_DEFENSE_TABLE[0]).hp;
+  const diff = value - baseHp;
+  return Math.max(1, Math.round(targetHp + diff));
+}
+
+/**
+ * Scale a hazard's attack bonus. The offense table has two columns (simple/complex)
+ * rather than tiers, so we find the closest column by absolute distance and use it.
+ */
+function scaleHazardAttackBonus(value: number, baseLevel: number, targetLevel: number, isComplex: boolean): number {
+  const bl = Math.max(-1, Math.min(24, baseLevel));
+  const tl = Math.max(-1, Math.min(24, targetLevel));
+  const baseRow = HAZARD_OFFENSE_TABLE[bl] ?? HAZARD_OFFENSE_TABLE[0];
+  const targetRow = HAZARD_OFFENSE_TABLE[tl] ?? HAZARD_OFFENSE_TABLE[0];
+  // Anchor to the same column the hazard was built with
+  const baseTableVal = isComplex ? baseRow.complexAtk : baseRow.simpleAtk;
+  const targetTableVal = isComplex ? targetRow.complexAtk : targetRow.simpleAtk;
+  const diff = value - baseTableVal;
+  return targetTableVal + diff;
+}
+
+/**
+ * Scale a hazard's damage expression. Uses the simple/complex offense table columns.
+ */
+function scaleHazardDamageExpr(expr: string, baseLevel: number, targetLevel: number, isComplex: boolean): string {
+  const inputAvg = (function exprToAvgLocal(e: string): number | null {
+    const m = e.trim().match(/^(\d+)d(\d+)(?:([+-]\d+))?$/);
+    if (!m) return null;
+    return parseInt(m[1]) * (parseInt(m[2]) + 1) / 2 + (m[3] ? parseInt(m[3]) : 0);
+  })(expr.replace(/\s/g, ''));
+  if (inputAvg === null) return expr;
+
+  const bl = Math.max(-1, Math.min(24, baseLevel));
+  const tl = Math.max(-1, Math.min(24, targetLevel));
+  const baseRow = HAZARD_OFFENSE_TABLE[bl] ?? HAZARD_OFFENSE_TABLE[0];
+  const targetRow = HAZARD_OFFENSE_TABLE[tl] ?? HAZARD_OFFENSE_TABLE[0];
+
+  const baseEntry = isComplex ? baseRow.complexDmg : baseRow.simpleDmg;
+  const targetEntry = isComplex ? targetRow.complexDmg : targetRow.simpleDmg;
+
+  // Compute average of the base table entry
+  const baseAvgLocal = (function e2a(e: string): number | null {
+    const m = e.trim().match(/^(\d+)d(\d+)(?:([+-]\d+))?$/);
+    if (!m) return null;
+    return parseInt(m[1]) * (parseInt(m[2]) + 1) / 2 + (m[3] ? parseInt(m[3]) : 0);
+  })(baseEntry);
+  if (baseAvgLocal === null) return expr;
+
+  const diff = inputAvg - baseAvgLocal;
+  return applyDiffToEntry(targetEntry, diff);
+}
+
+/**
+ * Scale DCs embedded in hazard HTML (disable text, routine, reset).
+ * Uses HAZARD_STEALTH_DISABLE_TABLE the same way scaleAbilityHtml uses SAVE_TABLE.
+ */
+export function scaleHazardHtml(rawHtml: string, baseLevel: number, targetLevel: number): string {
+  if (baseLevel === targetLevel) return rawHtml;
+
+  // Scale @Check dc: values
+  let result = rawHtml.replace(
+    /@Check\[([^\]]*)\]/g,
+    (fullMatch, inner) => {
+      const checkType = inner.split('|')[0]?.trim().toLowerCase() ?? '';
+      if (checkType === 'flat') return fullMatch;
+      return fullMatch.replace(/(\bdc:)(\d+)/, (_, pre, dc) => {
+        const scaled = scaleHazardDC(parseInt(dc), baseLevel, targetLevel);
+        return `${pre}${scaled}`;
+      });
+    }
+  );
+
+  // Scale plain-text "DC N" values (same masking strategy as scaleAbilityHtml)
+  result = result.replace(/>([^<]+)</g, (_match, text) => {
+    const masked = text
+      .replace(/@\w+\[(?:[^\[\]]*(?:\[[^\]]*\][^\[\]]*)*)\](?:\{[^}]*\})?/g,
+        (m: string) => ' '.repeat(m.length))
+      .replace(/\[\[\/[^\]]+\]\](?:\{[^}]*\})?/g,
+        (m: string) => ' '.repeat(m.length));
+
+    const hasFlatCheck = /\bflat\s+check\b/i.test(masked);
+    if (hasFlatCheck) return `>${text}<`;
+
+    const scaled = applyMaskedReplacements(text, masked, /\bDC (\d+)\b/g, (_m, dc) => {
+      const scaledDc = scaleHazardDC(parseInt(dc), baseLevel, targetLevel);
+      return `DC ${scaledDc}`;
+    });
+    return `>${scaled}<`;
+  });
+
+  // Also scale @Damage macros using hazard damage tables
+  const isComplex = false; // HTML descriptions don't carry simple/complex context; use simple as default
+  result = result.replace(
+    /@Damage\[([^\[\]]*(?:\[[^\]]*\][^\[\]]*)*)\](?:\{([^}]*)\})?/g,
+    (fullMatch, inner, label) => {
+      const optionsSuffix = inner.match(/\|[^[,].*$/)?.[0] ?? '';
+      const withoutOptions = inner.replace(/\|[^[,].*$/, '');
+      const groups = withoutOptions.split(',');
+      const firstGroup = groups[0].trim();
+      const exprMatch = firstGroup.match(/^(\d+d\d+(?:[+-]\d+)?)/);
+      if (!exprMatch) return fullMatch;
+
+      const oldExpr = exprMatch[1];
+      const newExpr = scaleHazardDamageExpr(oldExpr, baseLevel, targetLevel, isComplex);
+      if (newExpr === oldExpr) return fullMatch;
+
+      const typeAndRest = firstGroup.slice(exprMatch[0].length);
+      const newInner = [newExpr + typeAndRest, ...groups.slice(1)].join(',') + optionsSuffix;
+
+      let newLabel = label as string | undefined;
+      if (label) {
+        newLabel = (label as string).replace(/^(\d+d\d+(?:[+-]\d+)?)/, newExpr);
+      }
+      return `@Damage[${newInner}]${newLabel != null ? `{${newLabel}}` : ''}`;
+    }
+  );
+
+  return result;
+}
+
+/**
+ * Build a ScaledHazardStats object by scaling every scalable hazard stat from
+ * the original hazard data to the target level. Always reads from creature.data —
+ * never from a previously-scaled snapshot.
+ */
+export function buildScaledHazard(hazard: CreatureRecord, targetLevel: number): ScaledHazardStats {
+  const c = hazard.data as PF2ECreature;
+  const lvl = c.system?.details?.level;
+  const baseLevel = typeof lvl === 'object' ? (lvl?.value ?? 0) : ((lvl as number | null | undefined) ?? 0);
+
+  const isComplex = !!(c.system?.details?.isComplex ?? hazard.customData?.isComplex ?? hazard.isComplex);
+  const hasHealth = (c.system?.attributes?.hasHealth !== false) && (c.system?.attributes?.hp?.max ?? 0) !== 0;
+
+  // ── Defenses (only if hazard has a physical component) ──────────────────────
+  let ac: number | undefined;
+  let hp: number | undefined;
+  let hardness: number | undefined;
+  let fort: number | undefined;
+  let ref: number | undefined;
+  let will: number | undefined;
+
+  if (hasHealth) {
+    const rawAc = c.system?.attributes?.ac?.value;
+    const rawHp = c.system?.attributes?.hp?.max ?? 0;
+    const rawHardness = c.system?.attributes?.hardness ?? hazard.customData?.hardness ?? 0;
+    const rawFort = c.system?.saves?.fortitude?.value;
+    const rawRef  = c.system?.saves?.reflex?.value;
+    const rawWill = c.system?.saves?.will?.value;
+
+    if (rawAc != null) ac = scaleHazardAC(rawAc, baseLevel, targetLevel);
+    hp = scaleHazardHP(rawHp, baseLevel, targetLevel);
+    if (rawHardness > 0) hardness = scaleHazardHardness(rawHardness, baseLevel, targetLevel);
+    if (rawFort != null) fort = scaleHazardSave(rawFort, baseLevel, targetLevel);
+    if (rawRef  != null) ref  = scaleHazardSave(rawRef,  baseLevel, targetLevel);
+    if (rawWill != null) will = scaleHazardSave(rawWill, baseLevel, targetLevel);
+  }
+
+  // ── Stealth ─────────────────────────────────────────────────────────────────
+  // Official hazards store a modifier; custom hazards may store a DC or a modifier.
+  // We normalise to DC (modifier + 10) before scaling, then expose both.
+  let stealthDC: number | undefined;
+  let stealthMod: number | undefined;
+
+  const rawStealth = c.system?.attributes?.stealth;
+  const customStealthDC = hazard.customData?.stealthDC;
+
+  if (customStealthDC != null) {
+    // Custom hazard stores a DC directly
+    const scaled = scaleHazardDC(customStealthDC, baseLevel, targetLevel);
+    stealthDC = scaled;
+    stealthMod = scaled - 10;
+  } else if (rawStealth?.value != null) {
+    // Official hazard stores a modifier
+    const dc = rawStealth.value + 10;
+    const scaledDc = scaleHazardDC(dc, baseLevel, targetLevel);
+    stealthDC = scaledDc;
+    stealthMod = scaledDc - 10;
+  }
+
+  // ── Attacks ─────────────────────────────────────────────────────────────────
+  const attackItems = (c.items ?? []).filter(i => i.type === 'melee' || i.type === 'ranged');
+  const attacks = attackItems.map(item => {
+    const rawBonus = item.system?.bonus?.value ?? 0;
+    const scaledBonus = scaleHazardAttackBonus(rawBonus, baseLevel, targetLevel, isComplex);
+
+    const damageRolls = item.system?.damageRolls ?? {};
+    const fullDmgStr = Object.values(damageRolls)
+      .map(d => {
+        const expr = d.damage ?? '';
+        const scaled = expr ? scaleHazardDamageExpr(expr.replace(/\s/g, ''), baseLevel, targetLevel, isComplex) : expr;
+        return d.damageType ? `${scaled} ${d.damageType}` : scaled;
+      })
+      .join(' + ');
+
+    const traits = item.system?.traits?.value ?? [];
+    const isRanged = item.type === 'ranged';
+    return {
+      name: item.name ?? 'Strike',
+      bonus: scaledBonus,
+      damage: fullDmgStr,
+      traits,
+      type: isRanged ? 'ranged' as const : 'melee' as const,
+      range: item.system?.range?.increment ?? undefined,
+    };
+  });
+
+  // Custom hazard attacks
+  const customAttacks = (hazard.customData?.attacks ?? []).map(atk => {
+    const scaledBonus = scaleHazardAttackBonus(atk.bonus, baseLevel, targetLevel, isComplex);
+    const scaledDamage = atk.damage ? scaleHazardDamageExpr(atk.damage.replace(/\s/g, ''), baseLevel, targetLevel, isComplex) : atk.damage;
+    return {
+      name: atk.name,
+      type: atk.type,
+      bonus: scaledBonus,
+      damage: scaledDamage,
+      traits: atk.traits ?? [],
+      range: atk.range,
+    };
+  });
+
+  // ── Spellcasting ─────────────────────────────────────────────────────────────
+  const rawSpellcasting: CustomSpellcastingEntry[] = hazard.publication === 'Custom'
+    ? (hazard.customData?.spellcasting ?? [])
+    : importSpellcasting(hazard);
+
+  const spellcasting = rawSpellcasting.map(entry => ({
+    ...entry,
+    dc: scaleNumericStat(entry.dc, baseLevel, targetLevel, SAVE_TABLE as Record<number, Record<string, number>>, SAVE_TIERS),
+    attackMod: scaleNumericStat(entry.attackMod, baseLevel, targetLevel, ATTACK_TABLE as Record<number, Record<string, number>>, AC_TIERS),
+  }));
+
+  // ── Resistances & Weaknesses ─────────────────────────────────────────────────
+  const rawResistances = c.system?.attributes?.resistances ?? [];
+  const resistances = rawResistances.map(r => ({
+    type: r.type,
+    value: scaleNumericStat(r.value ?? 0, baseLevel, targetLevel, RES_WEAK_TABLE as Record<number, Record<string, number>>, RES_WEAK_TIERS),
+    exceptions: r.exceptions?.join(', '),
+  }));
+
+  const rawWeaknesses = c.system?.attributes?.weaknesses ?? [];
+  const weaknesses = rawWeaknesses.map(w => ({
+    type: w.type,
+    value: scaleNumericStat(w.value ?? 0, baseLevel, targetLevel, RES_WEAK_TABLE as Record<number, Record<string, number>>, RES_WEAK_TIERS),
+    exceptions: w.exceptions?.join(', '),
+  }));
+
+  const customResistances = (hazard.customData?.resistances ?? []).map(r => ({
+    type: r.type,
+    value: scaleNumericStat(r.value, baseLevel, targetLevel, RES_WEAK_TABLE as Record<number, Record<string, number>>, RES_WEAK_TIERS),
+    exceptions: r.exceptions,
+  }));
+  const customWeaknesses = (hazard.customData?.weaknesses ?? []).map(w => ({
+    type: w.type,
+    value: scaleNumericStat(w.value, baseLevel, targetLevel, RES_WEAK_TABLE as Record<number, Record<string, number>>, RES_WEAK_TIERS),
+    exceptions: w.exceptions,
+  }));
+
+  return {
+    targetLevel,
+    ac,
+    hp,
+    hardness,
+    fort,
+    ref,
+    will,
+    stealthDC,
+    stealthMod,
     attacks: [...attacks, ...customAttacks],
     spellcasting,
     resistances: [...resistances, ...customResistances],

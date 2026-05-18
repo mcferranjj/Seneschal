@@ -14,7 +14,7 @@ import type { CreatureRecord } from '../db/schema';
 import type { PF2ECreature } from '../types/pf2e';
 import { loadEncounterState, saveEncounterState } from '../db/db';
 import { creatureRepository } from '../db/repositories/CreatureRepository';
-import { buildScaledCreature, adjustedMaxHp } from '../utils/levelScaling';
+import { buildScaledCreature, buildScaledHazard, adjustedMaxHp } from '../utils/levelScaling';
 
 export interface UseEncounterReturn {
   encounters: Encounter[];
@@ -24,7 +24,7 @@ export interface UseEncounterReturn {
   setActiveEnc: (idx: number) => void;
   setPartySize: (size: number) => void;
   setPartyLevel: (level: number) => void;
-  addToEncounter: (c: CreatureRecord) => void;
+  addToEncounter: (c: CreatureRecord, scaledLevel?: number) => void;
   addEncounter: () => void;
   renameEncounter: (idx: number, name: string) => void;
   reorderEncounters: (fromIdx: number, toIdx: number) => void;
@@ -80,21 +80,49 @@ export function useEncounter(): UseEncounterReturn {
   }, [encounters, activeEnc, partySize, partyLevel]);
 
   const addToEncounter = useCallback(
-    (c: CreatureRecord) => {
+    (c: CreatureRecord, scaledLevel?: number) => {
       const pf2e = c.data as PF2ECreature;
-      const level = pf2e.system?.details?.level?.value ?? 0;
-      const maxHp = pf2e.system?.attributes?.hp?.max ?? 10;
-      const ac = pf2e.system?.attributes?.ac?.value ?? 10;
-      const fort = pf2e.system?.saves?.fortitude?.value;
-      const ref = pf2e.system?.saves?.reflex?.value;
-      const will = pf2e.system?.saves?.will?.value;
+      const baseLevel = pf2e.system?.details?.level?.value ?? 0;
+      const isHazard = c.entityType === 'hazard';
+
+      // Determine the effective AC, HP, and saves — use scaled stats if a scaledLevel is provided
+      let maxHp: number;
+      let ac: number;
+      let fort: number | undefined;
+      let ref: number | undefined;
+      let will: number | undefined;
+
+      if (scaledLevel != null) {
+        if (isHazard) {
+          const scaled = buildScaledHazard(c, scaledLevel);
+          maxHp = scaled.hp ?? pf2e.system?.attributes?.hp?.max ?? 10;
+          ac    = scaled.ac ?? pf2e.system?.attributes?.ac?.value ?? 10;
+          fort  = scaled.fort;
+          ref   = scaled.ref;
+          will  = scaled.will;
+        } else {
+          const scaled = buildScaledCreature(c, scaledLevel);
+          maxHp = scaled.hp;
+          ac    = scaled.ac;
+          fort  = scaled.fort;
+          ref   = scaled.ref;
+          will  = scaled.will;
+        }
+      } else {
+        maxHp = pf2e.system?.attributes?.hp?.max ?? 10;
+        ac    = pf2e.system?.attributes?.ac?.value ?? 10;
+        fort  = pf2e.system?.saves?.fortitude?.value;
+        ref   = pf2e.system?.saves?.reflex?.value;
+        will  = pf2e.system?.saves?.will?.value;
+      }
+
       const strMod = pf2e.system?.abilities?.str?.mod;
       const dexMod = pf2e.system?.abilities?.dex?.mod;
       const entry: EncounterCreature = {
         uid: `${c.id}-${Date.now()}-${Math.random()}`,
         creatureId: c.id,
         name: c.name,
-        level,
+        level: baseLevel,
         hp: maxHp,
         maxHp,
         ac,
@@ -107,6 +135,7 @@ export function useEncounter(): UseEncounterReturn {
         rarity: c.rarity,
         init: 0,
         conditions: [],
+        scaledLevel,
       };
       setEncounters(prev =>
         prev.map((enc, i) =>
@@ -255,6 +284,7 @@ export function useEncounter(): UseEncounterReturn {
       const creature = enc?.creatures.find(c => c.uid === uid);
       const creatureId = creature?.creatureId;
       const record = creatureId ? await creatureRepository.get(creatureId) : undefined;
+      const isHazard = record?.entityType === 'hazard';
 
       setEncounters(prev =>
         prev.map((enc, i) => {
@@ -276,6 +306,22 @@ export function useEncounter(): UseEncounterReturn {
                   fort:  pf2e?.system?.saves?.fortitude?.value ?? c.fort,
                   ref:   pf2e?.system?.saves?.reflex?.value ?? c.ref,
                   will:  pf2e?.system?.saves?.will?.value ?? c.will,
+                };
+              }
+              if (isHazard) {
+                const scaled = buildScaledHazard(record, level);
+                const scaledHp  = scaled.hp  ?? (record.data as PF2ECreature).system?.attributes?.hp?.max ?? c.maxHp;
+                const scaledAc  = scaled.ac  ?? (record.data as PF2ECreature).system?.attributes?.ac?.value ?? c.ac;
+                return {
+                  ...c,
+                  scaledLevel: level,
+                  baseMaxHp: undefined,
+                  ac:    scaledAc,
+                  maxHp: scaledHp,
+                  hp:    Math.min(c.hp, scaledHp),
+                  fort:  scaled.fort ?? c.fort,
+                  ref:   scaled.ref  ?? c.ref,
+                  will:  scaled.will ?? c.will,
                 };
               }
               const scaled = buildScaledCreature(record, level);
