@@ -44,8 +44,6 @@ export const HAZARD_TYPES: { value: string; label: string }[] = [
   { value: 'trap',          label: 'Trap' },
   { value: 'haunt',         label: 'Haunt' },
   { value: 'environmental', label: 'Environmental' },
-  { value: 'magical',       label: 'Magical' },
-  { value: 'mechanical',    label: 'Mechanical' },
 ];
 
 // ── Damage types ──────────────────────────────────────────────────────────────

@@ -378,41 +378,6 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
         </div>
       </div>
 
-      {(filters.entityTypes.length === 0 || filters.entityTypes.includes('hazard') || filters.hazardTypes.length > 0) && (
-        <div className={styles.section}>
-          <span className={styles.label}>Hazard Type</span>
-          <div className={styles.checkGroup}>
-            {HAZARD_TYPES.map(h => (
-              <label key={h.value} className={styles.checkLabel}>
-                <input
-                  type="checkbox"
-                  checked={filters.hazardTypes.includes(h.value)}
-                  onChange={e => toggleHazardType(h.value, e.target.checked)}
-                  disabled={disabled}
-                />
-                {h.label}
-              </label>
-            ))}
-            <label className={styles.checkLabel}>
-              <input
-                type="checkbox"
-                checked={filters.traits.includes('complex')}
-                onChange={e => {
-                  if (e.target.checked) {
-                    if (!filters.traits.includes('complex'))
-                      set({ traits: [...filters.traits, 'complex'], excludeTraits: filters.excludeTraits.filter(x => x !== 'complex') });
-                  } else {
-                    set({ traits: filters.traits.filter(t => t !== 'complex') });
-                  }
-                }}
-                disabled={disabled}
-              />
-              Complex
-            </label>
-          </div>
-        </div>
-      )}
-
       {(!(filters.entityTypes.includes('hazard') && !filters.entityTypes.includes('npc')) || filters.creatureTypes.length > 0) && (
         <div className={styles.section}>
           <span className={styles.label}>Creature Type</span>
@@ -426,6 +391,25 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
                   disabled={disabled}
                 />
                 {t}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(filters.entityTypes.length === 0 || filters.entityTypes.includes('hazard') || filters.hazardTypes.length > 0) && (
+        <div className={styles.section}>
+          <span className={styles.label}>Hazard Type</span>
+          <div className={styles.checkGroup}>
+            {HAZARD_TYPES.map(h => (
+              <label key={h.value} className={styles.checkLabel}>
+                <input
+                  type="checkbox"
+                  checked={filters.hazardTypes.includes(h.value)}
+                  onChange={e => toggleHazardType(h.value, e.target.checked)}
+                  disabled={disabled}
+                />
+                {h.label}
               </label>
             ))}
           </div>

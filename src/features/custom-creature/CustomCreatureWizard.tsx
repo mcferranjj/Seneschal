@@ -179,7 +179,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
       })
     : [];
 
-  const [step, setStep] = useState(isEditing ? 0 : 0);
+  const [step, setStep] = useState(isEditing ? 1 : 0);
   const [name, setName] = useState(initFromEdit(editCreature?.name ?? '', ''));
   const [level, setLevel] = useState(initFromEdit(editCreature?.level ?? partyLevel, partyLevel));
   const [size, setSize] = useState(initFromEdit(editCreature?.size ?? 'med', 'med'));
