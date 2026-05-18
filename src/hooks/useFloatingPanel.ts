@@ -1,14 +1,17 @@
 /**
  * useFloatingPanel
  *
- * Provides drag + vertical-clamp + outside-click + Escape-key behaviour for
- * floating panels (dice rollers, spell popups, etc.).
+ * Provides drag + viewport-clamp + outside-click behaviour for floating panels
+ * (dice rollers, spell popups, etc.).
  *
  * Returns:
- *  - ref          — attach to the panel root element
- *  - pos          — current drag position (null = use anchor)
- *  - clampedY     — auto-clamped anchorY (used when pos is null)
- *  - onDragHandlePointerDown — attach to the drag handle
+ *  - ref              — attach to the panel root element
+ *  - panelLeft        — resolved CSS `left` value
+ *  - panelTop         — resolved CSS `top` value (clamped to viewport)
+ *  - panelTransform   — `translateX(-50%)` when anchored, `none` when dragging
+ *  - panelMaxHeight   — available height from panelTop to viewport bottom (minus 8px margin);
+ *                       set as `--roller-max-height` on the panel so CSS can cap overflow
+ *  - onDragHandlePointerDown — attach to the drag handle element
  *  - onDragPointerMove       — attach to the panel root (onPointerMove)
  *  - onDragPointerUp         — attach to the panel root (onPointerUp)
  */
@@ -33,13 +36,17 @@ export function useFloatingPanel(
 
   useOutsideClick(ref, onClose);
 
-  // Clamp vertical position so the panel never overflows the viewport bottom
+  // Clamp vertical position so the panel stays fully within the viewport
   useEffect(() => {
     if (pos) return; // user is dragging — skip auto-clamp
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
-    const overflow = rect.bottom - window.innerHeight + 8;
-    if (overflow > 0) setClampedY(y => y - overflow);
+    // Clamp bottom edge
+    const bottomOverflow = rect.bottom - window.innerHeight + 8;
+    // Clamp top edge (rect.top may be negative after bottom-clamp shifts it up)
+    const topOverflow = 8 - rect.top;
+    if (bottomOverflow > 0) setClampedY(y => y - bottomOverflow);
+    else if (topOverflow > 0) setClampedY(y => y + topOverflow);
   });
 
   const onDragHandlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -59,9 +66,15 @@ export function useFloatingPanel(
     if (!dragRef.current) return;
     const dx = e.clientX - dragRef.current.startMouseX;
     const dy = e.clientY - dragRef.current.startMouseY;
+    const newY = dragRef.current.startPanelY + dy;
+    const panelH = ref.current?.getBoundingClientRect().height ?? 0;
+    const clampedDragY = Math.min(
+      window.innerHeight - panelH - 8,
+      Math.max(8, newY),
+    );
     setPos({
       x: dragRef.current.startPanelX + dx,
-      y: dragRef.current.startPanelY + dy,
+      y: clampedDragY,
     });
   }, []);
 
@@ -72,6 +85,8 @@ export function useFloatingPanel(
   const panelLeft = pos ? pos.x : anchorX;
   const panelTop = pos ? pos.y : clampedY;
   const panelTransform = pos ? 'none' : 'translateX(-50%)';
+  /** Available height from the panel's top edge to the bottom of the viewport (minus 8px margin). */
+  const panelMaxHeight = `${window.innerHeight - panelTop - 8}px`;
 
   return {
     ref,
@@ -79,6 +94,7 @@ export function useFloatingPanel(
     panelLeft,
     panelTop,
     panelTransform,
+    panelMaxHeight,
     onDragHandlePointerDown,
     onDragPointerMove,
     onDragPointerUp,

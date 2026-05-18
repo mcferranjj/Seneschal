@@ -25,6 +25,8 @@ import {
   getHazardDetails,
   applyEliteWeakToHtml,
   processFoundryHtml,
+  getSneakAttackDamage,
+  withSneakAttack,
 } from './statblockHelpers';
 import { getRecallKnowledge } from '../encounter/EncounterManager';
 import { importSpellcasting } from '../../utils/importCreature';
@@ -186,6 +188,7 @@ function StatblockContent({
   const [scaleDropdownOpen, setScaleDropdownOpen] = useState(false);
   // Local preview level — used when onSetScaledLevel is not provided (not in encounter yet)
   const [previewScaledLevel, setPreviewScaledLevel] = useState<number | undefined>(undefined);
+  const [sneakAttackActive, setSneakAttackActive] = useState(false);
 
   const { containerRef: pf2kwRef, tooltip: pf2kwTooltip } = usePf2kwTooltip();
 
@@ -256,9 +259,10 @@ function StatblockContent({
     setCreatureName(c.name);
   }, [c.name, setCreatureName]);
 
-  // Clear local preview scaling when the creature changes
+  // Clear local preview scaling and sneak attack toggle when the creature changes
   useEffect(() => {
     setPreviewScaledLevel(undefined);
+    setSneakAttackActive(false);
   }, [creature.id]);
 
   const level = getLevel(c);
@@ -370,6 +374,9 @@ function StatblockContent({
   const hasSpellcasting = spellcastingEntries.length > 0;
   const publicNotes = c.system?.details?.publicNotes ?? '';
   const publication = c.system?.details?.publication?.title;
+
+  // Sneak Attack detection
+  const sneakAttackExpr = getSneakAttackDamage(creature);
 
   // Construct GitHub raw URL for creature image; skip generic default icons
   const imgPath = c.img;
@@ -816,6 +823,23 @@ function StatblockContent({
           </p>
         )}
 
+        {/* Sneak Attack toggle — shown whenever the creature has Sneak Attack */}
+        {sneakAttackExpr && (
+          <div className={styles.sneakAttackRow}>
+            <input
+              id="sneak-attack-toggle"
+              type="checkbox"
+              className={styles.sneakAttackToggle}
+              checked={sneakAttackActive}
+              onChange={e => setSneakAttackActive(e.target.checked)}
+            />
+            <label htmlFor="sneak-attack-toggle" className={styles.sneakAttackLabel}>
+              Sneak Attack{' '}
+              <span className={styles.sneakAttackDice}>+{sneakAttackExpr} precision</span>
+            </label>
+          </div>
+        )}
+
         {attacks.map(item => (
           <AttackBlock
             key={item._id}
@@ -829,6 +853,8 @@ function StatblockContent({
             dexMod={dex}
             ewMod={ewMod}
             ewStyle={ewStyle}
+            sneakAttackExpr={sneakAttackExpr}
+            sneakAttackActive={sneakAttackActive}
           />
         ))}
 
@@ -903,6 +929,9 @@ function StatblockContent({
                 : (atk.damage ?? '');
             }
 
+            const atkTraits = atk.traits ?? [];
+            const effectiveDamageGroups = withSneakAttack(damageGroups, sneakAttackExpr, sneakAttackActive, atk.type, atkTraits);
+
             return (
               <AttackLine
                 key={i}
@@ -912,16 +941,16 @@ function StatblockContent({
                 damage={displayDamage}
                 damageExpr={damageGroups[0]?.expr ?? ''}
                 damageModified={ewMod !== 0}
-                traits={atk.traits ?? []}
+                traits={atkTraits}
                 rangeDisplay={rangeDisplay}
                 attackStyle={atkStyle}
                 damageStyle={atkStyle}
                 isAgile={isAgile}
                 strikeAbilities={strikeAbilities}
-                onRollAttack={(mod, label, e) => rollAttack(mod, label, damageGroups, damageLabel, atk.traits ?? [], e)}
-                onRollDamage={e => rollDamage(damageGroups, damageLabel, atk.traits ?? [], e)}
-                onManualRollAttack={(mod, label, e) => manualRollAttack(mod, label, damageGroups, atk.traits ?? [], e)}
-                onManualRollDamage={e => manualRollDamage(damageGroups, damageLabel, e)}
+                onRollAttack={(mod, label, e) => rollAttack(mod, label, effectiveDamageGroups, damageLabel, atkTraits, e)}
+                onRollDamage={e => rollDamage(effectiveDamageGroups, damageLabel, atkTraits, e)}
+                onManualRollAttack={(mod, label, e) => manualRollAttack(mod, label, effectiveDamageGroups, atkTraits, e)}
+                onManualRollDamage={e => manualRollDamage(effectiveDamageGroups, damageLabel, e)}
               />
             );
           });
