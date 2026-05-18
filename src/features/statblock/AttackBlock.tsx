@@ -1,6 +1,6 @@
 import type { PF2EItem } from '../../types/pf2e';
 import type { Condition } from '../../types/encounter';
-import { computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
+import { computeAttackPenalty, computeDamagePenalty } from '../../utils/conditionEffects';
 import { getDamageString, getDamageGroups } from './statblockHelpers';
 import { slugToTitle } from '../../utils/formatters';
 import type { DamageGroupInput } from '../dice/DiceRoller';

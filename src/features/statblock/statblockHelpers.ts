@@ -62,6 +62,21 @@ export function getSpeedString(c: PF2ECreature): string {
   return parts.join(', ');
 }
 
+/**
+ * Like getSpeedString but applies a flat penalty (negative number, e.g. –10)
+ * to every speed value. Speeds are clamped to a minimum of 5 ft.
+ */
+export function getSpeedStringWithPenalty(c: PF2ECreature, penalty: number): string {
+  const speed = c.system?.attributes?.speed;
+  if (!speed) return '—';
+  const adj = (v: number) => Math.max(5, v + penalty);
+  const parts: string[] = [`${adj(speed.value)} ft.`];
+  for (const s of speed.otherSpeeds ?? []) {
+    parts.push(`${s.type} ${adj(s.value)} ft.`);
+  }
+  return parts.join(', ');
+}
+
 export function getImmResWeak(c: PF2ECreature): {
   immunities: string;
   resistances: string;

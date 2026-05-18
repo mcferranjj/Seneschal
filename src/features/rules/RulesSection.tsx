@@ -65,6 +65,9 @@ export function RulesSection() {
                   <span className={styles.entryName}>
                     {c.name}
                     {c.valued && <span className={styles.valuedBadge}> #</span>}
+                    {c.statEffect && (
+                      <span className={styles.statEffect}>{c.statEffect}</span>
+                    )}
                   </span>
                   <span className={styles.entryChevron}>{expanded === c.name ? '▾' : '▸'}</span>
                 </button>

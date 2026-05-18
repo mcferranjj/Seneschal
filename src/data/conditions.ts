@@ -3,6 +3,12 @@
  *
  * Static condition definitions used by RulesSection (display) and
  * EncounterManager (condition picker). Pure data — no logic, no imports.
+ *
+ * Exports:
+ *  CONDITIONS           – full condition list (descriptions + stat effects)
+ *  CONDITION_INFO       – O(1) lookup map: lowercase name → { desc, statEffect }
+ *  CONDITION_CATEGORIES – grouped categories for the picker UI
+ *  VALUED_CONDITIONS    – set of lowercase names that carry a numeric value
  */
 
 // ── Condition categories for the picker UI ────────────────────────────────────
@@ -27,186 +33,214 @@ export const CONDITION_CATEGORIES: ConditionCategory[] = [
 
 export const VALUED_CONDITIONS = new Set([
   'clumsy', 'doomed', 'drained', 'dying', 'enfeebled', 'frightened',
-  'quickened', 'sickened', 'slowed', 'stunned', 'stupefied', 'persistent damage', 'wounded',
+  'sickened', 'slowed', 'stunned', 'stupefied', 'wounded',
 ]);
 
 // ── Full condition reference list (for RulesSection) ─────────────────────────
+// `statEffect` — short summary of tracker stat adjustments (shown inline in the
+// Rules reference so the Help modal can link here instead of duplicating a table).
 
-export const CONDITIONS: Array<{ name: string; valued?: boolean; desc: string }> = [
+export const CONDITIONS: Array<{ name: string; valued?: boolean; desc: string; statEffect?: string }> = [
   {
     name: 'Concealed',
-    desc: 'You are difficult to perceive due to mist, darkness, or similar obscurement. Creatures must succeed at a DC 5 flat check to target you with attacks or other effects that require targeting. You are not hidden — your location is still known.',
+    desc: 'You are difficult for one or more creatures to see due to thick fog or some other obscuring feature. While concealed, you can still be observed, but you\'re tougher to target. A creature that you\'re concealed from must succeed at a DC 5 flat check when targeting you with an attack, spell, or other effect or it fails to affect you. Area effects are not subject to this flat check.',
   },
   {
     name: 'Blinded',
-    desc: 'You cannot see. You automatically critically fail Perception checks that require sight. You take a –2 circumstance penalty to attack rolls. All your targets are concealed from you (DC 5 flat check). You are immune to visual effects.',
+    desc: 'You can\'t see. All normal terrain is difficult terrain to you. You can\'t detect anything using vision. You automatically critically fail Perception checks that require you to be able to see, and if vision is your only precise sense, you take a –4 status penalty to Perception checks. You are immune to visual effects. Blinded overrides Dazzled.',
+    statEffect: '–4 status Perception',
   },
   {
     name: 'Clumsy',
     valued: true,
-    desc: 'Your movements become clumsy and imprecise. You take a –1 circumstance penalty per value to Dexterity-based checks and DCs, including AC, Reflex saves, Acrobatics, Stealth, and Thievery.',
+    desc: 'Your movements become clumsy and inexact. You take a status penalty equal to the condition value to Dexterity-based rolls and DCs, including AC, Reflex saves, ranged attack rolls, and skill checks using Acrobatics, Stealth, and Thievery.',
+    statEffect: '–X status AC, –X status Reflex; –X status attack (Dex-based)',
   },
   {
     name: 'Confused',
-    desc: 'You are mentally befuddled and unable to determine friend from foe. You cannot use reactions. You are off-guard. You must spend all your actions to Strike or use a hostile action against a randomly determined creature within reach or range. If you have no valid targets, you are instead flat-footed and waste your actions. Any obvious threat (such as being attacked) can end the condition early.',
+    desc: 'You don\'t have your wits about you, and you attack wildly. You are off-guard, you don\'t treat anyone as your ally, and you can\'t Delay, Ready, or use reactions. You use all your actions to Strike or cast offensive cantrips, with targets determined randomly by the GM. If you have no other viable targets, you target yourself, automatically hitting but not scoring a critical hit. Each time you take damage from an attack or spell, you can attempt a DC 11 flat check to recover from your confusion and end the condition.',
+    statEffect: '–2 circumstance AC (Off-Guard)',
   },
   {
     name: 'Controlled',
-    desc: 'Another creature dictates all your actions. You cannot use your own free will or reactions independently of the controlling creature.',
+    desc: 'You have been commanded, magically dominated, or otherwise had your will subverted. The controller dictates how you act and can make you use any of your actions, including attacks, reactions, or even Delay. The controller usually doesn\'t have to spend their own actions when controlling you.',
   },
   {
     name: 'Dazzled',
-    desc: 'Your vision is compromised. All creatures and objects are concealed from you (DC 5 flat check to act against them).',
+    desc: 'Your eyes are overstimulated or your vision is swimming. If vision is your only precise sense, all creatures and objects are concealed from you.',
+    statEffect: '–2 status attack (flat-check approximation)',
   },
   {
     name: 'Deafened',
-    desc: 'You cannot hear. You automatically critically fail Perception checks that require hearing. You take a –2 circumstance penalty to Perception checks and initiative rolls. Spells you cast with a verbal component require a DC 5 flat check or the spell is lost.',
+    desc: 'You can\'t hear. You automatically critically fail Perception checks that require you to be able to hear. You take a –2 status penalty to Perception checks for initiative and checks that involve sound but also rely on other senses. If you perform an action that has the auditory trait, you must succeed at a DC 5 flat check or the action is lost; attempt the check after spending the action but before any effects are applied. You are immune to auditory effects while deafened.',
+    statEffect: '–2 status Perception',
   },
   {
     name: 'Doomed',
     valued: true,
-    desc: 'Death looms over you. Your dying value at which you die increases by your doomed value (normally you die at dying 4; doomed 1 means dying 3 kills you). When you die, you are reduced to 0 HP and your doomed value decreases by 1.',
+    desc: 'Your soul has been gripped by a powerful force that calls you closer to death. The dying value at which you die is reduced by your doomed value. If your maximum dying value is reduced to 0, you instantly die. When you die, you\'re no longer doomed. Your doomed value decreases by 1 each time you get a full night\'s rest.',
   },
   {
     name: 'Drained',
     valued: true,
-    desc: "Your body has lost vitality. You take a –1 circumstance penalty per value to Constitution-based checks and DCs, including Fortitude saves. Your maximum HP is also reduced by your level × the drained value. The condition reduces by 1 each time you get a full night's rest.",
+    desc: 'Your health and vitality have been depleted as you\'ve lost blood, life force, or some other essence. You take a status penalty equal to your drained value on Constitution-based rolls and DCs, such as Fortitude saves. You also lose a number of Hit Points equal to your level (minimum 1) times the drained value, and your maximum Hit Points are reduced by the same amount. Each time you get a full night\'s rest, your drained value decreases by 1.',
+    statEffect: '–X status Fortitude',
   },
   {
     name: 'Dying',
     valued: true,
-    desc: "You are bleeding out or otherwise at death's door. While dying, you are unconscious and must attempt a Recovery check (flat DC 10 + your dying value) each round. Success reduces dying by 1; failure increases it by 1; critical failure increases by 2. Reaching dying 4 (or the limit imposed by doomed) means you die.",
+    desc: 'You are bleeding out or otherwise at death\'s door. While you have this condition, you are unconscious. If it ever reaches dying 4, you die. When you\'re dying, you must attempt a recovery check at the start of your turn each round to determine whether you get better or worse. Your dying condition increases by 1 if you take damage while dying, or by 2 if you take damage from an enemy\'s critical hit or a critical failure on your save. Any time you lose the dying condition, you gain the Wounded 1 condition (or increase your wounded value by 1).',
   },
   {
     name: 'Encumbered',
-    desc: 'You are carrying more bulk than you can manage. You take a –1 circumstance penalty to attack rolls and AC, and your Speed is reduced by 10 feet.',
+    desc: 'You are carrying more weight than you can manage. While encumbered, you\'re Clumsy 1 and take a 10-foot penalty to all your Speeds (minimum 5 feet).',
+    statEffect: 'Clumsy 1 (–1 status AC, Reflex, Dex-based attacks); –10 ft Speed',
   },
   {
     name: 'Enfeebled',
     valued: true,
-    desc: 'Your physical strength has been depleted. You take a –1 circumstance penalty per value to Strength-based checks and DCs, including melee attack rolls and Athletics.',
+    desc: 'You\'re physically weakened. You take a status penalty equal to the condition value to Strength-based rolls and DCs, including Strength-based melee attack rolls, Strength-based damage rolls, and Athletics checks.',
+    statEffect: '–X status attack & damage (Str-based melee/thrown)',
   },
   {
     name: 'Fascinated',
-    desc: 'You are enthralled by something. You take a –2 circumstance penalty to Perception checks and skill checks, and you cannot use reactions. Any attempt to harm you or your allies, or any obvious threat, ends the condition.',
+    desc: 'You\'re compelled to focus your attention on something, distracting you from whatever else is going on around you. You take a –2 status penalty to Perception and skill checks, and you can\'t use concentrate actions unless they (or their intended consequences) are related to the subject of your fascination, as determined by the GM. This condition ends if a creature uses hostile actions against you or any of your allies.',
+    statEffect: '–2 status Perception',
   },
   {
     name: 'Fatigued',
-    desc: "You are exhausted. You take a –1 circumstance penalty to AC and all saving throws. You cannot use exploration activities that require a degree of exertion (such as Hustle). The condition ends after you get a full night's rest.",
+    desc: 'You\'re tired and can\'t summon much energy. You take a –1 status penalty to AC and saving throws. You can\'t use exploration activities performed while traveling. You recover from fatigue after a full night\'s rest.',
+    statEffect: '–1 status AC, Fort, Ref, Will',
   },
   {
     name: 'Fleeing',
-    desc: 'You are compelled to run away. You must spend all your actions to escape the source of the fleeing condition, using movement actions (Stride, Fly, etc.) if possible. You cannot Delay or Ready.',
+    desc: 'You\'re forced to run away due to fear or some other compulsion. On your turn, you must spend each of your actions trying to escape the source of the fleeing condition as expediently as possible (such as by using move actions to flee, or opening doors barring your escape). You can\'t Delay or Ready while fleeing.',
   },
   {
     name: 'Frightened',
     valued: true,
-    desc: 'You are gripped by fear. You take a –1 circumstance penalty per value to all your checks and DCs. At the end of each of your turns, your frightened value decreases by 1.',
+    desc: 'You\'re gripped by fear and struggle to control your nerves. You take a status penalty equal to this value to all your checks and DCs. Unless specified otherwise, at the end of each of your turns, the value of your frightened condition decreases by 1.',
+    statEffect: '–X status AC, Fort, Ref, Will, Perception, attack · auto-reduces each turn',
   },
   {
     name: 'Grabbed',
-    desc: 'A creature or hazard is holding you in place. You are off-guard and immobilized. If you attempt a concentrate action, you must succeed at a DC 5 flat check or the action is lost.',
+    desc: 'You\'re held in place by another creature, giving you the off-guard and immobilized conditions. If you attempt a manipulate action while grabbed, you must succeed at a DC 5 flat check or it is lost; roll the check after spending the action, but before any effects are applied.',
+    statEffect: '–2 circumstance AC (Off-Guard); manipulate actions need DC 5 flat check',
   },
   {
     name: 'Hidden',
-    desc: 'Your presence is known but your exact location is not. A creature you are hidden from is flat-footed against your attacks, but must attempt a DC 11 flat check when targeting you. If they fail, the action is wasted. You can use the Hide or Sneak actions to become hidden; you become observed or undetected depending on the result.',
+    desc: 'While you\'re hidden from a creature, that creature knows the space you\'re in but can\'t tell precisely where you are. A creature you\'re hidden from is off-guard to you, and it must succeed at a DC 11 flat check when targeting you with an attack, spell, or other effect or it fails to affect you. Area effects aren\'t subject to this flat check. A creature might be able to use the Seek action to try to observe you.',
   },
   {
     name: 'Immobilized',
-    desc: 'You cannot use any action with the move trait (Stride, Burrow, Fly, Swim, etc.). If you are immobilized by a physical restraint and an effect would move you, the effect is negated.',
+    desc: 'You are incapable of movement. You can\'t use any actions that have the move trait. If you\'re immobilized by something holding you in place and an external force would move you out of your space, the force must succeed at a check against either the DC of the effect holding you in place or the relevant defense of the monster holding you in place.',
   },
   {
     name: 'Invisible',
-    desc: 'You cannot be seen. You are undetected by default. Even creatures that know your location treat you as hidden. You do not block line of sight. Detection requires senses other than vision.',
+    desc: 'You can\'t be seen. You\'re undetected to everyone. Creatures can Seek to detect you; if a creature succeeds at its Perception check against your Stealth DC, you become hidden to that creature until you Sneak to become undetected again. If you become invisible while someone can already see you, you start out hidden to them until you successfully Sneak. You can\'t become observed while invisible except via special abilities or magic.',
   },
   {
     name: 'Off-Guard',
-    desc: 'You are distracted or unprepared. You take a –2 circumstance penalty to AC. Many situations cause this condition: flanking, being grabbed, becoming prone, etc. This is the Remaster term for the legacy "Flat-Footed."',
+    desc: 'You\'re distracted or otherwise unable to focus your full attention on defense. You take a –2 circumstance penalty to AC. Some effects give you the off-guard condition only to certain creatures or against certain attacks. If a rule doesn\'t specify that the condition applies only to certain circumstances, it applies to all of them. This is the Remaster term for the legacy "Flat-Footed."',
+    statEffect: '–2 circumstance AC',
   },
   {
     name: 'Paralyzed',
-    desc: 'Your body is frozen in place. You are off-guard and cannot act (no actions, no reactions). You automatically critically fail Strength and Dexterity checks and saves. Your Speed becomes 0.',
+    desc: 'You\'re frozen in place. You have the off-guard condition and can\'t act except to Recall Knowledge and use actions that require only your mind (as determined by the GM). Your senses still function, but only in the areas you can perceive without moving, so you can\'t Seek.',
+    statEffect: '–2 circumstance AC (Off-Guard)',
   },
   {
     name: 'Petrified',
-    desc: 'You have been turned to stone. You are unaware of your surroundings. You cannot act. You do not age. You are immune to mental effects and most physical effects. Your AC changes to 9 + your level and your hardness is 8 + your level.',
+    desc: 'You have been turned to stone. You can\'t act, nor can you sense anything. You become an object with a Bulk double your normal Bulk (typically 12 for a Medium creature or 6 for a Small creature), AC 9, Hardness 8, and the same current Hit Points you had when alive. You don\'t have a Broken Threshold. When petrified ends, you have the same HP you had as a statue. If the statue is destroyed, you immediately die. While petrified, your mind and body are in stasis, so you don\'t age or notice the passing of time.',
   },
   {
     name: 'Persistent Damage',
-    desc: 'You take a set amount of a given damage type at the end of each of your turns. After taking the damage, attempt a DC 15 flat check; on a success, the condition ends. Each time someone takes an action to assist you with recovery (e.g., applying water to persistent fire damage), you get a +2 circumstance bonus to this check.',
+    desc: 'You are taking damage from an ongoing effect. This appears as "X persistent [type] damage." You take the damage at the end of each of your turns as long as you have the condition, rolling any damage dice anew each time. After you take persistent damage, roll a DC 15 flat check to see if you recover. If you succeed, the condition ends.',
   },
   {
     name: 'Prone',
-    desc: 'You are lying on the ground. You are off-guard. You take a –2 circumstance penalty to attack rolls. Melee attackers within reach gain a +2 circumstance bonus to hit; ranged attackers take a –2 circumstance penalty. Standing up (1 action) ends this condition.',
+    desc: 'You\'re lying on the ground. You are off-guard and take a –2 circumstance penalty to attack rolls. The only move actions you can use while prone are Crawl and Stand. Standing up ends the prone condition. You can Take Cover while prone to gain greater cover against ranged attacks, granting a +4 circumstance bonus to AC against ranged attacks (but you remain off-guard). If knocked prone while Climbing or Flying, you fall. You can\'t be knocked prone when Swimming.',
+    statEffect: '–2 circumstance AC (Off-Guard); –2 circumstance attack',
   },
   {
     name: 'Quickened',
     valued: false,
-    desc: 'You gain 1 additional action at the start of each of your turns. This extra action can only be used for a specific type of action as specified by the effect that gave you the quickened condition (often limited to Stride or Strike).',
+    desc: 'You\'re able to act more quickly. You gain 1 additional action at the start of your turn each round. Many effects that make you quickened require you use this extra action only in certain ways. If you become quickened from multiple sources, you can use the extra action for any single action allowed by any of those effects. Because quickened takes effect at the start of your turn, you don\'t immediately gain actions if you become quickened during your turn.',
   },
   {
     name: 'Restrained',
-    desc: 'You are entirely immobilised by a restraint. You are off-guard and cannot act (similar to grabbed, but you cannot even attempt to Escape as freely). You are immobilised. You take a –2 circumstance penalty to attack rolls.',
+    desc: 'You\'re tied up and can barely move, or a creature has you pinned. You have the off-guard and immobilized conditions, and you can\'t use any attack or manipulate actions except to attempt to Escape or Force Open your bonds. Restrained overrides Grabbed.',
+    statEffect: '–2 circumstance AC (Off-Guard); attack/manipulate actions blocked',
   },
   {
     name: 'Sickened',
     valued: true,
-    desc: "You feel ill. You take a –1 circumstance penalty per value to all your checks and DCs. You cannot willingly consume food or drink. At the end of each of your turns, you can attempt a Fortitude save against the DC of the effect that sickened you; on a success, your sickened value decreases by 1.",
+    desc: 'You feel ill. You take a status penalty equal to this value on all your checks and DCs. You can\'t willingly ingest anything—including elixirs and potions—while sickened. You can spend a single action retching in an attempt to recover, which lets you immediately attempt a Fortitude save against the DC of the effect that made you sickened. On a success, you reduce your sickened value by 1 (or by 2 on a critical success).',
+    statEffect: '–X status AC, Fort, Ref, Will, Perception, attack',
   },
   {
     name: 'Slowed',
     valued: true,
-    desc: 'You are moving sluggishly. You lose a number of actions on each of your turns equal to your slowed value (minimum 1 action remaining). Slowed 1 removes 1 action; slowed 2 removes 2, etc.',
+    desc: 'You have fewer actions. When you regain your actions at the start of your turn, reduce the number of actions regained by your slowed value. Because you regain actions at the start of your turn, you don\'t immediately lose actions if you become slowed during your turn.',
   },
   {
     name: 'Stunned',
     valued: true,
-    desc: 'You have been temporarily incapacitated. At the start of each of your turns, reduce your stunned value by 1, then lose that many actions. For example, stunned 3 means at the start of your turn you lose 3 actions, then stunned reduces to 2, then 1, etc.',
+    desc: 'You\'ve become senseless. You can\'t act. Stunned usually includes a value indicating how many total actions you lose, possibly over multiple turns. Each time you regain actions, reduce the number you regain by your stunned value, then reduce your stunned value by the number of actions you lost. For example, stunned 4 causes you to lose all 3 actions on your first turn (reducing to stunned 1), then lose 1 more action the next turn. Stunned overrides Slowed.',
   },
   {
     name: 'Stupefied',
     valued: true,
-    desc: 'Your ability to think clearly is compromised. You take a –1 circumstance penalty per value to Intelligence-, Wisdom-, and Charisma-based checks and DCs, including Will saves, Perception, and all spellcasting. Any time you Cast a Spell, you must succeed at a flat check (DC = 5 + stupefied value) or the spell is lost.',
+    desc: 'Your thoughts and instincts are clouded. You take a status penalty equal to this value on Intelligence-, Wisdom-, and Charisma-based rolls and DCs, including Will saving throws, spell attack modifiers, spell DCs, and skill checks using these attribute modifiers. Any time you attempt to Cast a Spell while stupefied, the spell is disrupted unless you succeed at a flat check with a DC equal to 5 + your stupefied value.',
+    statEffect: '–X status Will, Perception',
   },
   {
     name: 'Unconscious',
-    desc: 'You are senseless. You cannot act (no actions, no reactions). You fall prone if able. You take a –4 circumstance penalty to AC and Perception checks. You are off-guard. You are blinded and deafened for many purposes. You can wake up (by taking damage, by a Check, or by meeting other criteria of the effect).',
+    desc: 'You\'re sleeping or have been knocked out. You can\'t act. You take a –4 status penalty to AC, Perception, and Reflex saves, and you have the blinded and off-guard conditions. When you gain this condition, you fall prone and drop items you\'re holding unless the effect states otherwise. If you\'re unconscious because you\'re dying, you can\'t wake up while you have 0 Hit Points. If restored to 1 Hit Point or more, you lose the dying and unconscious conditions and can act normally on your next turn.',
+    statEffect: '–4 status AC, Ref, Perception; –2 circumstance AC (Off-Guard)',
   },
   {
     name: 'Undetected',
-    desc: 'A creature has no idea where you are. You are hidden from them (your location is unknown), and they cannot target you at all without first Seeking. If they attempt to act against you, they must first guess your square (DC 11 flat check to pick the right square); they are off-guard for your attacks.',
+    desc: 'When you are undetected by a creature, that creature can\'t see you at all, has no idea what space you occupy, and can\'t target you, though you still can be affected by abilities that target an area. When you\'re undetected by a creature, that creature is off-guard to you. A creature you\'re undetected by can guess which square you\'re in to try targeting you—this works like targeting a hidden creature (DC 11 flat check), but the flat check and attack roll are rolled in secret by the GM.',
   },
   {
     name: 'Wounded',
     valued: true,
-    desc: "You have been brought back from the brink of death. If you would gain the dying condition, your dying value increases by 1 for each wounded value you have. The condition clears when you get a full night's rest or receive the Treat Wounds activity successfully.",
+    desc: 'You have been seriously injured. If you lose the dying condition and do not already have the wounded condition, you become wounded 1. If you already have it when you lose dying, your wounded value increases by 1. If you gain the dying condition while wounded, increase your dying value by your wounded value. The wounded condition ends if someone successfully restores Hit Points to you using Treat Wounds, or if you are restored to full Hit Points and rest for 10 minutes.',
   },
 
   // ── Attitude conditions ───────────────────────────────────────────────────────
   {
     name: 'Friendly',
-    desc: "The creature has a positive attitude toward you. It will accept reasonable requests and assist you within reason, but won't risk its life for you without cause.",
+    desc: 'A creature that is friendly to a character likes that character. It is likely to agree to Requests from that character as long as they are simple, safe, and don\'t cost too much to fulfill. If the character (or one of their allies) uses hostile actions against the creature, the creature gains a worse attitude condition depending on the severity of the hostile action.',
   },
   {
     name: 'Helpful',
-    desc: 'The creature is willing to help you, even at risk to itself. It will follow reasonable requests and provide significant assistance.',
+    desc: 'A creature that is helpful to a character wishes to actively aid that character. It will accept reasonable Requests from that character, as long as such requests aren\'t at the expense of the helpful creature\'s goals or quality of life. If the character (or one of their allies) uses a hostile action against the creature, the creature gains a worse attitude condition.',
   },
   {
     name: 'Hostile',
-    desc: 'The creature is intent on causing you harm. It will attack you if it can.',
+    desc: 'A creature hostile to a character actively seeks to harm that character. It doesn\'t necessarily attack, but it won\'t accept Requests from the character.',
   },
   {
     name: 'Indifferent',
-    desc: 'The creature has no particular feelings toward you. It won\'t go out of its way to help or harm you.',
+    desc: 'A creature that is indifferent to a character doesn\'t really care one way or the other about that character. Assume a creature\'s attitude to a given character is indifferent unless specified otherwise.',
   },
   {
     name: 'Unfriendly',
-    desc: 'The creature dislikes you and will try to avoid helping you. It may agree to requests only if compelled or bribed significantly.',
+    desc: 'A creature that is unfriendly to a character dislikes and distrusts that character. The unfriendly creature won\'t accept Requests from the character.',
   },
 
   // ── Object conditions ──────────────────────────────────────────────────────
   {
     name: 'Broken',
-    desc: 'An object is broken when it has been damaged to below its Broken Threshold. A broken object still exists but no longer functions for its normal use. Broken objects can still be repaired.',
+    desc: 'An object is broken when damage has reduced its Hit Points to equal or less than its Broken Threshold. A broken object can\'t be used for its normal function, nor does it grant bonuses—with the exception of armor. Broken armor still grants its item bonus to AC, but imparts a status penalty to AC: –1 for light, –2 for medium, or –3 for heavy. A broken item still imposes penalties and limitations normally incurred by carrying, holding, or wearing it.',
   },
 ];
+
+// ── O(1) lookup: lowercase condition name → { desc, statEffect } ──────────────
+// Derived from CONDITIONS; centralised here so no consumer needs to rebuild it.
+
+export const CONDITION_INFO: ReadonlyMap<string, { desc: string; statEffect?: string }> = new Map(
+  CONDITIONS.map(c => [c.name.toLowerCase(), { desc: c.desc, statEffect: c.statEffect }]),
+);

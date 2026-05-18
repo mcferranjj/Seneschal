@@ -5,7 +5,7 @@ import type { CreatureRecord } from '../../db/schema';
 import type { PF2ECreature } from '../../types/pf2e';
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import type { Condition, CustomSpellcastingEntry } from '../../types/encounter';
-import { computePenalties } from '../../types/conditionEffects';
+import { computePenalties } from '../../utils/conditionEffects';
 import { DiceRoller, MultiDamageRoller } from '../dice/DiceRoller';
 import { ManualRollInput } from '../dice/ManualRollInput';
 import { CustomCreatureWizard } from '../custom-creature/CustomCreatureWizard';
@@ -17,6 +17,7 @@ import {
   getSkills,
   getSenses,
   getSpeedString,
+  getSpeedStringWithPenalty,
   getImmResWeak,
   getAttacks,
   getActions,
@@ -340,7 +341,6 @@ function StatblockContent({
       ? (creature.customData?.skills ?? []).map(sk => ({ name: sk.name, mod: sk.mod }))
       : getSkills(c);
   const senses = getSenses(c);
-  const speed = getSpeedString(c);
   const rawImmResWeak = getImmResWeak(c);
   const immunities = rawImmResWeak.immunities;
   const activeScaledResistances = scaledStats?.resistances ?? scaledHazardStats?.resistances;
@@ -805,7 +805,14 @@ function StatblockContent({
         {/* Speed — creatures only */}
         {!isHazard && (
           <p className={styles.infoLine}>
-            <strong>Speed</strong> {speed}
+            <strong>Speed</strong>{' '}
+            {pen.speed !== 0 ? (
+              <span style={{ color: '#c0392b', fontWeight: 700 }}>
+                {getSpeedStringWithPenalty(c, pen.speed)}
+              </span>
+            ) : (
+              getSpeedString(c)
+            )}
           </p>
         )}
 

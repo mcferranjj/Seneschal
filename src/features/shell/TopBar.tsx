@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Section } from '../../types/encounter';
 import styles from './TopBar.module.css';
+import { HelpModal } from './HelpModal';
 
 interface TopBarProps {
   activeSection: Section;
@@ -15,6 +16,7 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu on outside click
@@ -83,6 +85,14 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
               <span className={styles.historyBadge}>{historyCount > 99 ? '99+' : historyCount}</span>
             )}
           </button>
+          <button
+            className={`${styles.iconBtn} ${styles.helpBtn} ${helpOpen ? styles.iconBtnActive : ''}`}
+            onClick={() => setHelpOpen(o => !o)}
+            aria-label="Help"
+            title="Help"
+          >
+            ?
+          </button>
           <div className={styles.settingsWrap} ref={menuRef}>
             <button
               className={`${styles.iconBtn} ${menuOpen ? styles.iconBtnActive : ''}`}
@@ -103,6 +113,8 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
           </div>
         </div>
       </header>
+
+      {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
 
       {confirmOpen && (
         <div className={styles.overlay} onClick={() => !resetting && setConfirmOpen(false)}>
