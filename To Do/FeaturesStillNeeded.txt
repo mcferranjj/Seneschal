@@ -5,8 +5,6 @@ Encounters:
 
     - add ability to export/import monsters, full database, encounters, etc.
 
-    - make sneak attack a toggle on creatures that possess it
-
     - name generator
     - random monster quirk generator
 

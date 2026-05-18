@@ -7,6 +7,10 @@
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
   padding: 10px 14px 10px;
   width: 200px;
+  /* Max height = viewport height minus the panel's own top offset minus an 8px
+     bottom margin. Using a var set inline by the component avoids any magic number. */
+  max-height: var(--roller-max-height, 100vh);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;

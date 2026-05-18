@@ -627,6 +627,65 @@
   line-height: 1.55;
 }
 
+/* Sneak Attack toggle row shown above the attack list */
+.sneakAttackRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 6px;
+  font-size: 0.78rem;
+  color: var(--text-mid);
+}
+
+.sneakAttackToggle {
+  display: none;
+}
+
+/* Render the label itself as a pill toggle button */
+.sneakAttackLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 4px;
+  border: 1.5px solid var(--text-mute);
+  background: transparent;
+  color: var(--text-mute);
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+
+.sneakAttackLabel::before {
+  content: '○';
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: color 0.12s;
+}
+
+.sneakAttackToggle:checked + .sneakAttackLabel {
+  border-color: var(--crimson);
+  background: color-mix(in srgb, var(--crimson) 12%, transparent);
+  color: var(--crimson);
+}
+
+.sneakAttackToggle:checked + .sneakAttackLabel::before {
+  content: '●';
+}
+
+.sneakAttackLabel:hover {
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+.sneakAttackDice {
+  font-family: monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
 .attackTypeLabel {
   font-style: italic;
   color: var(--text-mid);

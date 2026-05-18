@@ -1368,6 +1368,45 @@
   background: rgba(90, 58, 138, 0.08);
 }
 
+/* ── Condition hover tooltip ── */
+.conditionTooltip {
+  position: fixed;
+  z-index: 1002;
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  padding: 10px 12px 12px;
+  pointer-events: auto;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.conditionTooltipName {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--crimson);
+  margin-bottom: 4px;
+}
+
+.conditionTooltipEffect {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-mute);
+  font-style: italic;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-l);
+}
+
+.conditionTooltipDesc {
+  font-size: 0.75rem;
+  color: var(--text-mid);
+  line-height: 1.5;
+  margin: 0;
+}
+
 /* ── Value stepper row (inside popup) ── */
 .conditionValueRow {
   display: flex;

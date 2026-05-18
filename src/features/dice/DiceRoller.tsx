@@ -60,7 +60,7 @@ export function DiceRoller({
   const [dmgAnimKey, setDmgAnimKey] = useState(0);
   const mountedRef = useRef(false);
   const {
-    ref, panelLeft, panelTop, panelTransform,
+    ref, panelLeft, panelTop, panelTransform, panelMaxHeight,
     onDragHandlePointerDown, onDragPointerMove, onDragPointerUp,
   } = useFloatingPanel(anchorX, anchorY, onClose);
   const onRollRef = useRef(onRoll);
@@ -172,7 +172,7 @@ export function DiceRoller({
     <div
       ref={ref}
       className={styles.roller}
-      style={{ left: panelLeft, top: panelTop, transform: panelTransform }}
+      style={{ left: panelLeft, top: panelTop, transform: panelTransform, ['--roller-max-height' as string]: panelMaxHeight }}
       onPointerMove={onDragPointerMove}
       onPointerUp={onDragPointerUp}
     >
@@ -327,7 +327,7 @@ export function MultiDamageRoller({ groups, abilityName, creatureName, traits = 
   const [isCrit, setIsCrit] = useState(false);
   const mountedRef = useRef(false);
   const {
-    ref, panelLeft: mdrPanelLeft, panelTop: mdrPanelTop, panelTransform: mdrPanelTransform,
+    ref, panelLeft: mdrPanelLeft, panelTop: mdrPanelTop, panelTransform: mdrPanelTransform, panelMaxHeight: mdrPanelMaxHeight,
     onDragHandlePointerDown, onDragPointerMove, onDragPointerUp,
   } = useFloatingPanel(anchorX, anchorY, onClose);
   const onRollRef = useRef(onRoll);
@@ -412,7 +412,7 @@ export function MultiDamageRoller({ groups, abilityName, creatureName, traits = 
     <div
       ref={ref}
       className={styles.roller}
-      style={{ left: mdrPanelLeft, top: mdrPanelTop, transform: mdrPanelTransform, width: 220 }}
+      style={{ left: mdrPanelLeft, top: mdrPanelTop, transform: mdrPanelTransform, width: 220, ['--roller-max-height' as string]: mdrPanelMaxHeight }}
       onPointerMove={onDragPointerMove}
       onPointerUp={onDragPointerUp}
     >

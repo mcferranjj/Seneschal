@@ -1,7 +1,7 @@
 import type { PF2EItem } from '../../types/pf2e';
 import type { Condition } from '../../types/encounter';
-import { computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
-import { getDamageString, getDamageGroups } from './statblockHelpers';
+import { computeAttackPenalty, computeDamagePenalty } from '../../utils/conditionEffects';
+import { getDamageString, getDamageGroups, withSneakAttack } from './statblockHelpers';
 import { slugToTitle } from '../../utils/formatters';
 import type { DamageGroupInput } from '../dice/DiceRoller';
 import { AttackLine } from './AttackLine';
@@ -17,9 +17,12 @@ interface AttackBlockProps {
   dexMod?: number;
   ewMod?: number;
   ewStyle?: React.CSSProperties;
+  /** Precision damage expression to append when sneak attack is active (e.g. "2d6"), or null if none */
+  sneakAttackExpr?: string | null;
+  sneakAttackActive?: boolean;
 }
 
-export function AttackBlock({ item, onRollAttack, onRollDamage, onManualRollAttack, onManualRollDamage, conditions = [], strMod, dexMod, ewMod = 0, ewStyle }: AttackBlockProps) {
+export function AttackBlock({ item, onRollAttack, onRollDamage, onManualRollAttack, onManualRollDamage, conditions = [], strMod, dexMod, ewMod = 0, ewStyle, sneakAttackExpr, sneakAttackActive = false }: AttackBlockProps) {
   const bonus = item.system?.bonus?.value;
   const damage = getDamageString(item.system?.damageRolls);
   const traits = item.system?.traits?.value ?? [];
@@ -74,6 +77,9 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, onManualRollAtta
   // The primary damage expression used for standalone "click damage" rolls (first group)
   const damageExpr = damageGroups[0]?.expr ?? '';
 
+  // Append sneak attack precision group when active and this attack is eligible
+  const effectiveDamageGroups = withSneakAttack(damageGroups, sneakAttackExpr ?? null, sneakAttackActive, attackType, traits);
+
   const attackStyle = isDebuffedAtk ? debuffStyle : ewMod !== 0 ? ewStyle : undefined;
   const damageStyle = isDebuffedDmg ? debuffStyle : ewMod !== 0 && ewMod !== dmgPen ? ewStyle : undefined;
 
@@ -92,14 +98,14 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, onManualRollAtta
       isAgile={isAgile}
       strikeAbilities={strikeAbilities}
       onRollAttack={(mod, label, e) => {
-        onRollAttack(mod, label, damageGroups, `${item.name} damage`, traits, e);
+        onRollAttack(mod, label, effectiveDamageGroups, `${item.name} damage`, traits, e);
       }}
-      onRollDamage={e => onRollDamage(damageGroups, `${item.name} damage`, traits, e)}
+      onRollDamage={e => onRollDamage(effectiveDamageGroups, `${item.name} damage`, traits, e)}
       onManualRollAttack={onManualRollAttack
-        ? (mod, label, e) => onManualRollAttack(mod, label, damageGroups, traits, e)
+        ? (mod, label, e) => onManualRollAttack(mod, label, effectiveDamageGroups, traits, e)
         : undefined}
       onManualRollDamage={onManualRollDamage
-        ? e => onManualRollDamage(damageGroups, `${item.name} damage`, e)
+        ? e => onManualRollDamage(effectiveDamageGroups, `${item.name} damage`, e)
         : undefined}
     />
   );

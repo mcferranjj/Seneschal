@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbility } from '../../types/encounter';
 import type { RollHistoryEntry } from '../../types/diceHistory';
-import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '../../types/conditionEffects';
+import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '../../utils/conditionEffects';
 import { DiceRoller } from '../dice/DiceRoller';
 import { ManualRollInput } from '../dice/ManualRollInput';
 import { cryptoD } from '../../utils/dice';
 import styles from './EncounterManager.module.css';
 import { eliteWeakLevel } from '../../utils/levelScaling';
-import { CONDITION_CATEGORIES, VALUED_CONDITIONS } from '../../data/conditions';
 import { QuickCreatureForm } from './QuickCreatureForm';
+import { ConditionPicker } from './ConditionPicker';
 
 
 // Only Frightened auto-reduces by 1 at end of each creature's turn per PF2e rules.
@@ -104,29 +103,6 @@ interface EncounterManagerProps {
   onToggleResults?: () => void;
 }
 
-const ALL_CONDITIONS_ALPHA = [...new Set(CONDITION_CATEGORIES.flatMap(c => c.conditions))].sort((a, b) => a.localeCompare(b));
-
-const POPUP_MIN_HEIGHT = 260;
-const POPUP_MARGIN = 8;
-
-function popupStyle(anchor: { x: number; y: number; top: number; spaceBelow: number; spaceAbove: number }): React.CSSProperties {
-  const flipUp = anchor.spaceBelow < POPUP_MIN_HEIGHT && anchor.spaceAbove > anchor.spaceBelow;
-  if (flipUp) {
-    const availableHeight = Math.max(POPUP_MIN_HEIGHT, anchor.spaceAbove);
-    return {
-      left: anchor.x,
-      bottom: window.innerHeight - anchor.top + POPUP_MARGIN,
-      maxHeight: availableHeight,
-    };
-  }
-  const availableHeight = Math.max(POPUP_MIN_HEIGHT, anchor.spaceBelow);
-  return {
-    left: anchor.x,
-    top: anchor.y,
-    maxHeight: availableHeight,
-  };
-}
-
 function xpFor(monsterLevel: number, partyLevel: number): number {
   const d = monsterLevel - partyLevel;
   if (d >= 4) return 160;
@@ -186,12 +162,9 @@ export function EncounterManager({
   const [combatCreatures, setCombatCreatures] = useState<CombatCreature[]>([]);
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [conditionPickerUid, setConditionPickerUid] = useState<string | null>(null);
-  const [conditionPickerSort, setConditionPickerSort] = useState<'category' | 'alpha'>('category');
   const [conditionPickerAnchor, setConditionPickerAnchor] = useState<{ x: number; y: number; top: number; spaceBelow: number; spaceAbove: number } | null>(null);
-  const [conditionValueUid, setConditionValueUid] = useState<string | null>(null);
-  const [conditionValueAnchor, setConditionValueAnchor] = useState<{ x: number; y: number; top: number; spaceBelow: number; spaceAbove: number } | null>(null);
-  const [pendingConditionName, setPendingConditionName] = useState('');
-  const [pendingConditionValue, setPendingConditionValue] = useState(1);
+  /** When editing an existing valued condition, pre-seed the stepper. */
+  const [conditionPickerInitial, setConditionPickerInitial] = useState<{ name: string; value: number } | undefined>(undefined);
 
   // Dice roller
   const [diceRoll, setDiceRoll] = useState<{ expr: string; label?: string; x: number; y: number } | null>(null);
@@ -205,9 +178,6 @@ export function EncounterManager({
   const [dragTabIdx, setDragTabIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
-  // Condition picker drag state
-  const [condPickerPos, setCondPickerPos] = useState<{ x: number; y: number } | null>(null);
-  const condPickerDragRef = useRef<{ startMouseX: number; startMouseY: number; startX: number; startY: number } | null>(null);
 
   // Combat header width — used to shorten "Round N"→"Rnd N", "Next Turn"→"Next", "✕ End"→"✕"
   const combatHeaderRef = useRef<HTMLDivElement>(null);
@@ -375,35 +345,19 @@ export function EncounterManager({
     setActiveTurn(next);
   }
 
-  function addCondition(uid: string, name: string, value?: number) {
+  function applyCondition(uid: string, name: string, value?: number) {
     const creature = enc.creatures.find(c => c.uid === uid);
     if (!creature) return;
     const existing = creature.conditions.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
     let next: Condition[];
     if (existing >= 0) {
-      next = creature.conditions.map((c, i) => i === existing ? { ...c, value } : c);
+      next = creature.conditions.map((c, i) => (i === existing ? { ...c, value } : c));
     } else {
       next = [...creature.conditions, { name, value }];
     }
     onUpdateConditions(uid, next);
     setConditionPickerUid(null);
     setConditionPickerAnchor(null);
-    setConditionValueUid(null);
-    setConditionValueAnchor(null);
-    setPendingConditionName('');
-  }
-
-  function handleConditionPick(uid: string, condName: string) {
-    if (VALUED_CONDITIONS.has(condName.toLowerCase())) {
-      setPendingConditionName(condName);
-      setPendingConditionValue(1);
-      setConditionValueUid(uid);
-      setConditionValueAnchor(conditionPickerAnchor ? { ...conditionPickerAnchor } : null);
-      setConditionPickerUid(null);
-      setConditionPickerAnchor(null);
-    } else {
-      addCondition(uid, condName);
-    }
   }
 
   function removeCondition(uid: string, condName: string) {
@@ -411,25 +365,6 @@ export function EncounterManager({
     if (!creature) return;
     onUpdateConditions(uid, creature.conditions.filter(c => c.name !== condName));
   }
-
-  // Condition picker drag
-  const onCondPickerDragStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const currentX = condPickerPos?.x ?? conditionPickerAnchor?.x ?? 0;
-    const currentY = condPickerPos?.y ?? conditionPickerAnchor?.y ?? 0;
-    condPickerDragRef.current = { startMouseX: e.clientX, startMouseY: e.clientY, startX: currentX, startY: currentY };
-  }, [condPickerPos, conditionPickerAnchor]);
-
-  const onCondPickerDragMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!condPickerDragRef.current) return;
-    setCondPickerPos({
-      x: condPickerDragRef.current.startX + (e.clientX - condPickerDragRef.current.startMouseX),
-      y: condPickerDragRef.current.startY + (e.clientY - condPickerDragRef.current.startMouseY),
-    });
-  }, []);
-
-  const onCondPickerDragEnd = useCallback(() => { condPickerDragRef.current = null; }, []);
 
   function commitInit(uid: string) {
     const val = parseInt(editInitVal, 10);
@@ -977,12 +912,15 @@ export function EncounterManager({
                               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                               const spaceBelow = window.innerHeight - rect.bottom - 4;
                               const spaceAbove = rect.top - 4;
-                              setPendingConditionName(cond.name);
-                              setPendingConditionValue(cond.value!);
-                              setConditionValueAnchor({ x: rect.left, y: rect.bottom + 4, top: rect.top, spaceBelow, spaceAbove });
-                              setConditionValueUid(c.uid);
-                              setConditionPickerUid(null);
-                              setConditionPickerAnchor(null);
+                              setConditionPickerUid(c.uid);
+                              setConditionPickerAnchor({
+                                x: rect.left,
+                                y: rect.bottom + 4,
+                                top: rect.top,
+                                spaceBelow,
+                                spaceAbove,
+                              });
+                              setConditionPickerInitial({ name: cond.name, value: cond.value! });
                             } else {
                               removeCondition(c.uid, cond.name);
                             }
@@ -1006,9 +944,14 @@ export function EncounterManager({
                         const spaceBelow = window.innerHeight - rect.bottom - 4;
                         const spaceAbove = rect.top - 4;
                         setConditionPickerUid(c.uid);
-                        setConditionPickerAnchor({ x: rect.left, y: rect.bottom + 4, top: rect.top, spaceBelow, spaceAbove });
-                        setConditionValueUid(null);
-                        setConditionValueAnchor(null);
+                        setConditionPickerAnchor({
+                          x: rect.left,
+                          y: rect.bottom + 4,
+                          top: rect.top,
+                          spaceBelow,
+                          spaceAbove,
+                        });
+                        setConditionPickerInitial(undefined);
                       }}
                       title="Add condition"
                     >
@@ -1077,116 +1020,22 @@ export function EncounterManager({
         />
       )}
 
-      {/* ── Condition picker popup ── */}
-      {conditionPickerUid && conditionPickerAnchor && createPortal(
-        <>
-          {/* Backdrop to close on outside click */}
-          <div
-            className={styles.conditionPopupBackdrop}
-            onClick={() => { setConditionPickerUid(null); setConditionPickerAnchor(null); setCondPickerPos(null); }}
-          />
-          <div
-            className={styles.conditionPopup}
-            style={condPickerPos
-              ? { left: condPickerPos.x, top: condPickerPos.y, maxHeight: 400 }
-              : popupStyle(conditionPickerAnchor)}
-            onPointerMove={onCondPickerDragMove}
-            onPointerUp={onCondPickerDragEnd}
-          >
-            <div
-              className={`${styles.conditionPopupHeader} ${styles.conditionPopupDragHandle}`}
-              onPointerDown={onCondPickerDragStart}
-            >
-              <span className={styles.conditionPopupTitle}>Add Condition</span>
-              <div className={styles.conditionSortToggle}>
-                <button
-                  className={`${styles.conditionSortBtn} ${conditionPickerSort === 'category' ? styles.conditionSortBtnActive : ''}`}
-                  onClick={() => setConditionPickerSort('category')}
-                >Category</button>
-                <button
-                  className={`${styles.conditionSortBtn} ${conditionPickerSort === 'alpha' ? styles.conditionSortBtnActive : ''}`}
-                  onClick={() => setConditionPickerSort('alpha')}
-                >A–Z</button>
-              </div>
-              <button
-                className={styles.conditionPickerClose}
-                onClick={() => { setConditionPickerUid(null); setConditionPickerAnchor(null); }}
-              >✕</button>
-            </div>
-            <div className={styles.conditionPopupBody}>
-              {conditionPickerSort === 'category' ? (
-                CONDITION_CATEGORIES.map(cat => (
-                  <div key={cat.label} className={styles.conditionCategory}>
-                    <span className={styles.conditionCategoryLabel}>{cat.label}</span>
-                    <div className={styles.conditionCategoryBtns}>
-                      {cat.conditions.map(condName => (
-                        <button
-                          key={condName}
-                          className={styles.conditionPickerBtn}
-                          onClick={() => handleConditionPick(conditionPickerUid, condName)}
-                        >
-                          {condName}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className={styles.conditionAlphaGrid}>
-                  {ALL_CONDITIONS_ALPHA.map(condName => (
-                    <button
-                      key={condName}
-                      className={styles.conditionPickerBtn}
-                      onClick={() => handleConditionPick(conditionPickerUid, condName)}
-                    >
-                      {condName === 'Persistent Damage' ? 'Prsnt Damage' : condName}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </>,
-        document.body,
-      )}
-
-      {/* ── Condition value stepper popup ── */}
-      {conditionValueUid && conditionValueAnchor && createPortal(
-        <>
-          <div
-            className={styles.conditionPopupBackdrop}
-            onClick={() => addCondition(conditionValueUid, pendingConditionName, pendingConditionValue)}
-          />
-          <div
-            className={styles.conditionPopup}
-            style={popupStyle(conditionValueAnchor)}
-          >
-            <div className={styles.conditionPopupHeader}>
-              <span className={styles.conditionPopupTitle}>{pendingConditionName}</span>
-              <button
-                className={styles.conditionPickerClose}
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => { setConditionValueUid(null); setConditionValueAnchor(null); setPendingConditionName(''); }}
-              >✕</button>
-            </div>
-            <div className={styles.conditionValueRow}>
-              <button
-                className={styles.conditionStepBtn}
-                onClick={() => setPendingConditionValue(v => Math.max(1, v - 1))}
-              >−</button>
-              <span className={styles.conditionValueDisplay}>{pendingConditionValue}</span>
-              <button
-                className={styles.conditionStepBtn}
-                onClick={() => setPendingConditionValue(v => Math.min(20, v + 1))}
-              >+</button>
-              <button
-                className={styles.conditionValueConfirm}
-                onClick={() => addCondition(conditionValueUid, pendingConditionName, pendingConditionValue)}
-              >✓ Apply</button>
-            </div>
-          </div>
-        </>,
-        document.body,
+      {/* ── Condition picker ── */}
+      {conditionPickerUid && conditionPickerAnchor && (
+        <ConditionPicker
+          uid={conditionPickerUid}
+          anchor={conditionPickerAnchor}
+          initialCondition={conditionPickerInitial}
+          onClose={() => {
+            setConditionPickerUid(null);
+            setConditionPickerAnchor(null);
+            setConditionPickerInitial(undefined);
+          }}
+          onApply={(name, value) => {
+            applyCondition(conditionPickerUid, name, value);
+            setConditionPickerInitial(undefined);
+          }}
+        />
       )}
     </div>
   );

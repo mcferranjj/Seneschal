@@ -236,6 +236,12 @@
   cursor: default;
 }
 
+.helpBtn {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .historyBadge {
   position: absolute;
   top: -4px;

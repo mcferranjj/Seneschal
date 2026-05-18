@@ -51,7 +51,7 @@ export function ManualRollInput({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const {
-    ref, panelLeft, panelTop, panelTransform,
+    ref, panelLeft, panelTop, panelTransform, panelMaxHeight,
     onDragHandlePointerDown, onDragPointerMove, onDragPointerUp,
   } = useFloatingPanel(anchorX, anchorY, onClose);
 
@@ -169,7 +169,7 @@ export function ManualRollInput({
     <div
       ref={ref}
       className={styles.panel}
-      style={{ left: panelLeft, top: panelTop, transform: panelTransform }}
+      style={{ left: panelLeft, top: panelTop, transform: panelTransform, ['--roller-max-height' as string]: panelMaxHeight }}
       onPointerMove={onDragPointerMove}
       onPointerUp={onDragPointerUp}
     >

@@ -37,3 +37,31 @@ export function getSizeLabel(c: PF2ECreature): string {
   const raw = getSize(c);
   return SIZE_DISPLAY_MAP[raw] ?? raw;
 }
+
+/**
+ * Returns true if the given attack is eligible for Sneak Attack precision damage.
+ *
+ * Rules (PF2e):
+ *  - Melee + (finesse OR agile trait) → eligible
+ *  - Ranged + thrown + (finesse OR agile trait) → eligible
+ *  - Ranged + NOT thrown → eligible
+ *  - Anything else → not eligible
+ */
+export function isSneakAttackEligible(
+  attackType: 'melee' | 'ranged',
+  traits: string[],
+): boolean {
+  const hasFinesse = traits.includes('finesse');
+  const hasAgile   = traits.includes('agile');
+  const isThrown   = traits.some(t => t.startsWith('thrown'));
+
+  if (attackType === 'melee') {
+    return hasFinesse || hasAgile;
+  }
+  // ranged
+  if (isThrown) {
+    return hasFinesse || hasAgile;
+  }
+  // ranged, not thrown
+  return true;
+}

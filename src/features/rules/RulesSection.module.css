@@ -137,3 +137,12 @@
   opacity: 0.7;
   letter-spacing: 0.02em;
 }
+
+.statEffect {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-mute);
+  margin-top: 1px;
+  font-style: italic;
+}
