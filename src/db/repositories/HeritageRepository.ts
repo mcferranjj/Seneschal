@@ -8,11 +8,13 @@ export class HeritageRepository implements IHeritageRepository {
   }
 
   async getByAncestrySlug(slug: string): Promise<HeritageRecord[]> {
-    return db.heritages.where('ancestrySlug').equals(slug).toArray();
+    const all = await db.heritages.toArray();
+    return all.filter(h => h.ancestrySlug === slug);
   }
 
   async getVersatile(): Promise<HeritageRecord[]> {
-    return db.heritages.where('isVersatile').equals(1).toArray();
+    const all = await db.heritages.toArray();
+    return all.filter(h => h.isVersatile === true);
   }
 
   async bulkPut(records: HeritageRecord[]): Promise<void> {

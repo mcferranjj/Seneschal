@@ -1,5 +1,7 @@
 import type { CharacterRecord } from '../../../db/schema';
 import { useCharacterWizard } from '../hooks/useCharacterWizard';
+import { useCharBuilderSync } from '../hooks/useCharBuilderSync';
+import { CharBuilderSyncBanner } from '../CharBuilderSyncBanner';
 import { WizardProgress } from './WizardProgress';
 import { WizardNav } from './WizardNav';
 import { WizardStepInfo } from './steps/WizardStepInfo';
@@ -19,6 +21,7 @@ interface CharacterWizardProps {
 }
 
 export function CharacterWizard({ onComplete, onCancel }: CharacterWizardProps) {
+  const { isSyncing, progress, triggerSync, hasData } = useCharBuilderSync();
   const wizard = useCharacterWizard();
   const {
     draft, activeStep, stepMeta,
@@ -49,6 +52,13 @@ export function CharacterWizard({ onComplete, onCancel }: CharacterWizardProps) 
         activeStep={activeStep}
         onJump={jumpTo}
       />
+      {hasData === false && (
+        <CharBuilderSyncBanner
+          isSyncing={isSyncing}
+          progress={progress}
+          onSync={triggerSync}
+        />
+      )}
       <div className={styles.body}>
         {activeStep === 'info' && (
           <WizardStepInfo

@@ -4,6 +4,7 @@ import type { Theme } from '../../utils/themeEngine';
 import styles from './TopBar.module.css';
 import { HelpModal } from './HelpModal';
 import { ThemePicker } from './ThemePicker';
+import { useCharSyncMenu } from './useCharSyncMenu';
 
 interface TopBarProps {
   activeSection: Section;
@@ -23,6 +24,8 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
   const [helpOpen, setHelpOpen] = useState(false);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const { isSyncing: charSyncing, progress: charSyncProgress, triggerSync: handleCharSync } = useCharSyncMenu();
 
   // Close menu on outside click
   useEffect(() => {
@@ -119,6 +122,32 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
                   <span className={styles.settingsMenuIcon}>🎨</span>
                   Theme
                 </button>
+                <div className={styles.settingsMenuDivider} />
+                <button
+                  className={styles.settingsMenuItem}
+                  onClick={handleCharSync}
+                  disabled={charSyncing}
+                >
+                  <span className={styles.settingsMenuIcon}>✦</span>
+                  <span className={styles.settingsMenuItemBody}>
+                    <span>Sync character data</span>
+                    {charSyncing && (
+                      <span className={styles.settingsMenuSyncStatus}>
+                        {charSyncProgress.phase === 'checking' && 'Checking…'}
+                        {charSyncProgress.phase === 'listing' && 'Indexing…'}
+                        {charSyncProgress.phase === 'fetching' && `Fetching… ${charSyncProgress.total ? `${charSyncProgress.done ?? 0}/${charSyncProgress.total}` : ''}`}
+                        {charSyncProgress.phase === 'saving' && 'Saving…'}
+                      </span>
+                    )}
+                    {!charSyncing && charSyncProgress.phase === 'done' && (
+                      <span className={styles.settingsMenuSyncDone}>Up to date ✓</span>
+                    )}
+                    {!charSyncing && charSyncProgress.phase === 'error' && (
+                      <span className={styles.settingsMenuSyncError}>Failed — click to retry</span>
+                    )}
+                  </span>
+                </button>
+                <div className={styles.settingsMenuDivider} />
                 <button className={styles.settingsMenuItem} onClick={handleResetClick}>
                   <span className={styles.settingsMenuIcon}>🗑</span>
                   Reset creature database

@@ -50,7 +50,6 @@ function isRemaster(raw: any): boolean {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toAncestryRecord(raw: any, blobSha: string): AncestryRecord | null {
-  if (!isRemaster(raw)) return null;
   if (raw?.type !== 'ancestry') return null;
 
   const boostsRaw: Record<string, { value: string[] }> = raw.system.boosts ?? {};
@@ -93,14 +92,13 @@ export function toAncestryRecord(raw: any, blobSha: string): AncestryRecord | nu
     },
     grantedItems,
     publication: raw.system.publication?.title ?? '',
-    remaster: true,
+    remaster: isRemaster(raw),
     blobSha,
   };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toHeritageRecord(raw: any, blobSha: string): HeritageRecord | null {
-  if (!isRemaster(raw)) return null;
   if (raw?.type !== 'heritage') return null;
 
   const ancestryRef = raw.system.ancestry ?? null;
@@ -119,14 +117,13 @@ export function toHeritageRecord(raw: any, blobSha: string): HeritageRecord | nu
     traits: raw.system.traits?.value ?? [],
     rarity: raw.system.traits?.rarity ?? 'common',
     publication: raw.system.publication?.title ?? '',
-    remaster: true,
+    remaster: isRemaster(raw),
     blobSha,
   };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toBackgroundRecord(raw: any, blobSha: string): BackgroundRecord | null {
-  if (!isRemaster(raw)) return null;
   if (raw?.type !== 'background') return null;
 
   const boostsRaw: Record<string, { value?: string[] }> = raw.system.boosts ?? {};
@@ -162,14 +159,13 @@ export function toBackgroundRecord(raw: any, blobSha: string): BackgroundRecord 
     traits: raw.system.traits?.value ?? [],
     rarity: raw.system.traits?.rarity ?? 'common',
     publication: raw.system.publication?.title ?? '',
-    remaster: true,
+    remaster: isRemaster(raw),
     blobSha,
   };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toClassRecord(raw: any, blobSha: string): ClassRecord | null {
-  if (!isRemaster(raw)) return null;
   if (raw?.type !== 'class') return null;
 
   const itemsRaw: Record<string, { name: string; uuid: string; level?: number }> = raw.system.items ?? {};
@@ -214,7 +210,7 @@ export function toClassRecord(raw: any, blobSha: string): ClassRecord | null {
     traits: raw.system.traits?.value ?? [],
     rarity: raw.system.traits?.rarity ?? 'common',
     publication: raw.system.publication?.title ?? '',
-    remaster: true,
+    remaster: isRemaster(raw),
     blobSha,
   };
 }
@@ -226,7 +222,6 @@ const ALLOWED_FEAT_CATEGORIES = new Set<string>([
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toFeatRecord(raw: any, blobSha: string): FeatRecord | null {
   if (raw?.type !== 'feat') return null;
-  if (!isRemaster(raw)) return null;
 
   const category = raw.system.category as string;
   if (!ALLOWED_FEAT_CATEGORIES.has(category)) return null;
@@ -247,14 +242,14 @@ export function toFeatRecord(raw: any, blobSha: string): FeatRecord | null {
     prerequisites,
     description: raw.system.description?.value ?? '',
     publication: raw.system.publication?.title ?? '',
-    remaster: true,
+    remaster: isRemaster(raw),
     blobSha,
   };
 }
 
 // ── Main sync function ───────────────────────────────────────────────────────
 
-export async function runCharBuilderSync(onProgress?: ProgressCallback): Promise<void> {
+export async function runCharBuilderSync(onProgress?: ProgressCallback, force = false): Promise<void> {
   try {
     // Step 1: check if anything changed
     onProgress?.({ phase: 'checking' });
@@ -264,7 +259,7 @@ export async function runCharBuilderSync(onProgress?: ProgressCallback): Promise
 
     const latestCommitSha = await fetchLatestCommitSha();
 
-    if (storedCommitSha === latestCommitSha) {
+    if (!force && storedCommitSha === latestCommitSha) {
       onProgress?.({ phase: 'done', message: 'Up to date' });
       return;
     }

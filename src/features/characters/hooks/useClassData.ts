@@ -1,16 +1,10 @@
-import { useState, useEffect } from 'react';
 import type { ClassRecord } from '../../../db/schema';
 import { classRepository } from '../../../db/repositories/ClassRepository';
+import { useRepositoryData } from './useRepositoryData';
 
 export function useClassData() {
-  const [classes, setClasses] = useState<ClassRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    classRepository.getAll()
-      .then(all => { setClasses(all); setLoading(false); })
-      .catch(() => { setClasses([]); setLoading(false); });
-  }, []);
-
+  const { data: classes, loading } = useRepositoryData<ClassRecord>(
+    () => classRepository.getAll(),
+  );
   return { classes, loading };
 }

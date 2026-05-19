@@ -3,6 +3,7 @@
   flex-direction: column;
   gap: 24px;
   max-width: 600px;
+  overflow-y: auto;
 }
 
 .heading { display: flex; flex-direction: column; gap: 4px; }

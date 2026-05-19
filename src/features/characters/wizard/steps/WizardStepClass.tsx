@@ -17,9 +17,9 @@ export function WizardStepClass({
   const { classes, loading } = useClassData();
   const [search, setSearch] = useState('');
 
-  const filtered = classes.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = classes
+    .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   function selectClass(c: ClassRecord) {
     onSelect({
@@ -46,7 +46,7 @@ export function WizardStepClass({
     : null;
 
   const profLabel = (rank: number) =>
-    rank >= 3 ? 'Legendary' : rank >= 2 ? 'Master' : rank >= 1 ? 'Expert' : 'Trained';
+    rank >= 4 ? 'Legendary' : rank >= 3 ? 'Master' : rank >= 2 ? 'Expert' : rank >= 1 ? 'Trained' : 'Untrained';
 
   return (
     <div className={styles.step}>

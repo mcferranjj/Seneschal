@@ -1,23 +1,31 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { SyncProgress } from '../../../sync/sync';
+import { runCharBuilderSync, getCharBuilderSyncStatus } from '../../../sync/charBuilderSync';
 
-/**
- * Stub hook for character builder data sync.
- * In the full implementation this would fetch ancestry/heritage/background/class
- * data from the PF2e data repository.
- */
 export function useCharBuilderSync() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [progress, setProgress] = useState<SyncProgress>({ phase: 'idle' });
+  const [hasData, setHasData] = useState<boolean | null>(null); // null = unknown (loading)
+
+  // On mount, check whether we already have ancestry data in the DB
+  useEffect(() => {
+    getCharBuilderSyncStatus()
+      .then(status => setHasData(status.counts.ancestries > 0))
+      .catch(() => setHasData(false));
+  }, []);
 
   const triggerSync = useCallback(async () => {
     setIsSyncing(true);
-    setProgress({ phase: 'checking' });
-    // TODO: implement actual sync
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setProgress({ phase: 'done' });
-    setIsSyncing(false);
+    try {
+      await runCharBuilderSync(p => setProgress(p));
+      // After a successful sync, mark that we have data
+      setHasData(true);
+    } catch {
+      // Progress callback will have already set the error phase
+    } finally {
+      setIsSyncing(false);
+    }
   }, []);
 
-  return { isSyncing, progress, triggerSync };
+  return { isSyncing, progress, triggerSync, hasData };
 }

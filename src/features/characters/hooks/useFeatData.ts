@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
 import type { FeatRecord, FeatCategory, FeatSlotType } from '../../../db/schema';
 import { featRepository } from '../../../db/repositories/FeatRepository';
+import { useRepositoryData } from './useRepositoryData';
 
 export interface FeatFilters {
   search: string;
@@ -14,14 +14,9 @@ export interface FeatFilters {
 }
 
 export function useFeatData() {
-  const [feats, setFeats] = useState<FeatRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    featRepository.getAll()
-      .then(all => { setFeats(all); setLoading(false); })
-      .catch(() => { setFeats([]); setLoading(false); });
-  }, []);
+  const { data: feats, loading } = useRepositoryData<FeatRecord>(
+    () => featRepository.getAll(),
+  );
 
   function filterFeats(filters: Partial<FeatFilters>): FeatRecord[] {
     return feats.filter(f => {

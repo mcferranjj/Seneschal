@@ -8,21 +8,33 @@ interface WizardStepAncestryProps {
   onSelect: (ancestry: CharacterAncestryRef | null) => void;
 }
 
+const RARITY_ORDER = ['common', 'uncommon', 'rare'];
+
 export function WizardStepAncestry({ selected, onSelect }: WizardStepAncestryProps) {
   const { ancestries, loading } = useAncestryData();
   const [search, setSearch] = useState('');
 
-  const filtered = ancestries.filter(a =>
-    a.name.toLowerCase().includes(search.toLowerCase()) ||
-    a.traits.some(t => t.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = ancestries
+    .filter(a =>
+      a.name.toLowerCase().includes(search.toLowerCase()) ||
+      a.traits.some(t => t.toLowerCase().includes(search.toLowerCase()))
+    )
+    .sort((a, b) => {
+      const rarityDiff = RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity);
+      if (rarityDiff !== 0) return rarityDiff;
+      return a.name.localeCompare(b.name);
+    });
+
+  const groupedByRarity = RARITY_ORDER.map(rarity => ({
+    rarity,
+    items: filtered.filter(a => a.rarity === rarity),
+  })).filter(g => g.items.length > 0);
 
   function selectAncestry(a: AncestryRecord) {
-    const slug = a.name.toLowerCase().replace(/\s+/g, '-');
     onSelect({
       id: a.id,
       name: a.name,
-      slug,
+      slug: a.slug,
       hp: a.hp,
       speed: a.speed,
       size: a.size,
@@ -53,25 +65,39 @@ export function WizardStepAncestry({ selected, onSelect }: WizardStepAncestryPro
           placeholder="Search ancestries…"
         />
         {loading && <div className={styles.loading}>Loading…</div>}
-        <div className={styles.grid}>
-          {filtered.map(a => (
-            <button
-              key={a.id}
-              className={`${styles.card} ${selected?.id === a.id ? styles.cardSelected : ''}`}
-              onClick={() => selectAncestry(a)}
-            >
-              <div className={styles.cardName}>{a.name}</div>
-              <div className={styles.cardStats}>
-                <span>HP {a.hp}</span>
-                <span>Speed {a.speed}</span>
-                <span>{a.size}</span>
+        {!loading && ancestries.length === 0 && (
+          <div className={styles.loading}>
+            No ancestry data found. Use the "Sync Now" banner above to download character builder data.
+          </div>
+        )}
+        <div className={styles.groupedList}>
+          {groupedByRarity.map(({ rarity, items }) => (
+            <div key={rarity} className={styles.rarityGroup}>
+              <div className={`${styles.rarityHeader} ${styles[`rarity_${rarity}`]}`}>
+                {rarity.charAt(0).toUpperCase() + rarity.slice(1)}
               </div>
-              <div className={styles.traits}>
-                {a.traits.map(t => (
-                  <span key={t} className={styles.trait}>{t}</span>
+              <div className={styles.grid}>
+                {items.map(a => (
+                  <button
+                    key={a.id}
+                    className={`${styles.card} ${selected?.id === a.id ? styles.cardSelected : ''}`}
+                    onClick={() => selectAncestry(a)}
+                  >
+                    <div className={styles.cardName}>{a.name}</div>
+                    <div className={styles.cardStats}>
+                      <span>HP {a.hp}</span>
+                      <span>Speed {a.speed}</span>
+                      <span>{a.size}</span>
+                    </div>
+                    <div className={styles.traits}>
+                      {a.traits.map(t => (
+                        <span key={t} className={styles.trait}>{t}</span>
+                      ))}
+                    </div>
+                  </button>
                 ))}
               </div>
-            </button>
+            </div>
           ))}
         </div>
       </div>

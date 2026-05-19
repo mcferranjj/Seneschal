@@ -23,9 +23,9 @@
 
 .body {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   padding: 20px;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }

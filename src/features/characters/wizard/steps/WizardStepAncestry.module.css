@@ -48,11 +48,52 @@
   text-align: center;
 }
 
+.groupedList {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
+.rarityGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rarityHeader {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  align-self: flex-start;
+}
+
+.rarity_common {
+  background: var(--color-bg-overlay-light);
+  color: var(--color-text-mid);
+  border: 1px solid var(--color-border);
+}
+
+.rarity_uncommon {
+  background: var(--color-accent-on-dark);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+}
+
+.rarity_rare {
+  background: var(--color-primary-tint);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 8px;
-  overflow-y: auto;
 }
 
 .card {

@@ -17,11 +17,14 @@ export function WizardStepHeritage({ ancestrySlug, selected, onSelect }: WizardS
     h.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const ancestryHeritages = filtered.filter(h => !h.isVersatile).sort((a, b) => a.name.localeCompare(b.name));
+  const versatileHeritages = filtered.filter(h => h.isVersatile).sort((a, b) => a.name.localeCompare(b.name));
+
   function selectHeritage(h: HeritageRecord) {
     onSelect({
       id: h.id,
       name: h.name,
-      slug: h.id,
+      slug: h.slug,
       isVersatile: h.isVersatile,
       versatileAncestrySlug: h.isVersatile ? (h.versatileAncestrySlug ?? null) : null,
     });
@@ -53,24 +56,49 @@ export function WizardStepHeritage({ ancestrySlug, selected, onSelect }: WizardS
           placeholder="Search heritages…"
         />
         {loading && <div className={styles.loading}>Loading…</div>}
-        <div className={styles.grid}>
-          {filtered.map(h => (
-            <button
-              key={h.id}
-              className={`${styles.card} ${selected?.id === h.id ? styles.cardSelected : ''}`}
-              onClick={() => selectHeritage(h)}
-            >
-              <div className={styles.cardHeader}>
-                <span className={styles.cardName}>{h.name}</span>
-                {h.isVersatile && <span className={styles.versatileBadge}>Versatile</span>}
-              </div>
-              <div className={styles.traits}>
-                {h.traits.map(t => (
-                  <span key={t} className={styles.trait}>{t}</span>
+        <div className={styles.groupedList}>
+          {ancestryHeritages.length > 0 && (
+            <div className={styles.heritageGroup}>
+              <div className={styles.groupHeader}>Ancestry Heritages</div>
+              <div className={styles.grid}>
+                {ancestryHeritages.map(h => (
+                  <button
+                    key={h.id}
+                    className={`${styles.card} ${selected?.id === h.id ? styles.cardSelected : ''}`}
+                    onClick={() => selectHeritage(h)}
+                  >
+                    <span className={styles.cardName}>{h.name}</span>
+                    <div className={styles.traits}>
+                      {h.traits.map(t => (
+                        <span key={t} className={styles.trait}>{t}</span>
+                      ))}
+                    </div>
+                  </button>
                 ))}
               </div>
-            </button>
-          ))}
+            </div>
+          )}
+          {versatileHeritages.length > 0 && (
+            <div className={styles.heritageGroup}>
+              <div className={`${styles.groupHeader} ${styles.groupHeaderVersatile}`}>Versatile Heritages</div>
+              <div className={styles.grid}>
+                {versatileHeritages.map(h => (
+                  <button
+                    key={h.id}
+                    className={`${styles.card} ${selected?.id === h.id ? styles.cardSelected : ''}`}
+                    onClick={() => selectHeritage(h)}
+                  >
+                    <span className={styles.cardName}>{h.name}</span>
+                    <div className={styles.traits}>
+                      {h.traits.map(t => (
+                        <span key={t} className={styles.trait}>{t}</span>
+                      ))}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
