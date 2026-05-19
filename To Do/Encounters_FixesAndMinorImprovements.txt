@@ -1,4 +1,6 @@
 Minor Improvements:
+    - add creature families as filter options
+
     - make creatures click and draggable into, out of, and around the combat tracker (dragging creatures in the tracker should automatically update their initiative)
 
     - pictures?
@@ -9,7 +11,7 @@ Backend Cleanup/Improvements:
     - consolidate custom creature and official creature storage formats, and consolidate their display
 
 Bug Fixes:
-    - make sure "custom" is always present as a source, even when no custom creatures are in the database. Only turn it on by default if custom creatures are found
+    - aon links broken again
     - fix cases where formatting text (markdown, etc.) is appearing in descriptions of abilities in copy-and-edit windows
     - look into why some descriptions are missing (e.g. Tooth Fairy)
 

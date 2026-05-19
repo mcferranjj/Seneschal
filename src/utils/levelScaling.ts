@@ -657,7 +657,10 @@ export function buildScaledCreature(creature: CreatureRecord, targetLevel: numbe
       .map(d => {
         const expr = d.damage ?? '';
         const scaled = expr ? scaleDamageExpr(expr, baseLevel, targetLevel) : expr;
-        return d.damageType ? `${scaled} ${d.damageType}` : scaled;
+        const typeLabel = d.damageType
+          ? (d.category === 'persistent' ? `persistent ${d.damageType}` : d.damageType)
+          : '';
+        return typeLabel ? `${scaled} ${typeLabel}` : scaled;
       })
       .join(' + ');
 
@@ -1020,7 +1023,10 @@ export function buildScaledHazard(hazard: CreatureRecord, targetLevel: number): 
       .map(d => {
         const expr = d.damage ?? '';
         const scaled = expr ? scaleHazardDamageExpr(expr.replace(/\s/g, ''), baseLevel, targetLevel, isComplex) : expr;
-        return d.damageType ? `${scaled} ${d.damageType}` : scaled;
+        const typeLabel = d.damageType
+          ? (d.category === 'persistent' ? `persistent ${d.damageType}` : d.damageType)
+          : '';
+        return typeLabel ? `${scaled} ${typeLabel}` : scaled;
       })
       .join(' + ');
 

@@ -103,19 +103,26 @@ src/
 │   └── sync.ts                # Sync orchestration; toRecord() sets entityType
 ├── search/
 │   └── search.ts              # SearchFilters (with excludeTraits, entityTypes); query builder
-└── components/
-    ├── TopBar/                # Header: brand + "Encounters / Rules / Characters" nav pills
-    ├── SearchPanel/           # Filters: name, level, trait include/exclude, size, rarity, entity type, source
-    ├── ResultsList/           # Creature list; sticky toolbar with filter toggle + sort; scrollable "＋ Custom Creature" button
-    ├── EncounterManager/      # XP tracker + combat tracker with conditions and creature wizard
-    ├── RulesSection/          # Tabbed conditions + basic actions reference with accordion + search
-    ├── CharactersSection/     # PC party tracker: card grid, HP tracking, persistent Dexie storage
-    ├── DiceRoller/            # Floating dice roller; triggered by clicking .pf2roll spans
-    ├── CustomCreatureWizard/  # Two-step wizard for building persistent custom creatures; saves to db.creatures
-    └── StatblockDrawer/       # Always-visible statblock panel; also hosts CustomCreatureWizard when wizardOpen
-        ├── StatblockDrawer.tsx  # AoN link, creature image, keyword tooltips, dice roller trigger; custom statblock for packSource='custom'
-        ├── StatblockDrawer.module.css
-        └── statblockHelpers.ts  # stripFoundryMacros + linkKeywords + linkRolls
+├── hooks/
+│   ├── useEncounter.ts        # Encounter CRUD + persistence
+│   ├── useSearch.ts           # Search query + sync orchestration
+│   ├── useUIPrefs.ts          # localStorage persistence for sidebar state, widths, filters
+│   └── useStatblockSelection.ts  # Selected creature + source tracking (results vs encounter)
+├── utils/
+│   ├── recallKnowledge.ts     # RK_DC_TABLE, RK_SKILLS, getRecallKnowledge() — pure, no React
+│   └── ...                    # conditionEffects, dice, levelScaling, etc.
+└── features/
+    ├── shell/                 # TopBar + App.module.css
+    ├── creatures/
+    │   ├── SearchPanel/       # Filters: name, level, trait include/exclude, size, rarity, entity type, source
+    │   └── ResultsList/       # Creature list; toolbar with filter toggle + sort; "＋ Custom Creature" button
+    ├── encounter/             # XP tracker + combat tracker with conditions and creature wizard
+    ├── statblock/             # StatblockDrawer + statblockHelpers (stripFoundryMacros, linkKeywords, linkRolls)
+    ├── rules/                 # Tabbed conditions + basic actions reference with accordion + search
+    ├── characters/            # PC party tracker: card grid, HP tracking, persistent Dexie storage
+    ├── dice/                  # DiceRoller + ManualRollInput floating panels
+    ├── roll-history/          # Roll history drawer
+    └── custom-creature/       # Two-step wizard for building persistent custom creatures; saves to db.creatures
 ```
 
 ## Database Schema (Dexie v4)
@@ -291,11 +298,14 @@ Custom creatures are authored via `CustomCreatureWizard` and **permanently store
 |---|---|---|
 | `toRecord` | `sync/sync.ts` | Core creature-to-record transform; sets `entityType` |
 | `runInBatches` | `sync/sync.ts` | Concurrency/progress logic |
-| `formatTimestamp` | `components/TopBar/TopBar.tsx` | Date formatting utility |
-| `traitColor` | `components/StatblockDrawer/StatblockDrawer.tsx` | Trait chip color logic |
-| `HP_TABLE`, `AC_TABLE`, `SAVE_TABLE`, `ATTACK_TABLE`, `DAMAGE_TABLE` | `components/CustomCreatureWizard/CustomCreatureWizard.tsx` | GM Core Remaster stat tables, all tiers, levels -1..25 |
-| `linkRolls` | `components/StatblockDrawer/statblockHelpers.ts` | Wraps dice/modifiers in `.pf2roll` spans |
-| `linkKeywords` | `components/StatblockDrawer/statblockHelpers.ts` | Wraps ~40 PF2E terms in `.pf2kw` tooltip spans |
+| `formatTimestamp` | `features/shell/TopBar.tsx` | Date formatting utility |
+| `traitColor` | `features/statblock/StatblockDrawer.tsx` | Trait chip color logic |
+| `HP_TABLE`, `AC_TABLE`, `SAVE_TABLE`, `ATTACK_TABLE`, `DAMAGE_TABLE` | `features/custom-creature/CustomCreatureWizard.tsx` | GM Core Remaster stat tables, all tiers, levels -1..25 |
+| `linkRolls` | `features/statblock/statblockHelpers.ts` | Wraps dice/modifiers in `.pf2roll` spans |
+| `linkKeywords` | `features/statblock/statblockHelpers.ts` | Wraps ~40 PF2E terms in `.pf2kw` tooltip spans |
+| `getRecallKnowledge` | `utils/recallKnowledge.ts` | Recall Knowledge DC + skills for a creature (level, traits, rarity) |
+| `RK_DC_TABLE`, `RK_RARITY_ADJUSTMENT`, `RK_SKILLS` | `utils/recallKnowledge.ts` | Raw lookup tables used by `getRecallKnowledge` |
+| `useStatblockSelection` | `hooks/useStatblockSelection.ts` | Selected creature + source tracking; clears stale highlights across columns |
 
 ## Testing
 

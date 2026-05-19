@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { RollHistoryEntry } from '../../types/diceHistory';
+import type { DamageGroupInput } from '../../types/damage';
 import {
   parseDice, cryptoD, rollDice, rollCrit,
   FATAL_TRAIT_REGEX, DEADLY_TRAIT_REGEX, parseTraitDice,
@@ -12,7 +13,37 @@ import styles from './DiceRoller.module.css';
 export type { ParsedDice, CritResult };
 export { parseDice, cryptoD, rollCrit };
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Shared helpers ──────────────────────────────────────────────────────────
+
+function traitDieLabel(t: string, prefix: string): string {
+  const d = parseTraitDice(t, prefix);
+  if (!d) return t;
+  return d.count > 1 ? `${d.count}d${d.sides}` : `d${d.sides}`;
+}
+
+/** Splits a damage group array into rollable and persistent groups. */
+function splitDamageGroups(groups: DamageGroupInput[], filter: (g: DamageGroupInput) => boolean = () => true) {
+  return {
+    parsedGroups: groups
+      .filter(g => !g.persistent && filter(g))
+      .map(g => ({ ...g, parsed: parseDice(g.expr) }))
+      .filter((g): g is DamageGroupInput & { parsed: ParsedDice } => g.parsed != null),
+    persistentGroups: groups.filter(g => g.persistent && filter(g)),
+  };
+}
+
+/** Renders a persistent damage group as a static expression — never rolled. */
+function PersistentDamageGroup({ group, isCrit }: { group: DamageGroupInput; isCrit: boolean }) {
+  return (
+    <div className={styles.multiGroup}>
+      <div className={styles.multiGroupLabel}>{group.label}</div>
+      <div className={styles.multiGroupExpr}>{isCrit ? `${group.expr} × 2` : group.expr}</div>
+      <div className={styles.breakdown}>applied at end of target's turn</div>
+    </div>
+  );
+}
+
+// ─── Components ──────────────────────────────────────────────────────────────
 
 interface DmgGroupState {
   normal: RollResult | null;
@@ -44,13 +75,11 @@ export function DiceRoller({
 }: DiceRollerProps) {
   const parsed = parseDice(expression);
 
-  const parsedGroups = useMemo(
-    () => (damageGroups ?? [])
-      .map(g => ({ ...g, parsed: parseDice(g.expr) }))
-      .filter((g): g is DamageGroupInput & { parsed: ParsedDice } => g.parsed != null),
+  const { parsedGroups, persistentGroups } = useMemo(
+    () => splitDamageGroups(damageGroups ?? []),
     [damageGroups],
   );
-  const hasDamage = parsedGroups.length > 0;
+  const hasDamage = parsedGroups.length > 0 || persistentGroups.length > 0;
 
   const [atkResult, setAtkResult] = useState<RollResult | null>(null);
   const [dmgStates, setDmgStates] = useState<DmgGroupState[]>([]);
@@ -195,14 +224,9 @@ export function DiceRoller({
 
       {/* ── Damage section ── */}
       {hasDamage && (() => {
-        const single = parsedGroups.length === 1;
+        const single = parsedGroups.length === 1 && persistentGroups.length === 0;
         const fatalT  = single ? damageTraits.find(t => FATAL_TRAIT_REGEX.test(t)) : undefined;
         const deadlyT = single ? damageTraits.find(t => DEADLY_TRAIT_REGEX.test(t)) : undefined;
-        function traitDieLbl(t: string, prefix: string) {
-          const d = parseTraitDice(t, prefix);
-          if (!d) return t;
-          return d.count > 1 ? `${d.count}d${d.sides}` : `d${d.sides}`;
-        }
         const grandTotal = dmgStates.reduce((sum, st) => sum + (st?.crit?.grandTotal ?? st?.normal?.total ?? 0), 0);
         return (
         <div className={styles.damageSection}>
@@ -213,12 +237,12 @@ export function DiceRoller({
                 <span className={styles.damageSectionExpr}>{parsedGroups[0].parsed.raw}</span>
                 {fatalT && (
                   <span className={styles.traitTag} title="On a crit: all dice become this size + one extra die added">
-                    Fatal {traitDieLbl(fatalT, 'fatal')}
+                    Fatal {traitDieLabel(fatalT, 'fatal')}
                   </span>
                 )}
                 {deadlyT && (
                   <span className={styles.traitTag} title="On a crit: add extra dice of this size">
-                    Deadly {traitDieLbl(deadlyT, 'deadly')}
+                    Deadly {traitDieLabel(deadlyT, 'deadly')}
                   </span>
                 )}
               </span>
@@ -257,6 +281,11 @@ export function DiceRoller({
             );
           })}
 
+          {/* Persistent damage groups — shown as static expression, never rolled */}
+          {persistentGroups.map(g => (
+            <PersistentDamageGroup key={g.label} group={g} isCrit={isCrit} />
+          ))}
+
           {!single && grandTotal > 0 && (
             <div className={styles.multiGroupTotal} style={{ borderTop: '1px solid var(--border)', paddingTop: 4, marginTop: 4 }}>
               Total: {grandTotal}
@@ -283,10 +312,8 @@ export function DiceRoller({
 
 // ─── Multi-damage roller (ability "Roll all damage" button) ──────────────────
 
-export interface DamageGroupInput {
-  expr: string;
-  label: string;
-}
+// Re-export from canonical location so existing importers keep working
+export type { DamageGroupInput } from '../../types/damage';
 
 interface MultiDamageRollerProps {
   groups: DamageGroupInput[];
@@ -307,18 +334,12 @@ interface GroupResult {
   animKey: number;
 }
 
-function traitDieLabel(t: string, prefix: string): string {
-  const d = parseTraitDice(t, prefix);
-  if (!d) return t;
-  return d.count > 1 ? `${d.count}d${d.sides}` : `d${d.sides}`;
-}
-
 export function MultiDamageRoller({ groups, abilityName, creatureName, traits = [], anchorX, anchorY, onClose, onRoll }: MultiDamageRollerProps) {
-  const parsedGroups = useMemo(
-    () => groups.map(g => ({ ...g, parsed: parseDice(g.expr) })).filter(g => g.parsed != null) as (DamageGroupInput & { parsed: ParsedDice })[],
-    // groups identity is stable per open — recompute only if the exprs change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [groups.map(g => g.expr).join('|')],
+  // groups identity is stable per open — recompute only if the exprs/persistent flags change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const { parsedGroups, persistentGroups } = useMemo(
+    () => splitDamageGroups(groups),
+    [groups.map(g => `${g.expr}|${g.persistent}`).join('|')],
   );
 
   const [results, setResults] = useState<GroupResult[]>(() =>
@@ -399,9 +420,9 @@ export function MultiDamageRoller({ groups, abilityName, creatureName, traits = 
     return () => window.removeEventListener('keydown', onKey);
   }, [rollAll, isCrit, onClose]);
 
-  if (parsedGroups.length === 0) return null;
+  if (parsedGroups.length === 0 && persistentGroups.length === 0) return null;
 
-  const isSingle = parsedGroups.length === 1;
+  const isSingle = parsedGroups.length === 1 && persistentGroups.length === 0;
   const fatalTrait  = isSingle ? traits.find(t => FATAL_TRAIT_REGEX.test(t))  : undefined;
   const deadlyTrait = isSingle ? traits.find(t => DEADLY_TRAIT_REGEX.test(t)) : undefined;
 
@@ -477,6 +498,15 @@ export function MultiDamageRoller({ groups, abilityName, creatureName, traits = 
           </div>
         );
       })}
+
+      {/* Persistent damage groups — shown as static expression, never rolled */}
+      {persistentGroups.map(g => (
+        <div key={g.label} className={styles.multiGroup}>
+          <div className={styles.multiGroupLabel}>{g.label}</div>
+          <div className={styles.multiGroupExpr}>{isCrit ? `${g.expr} × 2` : g.expr}</div>
+          <div className={styles.breakdown}>applied at end of target's turn</div>
+        </div>
+      ))}
 
       {!isSingle && grandTotal > 0 && (
         <div className={styles.multiGroupTotal} style={{ borderTop: '1px solid var(--border)', paddingTop: 4, marginTop: 4 }}>
