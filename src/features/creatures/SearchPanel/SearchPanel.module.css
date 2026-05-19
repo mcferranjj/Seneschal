@@ -13,7 +13,7 @@
   flex-direction: column;
   gap: 5px;
   padding-bottom: 10px;
-  border-bottom: 1px solid var(--border-l);
+  border-bottom: 1px solid var(--color-border-light);
   margin-bottom: 8px;
 }
 
@@ -26,22 +26,22 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 .input {
   width: 100%;
   padding: 5px 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 5px;
-  background: var(--bg);
+  background: var(--color-bg);
   font-size: 0.8rem;
-  color: var(--text);
+  color: var(--color-text);
   box-sizing: border-box;
 }
 
 .input:focus {
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
@@ -62,7 +62,7 @@
   padding: 0;
   font-size: 0.65rem;
   font-weight: 600;
-  color: var(--crimson);
+  color: var(--color-primary);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -83,22 +83,22 @@
   flex: 1;
   width: 0;
   padding: 4px 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: var(--bg);
+  background: var(--color-bg);
   font-size: 0.8rem;
   font-family: 'DM Mono', monospace;
-  color: var(--text);
+  color: var(--color-text);
   text-align: center;
 }
 
 .levelInput:focus {
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
 .levelSep {
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -153,8 +153,8 @@
   margin: 0;
   padding: 2px 0;
   list-style: none;
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 5px;
   box-shadow: 0 3px 8px rgba(0,0,0,0.12);
   max-height: 160px;
@@ -164,12 +164,12 @@
 .traitSuggestion {
   padding: 5px 10px;
   font-size: 0.8rem;
-  color: var(--text);
+  color: var(--color-text);
   cursor: pointer;
 }
 
 .traitSuggestion:hover {
-  background: var(--border-l);
+  background: var(--color-border-light);
 }
 
 .traitChips {
@@ -221,16 +221,16 @@
   width: 100%;
   padding: 6px;
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.12s;
 }
 
 .clearBtn:hover {
-  background: var(--border-l);
+  background: var(--color-border-light);
 }
 
 .clearBtn:disabled {
@@ -249,13 +249,13 @@
   align-items: center;
   gap: 5px;
   font-size: 0.78rem;
-  color: var(--text);
+  color: var(--color-text);
   cursor: pointer;
   user-select: none;
 }
 
 .checkLabel input[type='checkbox'] {
-  accent-color: var(--crimson);
+  accent-color: var(--color-primary);
   cursor: pointer;
   width: 12px;
   height: 12px;
@@ -274,10 +274,10 @@
 .sourceTree {
   max-height: 260px;
   overflow-y: auto;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 5px 7px;
-  background: var(--bg);
+  background: var(--color-bg);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -309,13 +309,13 @@
   gap: 5px;
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--color-text);
   cursor: pointer;
   user-select: none;
 }
 
 .eraLabel input[type='checkbox'] {
-  accent-color: var(--crimson);
+  accent-color: var(--color-primary);
   cursor: pointer;
   width: 12px;
   height: 12px;
@@ -347,13 +347,13 @@
   gap: 5px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   cursor: pointer;
   user-select: none;
 }
 
 .categoryLabel input[type='checkbox'] {
-  accent-color: var(--crimson);
+  accent-color: var(--color-primary);
   cursor: pointer;
   width: 12px;
   height: 12px;
@@ -378,7 +378,7 @@
   border: none;
   padding: 0;
   cursor: pointer;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-size: 1rem;
   width: 16px;
   height: 18px;

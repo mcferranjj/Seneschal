@@ -1,14 +1,12 @@
 .roller {
   position: fixed;
   z-index: 500;
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
   padding: 10px 14px 10px;
   width: 200px;
-  /* Max height = viewport height minus the panel's own top offset minus an 8px
-     bottom margin. Using a var set inline by the component avoids any magic number. */
   max-height: var(--roller-max-height, 100vh);
   overflow-y: auto;
   display: flex;
@@ -69,7 +67,7 @@
 .label {
   font-size: 0.68rem;
   font-weight: 700;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: nowrap;
@@ -80,14 +78,14 @@
 .expr {
   font-family: 'DM Mono', monospace;
   font-size: 0.75rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-weight: 600;
 }
 
 .closeBtn {
   background: none;
   border: none;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   cursor: pointer;
   font-size: 0.8rem;
   line-height: 1;
@@ -96,7 +94,7 @@
 }
 
 .closeBtn:hover {
-  color: var(--crimson);
+  color: var(--color-primary);
 }
 
 .total {
@@ -110,22 +108,22 @@
 }
 
 .totalNormal {
-  color: var(--text);
+  color: var(--color-text);
   text-align: center;
 }
 
 .totalCrit {
-  color: var(--gold, #c8922a);
+  color: var(--color-accent-bright);
 }
 
 .totalFumble {
-  color: #c03030;
+  color: var(--color-fumble);
 }
 
 .breakdown {
   font-family: 'DM Mono', monospace;
   font-size: 0.68rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   text-align: center;
   line-height: 1.5;
   width: 100%;
@@ -135,8 +133,8 @@
 
 .rerollBtn {
   margin-top: 4px;
-  background: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   border: none;
   border-radius: 5px;
   padding: 4px 12px;
@@ -172,9 +170,9 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--gold, #c8922a);
-  background: rgba(200, 146, 42, 0.12);
-  border: 1px solid rgba(200, 146, 42, 0.35);
+  color: var(--color-accent-bright);
+  background: var(--color-accent-on-dark);
+  border: 1px solid var(--color-accent-tooltip-2);
   border-radius: 3px;
   padding: 1px 5px;
   cursor: help;
@@ -186,7 +184,7 @@
   width: 100%;
   margin-top: 6px;
   padding-top: 8px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -203,7 +201,7 @@
 .damageSectionLabel {
   font-size: 0.68rem;
   font-weight: 700;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -211,7 +209,7 @@
 .damageSectionExpr {
   font-family: 'DM Mono', monospace;
   font-size: 0.72rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-weight: 600;
 }
 
@@ -231,9 +229,9 @@
   flex: 1;
   padding: 4px 8px;
   border-radius: 5px;
-  background: #5a3a0a;
-  color: var(--gold, #c8922a);
-  border: 1px solid var(--gold, #c8922a);
+  background: var(--color-accent-deep);
+  color: var(--color-accent-bright);
+  border: 1px solid var(--color-accent-bright);
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
@@ -246,9 +244,9 @@
 }
 
 .critBtnActive {
-  background: var(--gold, #c8922a);
-  color: #2a1a00;
-  border-color: var(--gold, #c8922a);
+  background: var(--color-accent-bright);
+  color: var(--color-accent-on-deep);
+  border-color: var(--color-accent-bright);
 }
 
 .critBtnActive:hover {
@@ -259,7 +257,7 @@
 .multiGroup {
   width: 100%;
   padding: 6px 0 4px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -275,7 +273,7 @@
   width: 100%;
   font-size: 0.68rem;
   font-weight: 700;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -284,7 +282,7 @@
   width: 100%;
   font-family: 'DM Mono', monospace;
   font-size: 0.7rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-weight: 600;
   margin-bottom: 1px;
 }
@@ -304,7 +302,7 @@
   gap: 5px;
   font-size: 0.72rem;
   font-weight: 800;
-  color: var(--gold, #c8922a);
+  color: var(--color-accent-bright);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin-top: 2px;

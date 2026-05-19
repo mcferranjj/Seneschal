@@ -14,22 +14,22 @@
 .actionBtn {
   padding: 2px 7px;
   border-radius: 3px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text-mid);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-mid);
   font-size: 0.68rem;
   cursor: pointer;
   line-height: 1.4;
 }
 
 .actionBtn:hover {
-  background: var(--border-l);
+  background: var(--color-border-light);
 }
 
 .actionBtnActive {
-  background: var(--crimson);
-  border-color: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 /* Meta inputs (frequency, trigger, requirements) */
@@ -37,16 +37,16 @@
   width: 100%;
   box-sizing: border-box;
   padding: 4px 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 3px;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--color-bg);
+  color: var(--color-text);
   font-size: 0.75rem;
   font-family: inherit;
 }
 
 .metaInput::placeholder {
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 /* Formatting toolbar */
@@ -60,9 +60,9 @@
 .toolbarBtn {
   padding: 1px 6px;
   border-radius: 3px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text-mid);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-mid);
   font-size: 0.68rem;
   cursor: pointer;
   line-height: 1.5;
@@ -71,9 +71,9 @@
 }
 
 .toolbarBtn:hover {
-  background: var(--border-l);
-  border-color: var(--crimson);
-  color: var(--crimson);
+  background: var(--color-border-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .bold {
@@ -92,7 +92,7 @@
   display: inline-block;
   width: 1px;
   height: 14px;
-  background: var(--border);
+  background: var(--color-border);
   margin: 0 2px;
   flex-shrink: 0;
   align-self: center;
@@ -102,26 +102,25 @@
 .editorSurface {
   min-height: 60px;
   padding: 6px 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 3px;
-  background: var(--parchment);
-  color: var(--text);
+  background: var(--color-surface);
+  color: var(--color-text);
   font-size: 0.78rem;
   line-height: 1.55;
   outline: none;
   cursor: text;
-  /* PF2e-style formatting */
 }
 
 .editorSurface:focus {
-  border-color: var(--crimson);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--crimson) 15%, transparent);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-glow);
 }
 
 /* Placeholder when empty */
 .editorSurface:empty::before {
   content: attr(data-placeholder);
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   pointer-events: none;
 }
 
@@ -134,16 +133,16 @@
   font-family: 'Cinzel', Georgia, serif;
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--color-text);
   margin: 4px 0 2px;
-  border-bottom: 1px solid var(--border-l);
+  border-bottom: 1px solid var(--color-border-light);
   padding-bottom: 1px;
 }
 
 .editorSurface strong,
 .editorSurface b {
   font-weight: 700;
-  color: var(--text);
+  color: var(--color-text);
 }
 
 .editorSurface em,
@@ -157,42 +156,41 @@
 
 .editorSurface hr {
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   margin: 4px 0;
 }
 
 /* PF2e roll spans injected by processFoundryHtml */
 .editorSurface :global(.pf2roll) {
-  color: var(--crimson);
+  color: var(--color-primary);
   cursor: pointer;
   text-decoration: underline dotted;
 }
 
 /* PF2e keyword tooltip spans */
 .editorSurface :global(.pf2kw) {
-  border-bottom: 1px dotted var(--text-mute);
+  border-bottom: 1px dotted var(--color-text-muted);
   cursor: help;
 }
 
 /* ── Active state for toolbar buttons (e.g. open damage picker) ── */
 .toolbarBtnActive {
-  background: var(--border-l);
-  border-color: var(--crimson);
-  color: var(--crimson);
+  background: var(--color-border-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 /* ── Damage type picker popup ── */
 
-/* Wrapper for the anchor button — no positioning context needed (popup is fixed) */
 .dmgPickerAnchor {
   display: inline-block;
 }
 
-/* The dropdown popup itself — position/top/bottom/left/maxHeight set inline via usePopupPosition */
+/* The dropdown popup itself */
 .dmgPicker {
   z-index: 200;
-  background: var(--bg-mid, #2a2118);
-  border: 1px solid var(--border);
+  background: var(--color-bg-popup);
+  border: 1px solid var(--color-border);
   border-radius: 5px;
   padding: 5px 6px;
   box-shadow: 0 4px 14px rgba(0,0,0,0.5);
@@ -212,16 +210,16 @@
 }
 
 .dmgPickerGroup + .dmgPickerGroup {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
 }
 
 /* Individual popup button (damage types, action icons, DC/Atk items) */
 .dmgPickerBtn {
   padding: 2px 7px;
   border-radius: 3px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text-mid);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-mid);
   font-size: 0.68rem;
   cursor: pointer;
   line-height: 1.5;
@@ -229,38 +227,38 @@
   white-space: nowrap;
 }
 
-/* Capitalize only for damage type names (applied via the DamageTypePicker wrapper) */
+/* Capitalize only for damage type names */
 .dmgTypeBtn {
   text-transform: capitalize;
 }
 
 .dmgPickerBtn:hover {
-  background: var(--border-l);
-  border-color: var(--crimson);
-  color: var(--crimson);
+  background: var(--color-border-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
-/* "persistent ▶" button — slightly distinguished */
+/* "persistent ▶" button */
 .dmgPickerPersistent {
-  color: var(--text);
+  color: var(--color-text);
   font-style: italic;
 }
 
 .dmgPickerPersistent:hover {
-  background: var(--border-l);
-  border-color: var(--crimson);
-  color: var(--crimson);
+  background: var(--color-border-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .dmgPickerPersistentActive {
-  background: var(--border-l);
-  border-color: var(--crimson);
-  color: var(--crimson);
+  background: var(--color-border-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
-/* Persistent sub-panel — inline below the trigger row */
+/* Persistent sub-panel */
 .dmgPickerSub {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   margin-top: 2px;
   padding-top: 2px;
 }
@@ -268,7 +266,7 @@
 .dmgPickerSubHeader {
   font-size: 0.62rem;
   font-style: italic;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   padding: 2px 2px 0;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -280,12 +278,12 @@
   align-items: center;
   gap: 5px;
   font-size: 0.73rem;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   cursor: pointer;
   user-select: none;
 }
 
 .limitedUseRow input[type='checkbox'] {
   cursor: pointer;
-  accent-color: var(--crimson);
+  accent-color: var(--color-primary);
 }

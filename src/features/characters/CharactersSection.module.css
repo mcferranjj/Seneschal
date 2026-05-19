@@ -11,20 +11,20 @@
   justify-content: space-between;
   padding: 16px 24px 12px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--parchment);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
 .title {
   font-family: 'Cinzel', Georgia, serif;
   font-size: 1.4rem;
   font-weight: 700;
-  color: var(--crimson);
+  color: var(--color-primary);
 }
 
 .addBtn {
-  background: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   border: none;
   border-radius: 6px;
   padding: 7px 14px;
@@ -48,7 +48,7 @@
   justify-content: center;
   gap: 10px;
   padding: 60px 20px;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 .emptyIcon { font-size: 3rem; opacity: 0.15; }
@@ -61,8 +61,8 @@
 }
 
 .card {
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 12px 14px;
   cursor: pointer;
@@ -72,8 +72,8 @@
   gap: 8px;
 }
 
-.card:hover { border-color: var(--gold); }
-.cardSelected { border-color: var(--crimson); box-shadow: 0 0 0 2px rgba(92,20,20,0.12); }
+.card:hover { border-color: var(--color-accent); }
+.cardSelected { border-color: var(--color-primary); box-shadow: 0 0 0 2px var(--color-primary-glow); }
 
 .cardHeader {
   display: flex;
@@ -86,12 +86,12 @@
   font-family: 'Cinzel', Georgia, serif;
   font-size: 0.95rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--color-text);
 }
 
 .cardSub {
   font-size: 0.72rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   margin-top: 2px;
 }
 
@@ -102,20 +102,20 @@
   border: none;
   cursor: pointer;
   font-size: 0.85rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   padding: 2px 5px;
   border-radius: 4px;
 }
 
-.editBtn:hover { color: var(--gold); }
-.deleteBtn:hover { color: var(--crimson); }
+.editBtn:hover { color: var(--color-accent); }
+.deleteBtn:hover { color: var(--color-primary); }
 
 .cardStats {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
   font-size: 0.75rem;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
 }
 
 .hpRow {
@@ -144,12 +144,12 @@
 }
 
 .hpBtn:hover { opacity: 0.75; }
-.hpDmg { background: rgba(138,42,24,0.15); color: #8a2a18; }
-.hpHeal { background: rgba(58,122,58,0.15); color: #3a7a3a; }
+.hpDmg { background: var(--color-damage-tint); color: var(--color-damage); }
+.hpHeal { background: var(--color-healing-tint); color: var(--color-healing); }
 
 .hpBar {
   height: 4px;
-  background: var(--border);
+  background: var(--color-border);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -164,7 +164,7 @@
 .formOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.4);
+  background: var(--color-bg-modal-scrim);
   z-index: 300;
   display: flex;
   align-items: center;
@@ -173,7 +173,7 @@
 }
 
 .form {
-  background: var(--parchment);
+  background: var(--color-surface);
   border-radius: 10px;
   padding: 20px 24px;
   max-width: 520px;
@@ -187,7 +187,7 @@
   font-family: 'Cinzel', Georgia, serif;
   font-size: 1.1rem;
   font-weight: 700;
-  color: var(--crimson);
+  color: var(--color-primary);
   margin-bottom: 14px;
 }
 
@@ -209,20 +209,20 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 .input {
   padding: 5px 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 5px;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--color-bg);
+  color: var(--color-text);
   font-size: 0.82rem;
 }
 
 .input:focus {
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
@@ -233,8 +233,8 @@
 }
 
 .saveBtn {
-  background: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   border: none;
   border-radius: 6px;
   padding: 7px 18px;
@@ -248,12 +248,12 @@
 
 .cancelBtn {
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 7px 14px;
   font-size: 0.82rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   cursor: pointer;
 }
 
-.cancelBtn:hover { background: var(--border-l); }
+.cancelBtn:hover { background: var(--color-border-light); }

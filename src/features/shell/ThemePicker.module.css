@@ -1,0 +1,305 @@
+/* ── ThemePicker modal overlay ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg-modal-scrim);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* ── Modal shell ── */
+.modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 16px 56px rgba(0, 0, 0, 0.5);
+  width: min(640px, 100%);
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header bar ── */
+.header {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  height: 46px;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.headerTitle {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  flex: 1;
+}
+
+.closeBtn {
+  background: var(--color-surface-on-primary);
+  border: 1px solid var(--color-border-on-primary);
+  border-radius: 5px;
+  color: var(--color-primary-text);
+  cursor: pointer;
+  font-size: 0.8rem;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s;
+  flex-shrink: 0;
+}
+
+.closeBtn:hover {
+  background: var(--color-surface-on-primary-3);
+}
+
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.tab {
+  flex: 1;
+  padding: 9px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+  letter-spacing: 0.02em;
+}
+
+.tab:hover {
+  color: var(--color-text);
+}
+
+.tabActive {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* ── Body ── */
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Section label ── */
+.sectionLabel {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+/* ── Preset grid ── */
+.presetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.presetCard {
+  border-radius: 8px;
+  border: 2px solid var(--color-border);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  background: none;
+  padding: 0;
+  text-align: left;
+}
+
+.presetCard:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+
+.presetCardActive {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 2px var(--color-primary-glow) !important;
+}
+
+/* ── Swatch strip (shows the 5 most visible colors) ── */
+.swatchStrip {
+  display: flex;
+  height: 32px;
+  width: 100%;
+}
+
+.swatch {
+  flex: 1;
+}
+
+/* ── Preset card label ── */
+.presetLabel {
+  padding: 6px 8px 7px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.activeCheck {
+  font-size: 0.75rem;
+  color: var(--color-primary);
+}
+
+/* ── Custom colour section ── */
+.customSection {
+  border-top: 1px solid var(--color-border-light);
+  padding-top: 16px;
+}
+
+.colorGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.colorRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.colorSwatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  border: 2px solid var(--color-border);
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.12s;
+}
+
+.colorSwatch:hover {
+  border-color: var(--color-primary);
+}
+
+/* The actual <input type="color"> — positioned over the swatch but invisible */
+.colorInput {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+.colorLabel {
+  font-size: 0.72rem;
+  color: var(--color-text-mid);
+  flex: 1;
+  line-height: 1.3;
+}
+
+.colorLabelName {
+  font-weight: 600;
+  display: block;
+}
+
+.colorLabelDesc {
+  font-size: 0.62rem;
+  color: var(--color-text-muted);
+}
+
+/* ── Advanced tab ── */
+.advancedSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.advancedNote {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.advGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.advGroupLabel {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-accent);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+/* ── Apply / Reset row ── */
+.actionRow {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.resetBtn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.resetBtn:hover {
+  background: var(--color-bg-overlay-mid);
+  color: var(--color-text);
+}
+
+.applyBtn {
+  padding: 6px 18px;
+  border-radius: 6px;
+  border: none;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+
+.applyBtn:hover {
+  opacity: 0.88;
+}

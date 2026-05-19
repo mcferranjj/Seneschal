@@ -3,8 +3,8 @@
   align-items: center;
   padding: 0 14px;
   height: 44px;
-  background: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   flex-shrink: 0;
   gap: 8px;
 }
@@ -26,7 +26,7 @@
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: #f0e6cc;
+  color: var(--color-primary-text);
 }
 
 .nav {
@@ -42,7 +42,7 @@
   border-radius: 5px;
   border: 1px solid transparent;
   background: transparent;
-  color: rgba(240, 230, 204, 0.6);
+  color: var(--color-primary-text-muted);
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
@@ -52,14 +52,14 @@
 }
 
 .navPill:hover {
-  color: #f0e6cc;
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-primary-text);
+  background: var(--color-surface-on-primary);
 }
 
 .navPillActive {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: #f0e6cc;
+  background: var(--color-surface-on-primary-2);
+  border-color: var(--color-surface-on-primary-3);
+  color: var(--color-primary-text);
 }
 
 .rightButtons {
@@ -76,8 +76,8 @@
   height: 30px;
   border-radius: 6px;
   border: 1px solid transparent;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(240, 230, 204, 0.7);
+  background: var(--color-surface-on-primary);
+  color: var(--color-primary-text-dim);
   font-size: 15px;
   cursor: pointer;
   display: flex;
@@ -88,15 +88,15 @@
 }
 
 .iconBtn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.2);
-  color: #f0e6cc;
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--color-surface-on-primary-3);
+  color: var(--color-primary-text);
+  border-color: var(--color-border-on-primary);
 }
 
 .iconBtnActive {
-  background: rgba(255, 255, 255, 0.22) !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
-  color: #f0e6cc !important;
+  background: var(--color-surface-on-primary-3) !important;
+  border-color: var(--color-border-on-primary-2) !important;
+  color: var(--color-primary-text) !important;
 }
 
 .iconBtn:disabled {
@@ -112,8 +112,8 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  background: var(--surface, #2a1a1a);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--color-surface-dark);
+  border: 1px solid var(--color-border-on-primary);
   border-radius: 7px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
   min-width: 210px;
@@ -131,7 +131,7 @@
   background: transparent;
   border: none;
   border-radius: 5px;
-  color: #f0e6cc;
+  color: var(--color-primary-text);
   font-size: 0.82rem;
   cursor: pointer;
   text-align: left;
@@ -139,7 +139,7 @@
 }
 
 .settingsMenuItem:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-surface-on-primary);
 }
 
 .settingsMenuIcon {
@@ -152,7 +152,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: var(--color-bg-modal-scrim);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -160,8 +160,8 @@
 }
 
 .confirmDialog {
-  background: var(--surface, #2a1a1a);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--color-surface-dark);
+  border: 1px solid var(--color-border-on-primary);
   border-radius: 10px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
   padding: 28px 28px 22px;
@@ -173,19 +173,19 @@
   font-family: 'Cinzel', Georgia, serif;
   font-size: 1rem;
   font-weight: 700;
-  color: #f0e6cc;
+  color: var(--color-primary-text);
   margin: 0 0 12px;
 }
 
 .confirmBody {
   font-size: 0.85rem;
-  color: rgba(240, 230, 204, 0.8);
+  color: var(--color-primary-text-faint);
   line-height: 1.55;
   margin: 0 0 22px;
 }
 
 .confirmBody strong {
-  color: #f0e6cc;
+  color: var(--color-primary-text);
 }
 
 .confirmButtons {
@@ -197,17 +197,17 @@
 .confirmCancel {
   padding: 7px 16px;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--color-border-on-primary);
   background: transparent;
-  color: rgba(240, 230, 204, 0.75);
+  color: var(--color-primary-text-dim);
   font-size: 0.82rem;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
 
 .confirmCancel:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f0e6cc;
+  background: var(--color-surface-on-primary);
+  color: var(--color-primary-text);
 }
 
 .confirmCancel:disabled {
@@ -219,8 +219,8 @@
   padding: 7px 16px;
   border-radius: 6px;
   border: 1px solid transparent;
-  background: var(--crimson, #8b1a1a);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -228,7 +228,7 @@
 }
 
 .confirmDelete:hover:not(:disabled) {
-  background: #a52020;
+  background: var(--color-primary-hover);
 }
 
 .confirmDelete:disabled {
@@ -246,8 +246,8 @@
   position: absolute;
   top: -4px;
   right: -4px;
-  background: #f0e6cc;
-  color: var(--crimson);
+  background: var(--color-primary-text);
+  color: var(--color-primary);
   font-size: 0.5rem;
   font-weight: 800;
   border-radius: 8px;

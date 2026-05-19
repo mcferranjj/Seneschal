@@ -10,7 +10,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
@@ -24,9 +24,9 @@
   width: 22px;
   height: 22px;
   border-radius: 4px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text-mute);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
   font-size: 10px;
   cursor: pointer;
   display: flex;
@@ -37,12 +37,12 @@
 }
 
 .filterToggle:hover {
-  background: var(--border-l);
+  background: var(--color-border-light);
 }
 
 .resultCount {
   font-size: 0.68rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -59,25 +59,25 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 2px 7px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 3px;
   background: transparent;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   cursor: pointer;
 }
 
 .sortBtn:hover {
-  background: var(--border-l);
+  background: var(--color-border-light);
 }
 
 .sortBtnActive {
-  background: var(--crimson);
-  border-color: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 .sortBtnActive:hover {
-  background: var(--crimson);
+  background: var(--color-primary);
 }
 
 /* ── Add custom creature ── */
@@ -85,9 +85,9 @@
   width: 100%;
   padding: 6px 10px;
   border: none;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
   background: transparent;
-  color: var(--crimson);
+  color: var(--color-primary);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -98,7 +98,7 @@
 }
 
 .addCustomBtn:hover {
-  background: rgba(92, 20, 20, 0.06);
+  background: var(--color-primary-tint);
 }
 
 /* ── Creature row ── */
@@ -107,24 +107,24 @@
   flex-direction: column;
   gap: 4px;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--border-l);
+  border-bottom: 1px solid var(--color-border-light);
   cursor: pointer;
   transition: background 0.1s;
   border-left: 3px solid transparent;
 }
 
 .row:hover {
-  background: rgba(154, 114, 40, 0.06);
+  background: var(--color-accent-tint);
 }
 
 .row:focus-visible {
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--color-primary);
   outline-offset: -2px;
 }
 
 .rowSelected {
-  background: rgba(92, 20, 20, 0.07) !important;
-  border-left-color: var(--crimson);
+  background: var(--color-primary-tint) !important;
+  border-left-color: var(--color-primary);
 }
 
 .rowTop {
@@ -146,14 +146,14 @@
   font-family: 'Cinzel', Georgia, serif;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .rowSelected .name {
-  color: var(--crimson);
+  color: var(--color-primary);
 }
 
 .rarityChip {
@@ -179,16 +179,16 @@
   font-family: 'DM Mono', monospace;
   font-size: 0.65rem;
   font-weight: 700;
-  background: var(--border-l);
-  color: var(--text-mid);
+  background: var(--color-border-light);
+  color: var(--color-text-mid);
   border-radius: 4px;
   padding: 1px 6px;
   white-space: nowrap;
 }
 
 .levelBadgeActive {
-  background: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 .addBtn {
@@ -196,8 +196,8 @@
   height: 18px;
   border-radius: 3px;
   background: transparent;
-  color: var(--text-mute);
-  border: 1px solid var(--border);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
@@ -210,9 +210,9 @@
 }
 
 .addBtn:hover {
-  background: var(--crimson);
-  color: #f0e6cc;
-  border-color: var(--crimson);
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
 }
 
 /* ── Row metadata ── */
@@ -225,7 +225,7 @@
 
 .sizeMeta {
   font-size: 0.67rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 .traitChip {
@@ -233,7 +233,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: #6a5a3a;
+  background: var(--color-trait-default);
   color: #fff;
   border-radius: 3px;
   padding: 1px 5px;
@@ -249,14 +249,14 @@
   justify-content: center;
   padding: 2rem;
   text-align: center;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 .emptyTitle {
   font-size: 0.9rem;
   font-weight: 600;
   margin: 0 0 0.4rem;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
 }
 
 .emptyHint {

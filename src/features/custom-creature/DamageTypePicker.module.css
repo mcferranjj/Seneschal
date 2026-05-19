@@ -3,8 +3,8 @@
 /* The dropdown popup — position/top/bottom/left/maxHeight set inline via usePopupPosition */
 .dmgPicker {
   z-index: 200;
-  background: var(--bg-mid, #2a2118);
-  border: 1px solid var(--border);
+  background: var(--color-bg-popup);
+  border: 1px solid var(--color-border);
   border-radius: 5px;
   padding: 5px 6px;
   box-shadow: 0 4px 14px rgba(0,0,0,0.5);
@@ -24,16 +24,16 @@
 }
 
 .dmgPickerGroup + .dmgPickerGroup {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
 }
 
 /* Individual popup button */
 .dmgPickerBtn {
   padding: 2px 7px;
   border-radius: 3px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text-mid);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-mid);
   font-size: 0.68rem;
   cursor: pointer;
   line-height: 1.5;
@@ -47,32 +47,32 @@
 }
 
 .dmgPickerBtn:hover {
-  background: var(--border-l);
-  border-color: var(--crimson);
-  color: var(--crimson);
+  background: var(--color-border-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 /* "persistent ▶" toggle button */
 .dmgPickerPersistent {
-  color: var(--text);
+  color: var(--color-text);
   font-style: italic;
 }
 
 .dmgPickerPersistent:hover {
-  background: var(--border-l);
-  border-color: var(--crimson);
-  color: var(--crimson);
+  background: var(--color-border-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .dmgPickerPersistentActive {
-  background: var(--border-l);
-  border-color: var(--crimson);
-  color: var(--crimson);
+  background: var(--color-border-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 /* Persistent sub-panel */
 .dmgPickerSub {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   margin-top: 2px;
   padding-top: 2px;
 }

@@ -1,8 +1,8 @@
 .panel {
   position: fixed;
   z-index: 501;
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
   padding: 10px 14px 10px;
@@ -45,7 +45,7 @@
 .labelText {
   font-size: 0.68rem;
   font-weight: 700;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: nowrap;
@@ -56,14 +56,14 @@
 .expr {
   font-family: 'DM Mono', monospace;
   font-size: 0.75rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-weight: 600;
 }
 
 .closeBtn {
   background: none;
   border: none;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   cursor: pointer;
   font-size: 0.8rem;
   line-height: 1;
@@ -72,7 +72,7 @@
 }
 
 .closeBtn:hover {
-  color: var(--crimson);
+  color: var(--color-primary);
 }
 
 /* ── Input form ── */
@@ -80,25 +80,25 @@
 .prompt {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--color-text);
   text-align: center;
   width: 100%;
 }
 
 .rangeHint {
   font-size: 0.68rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   text-align: center;
 }
 
 .modHint {
   font-size: 0.65rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 .modValue {
   font-family: 'DM Mono', monospace;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
 }
 
 .input {
@@ -108,21 +108,21 @@
   font-family: 'DM Mono', monospace;
   font-weight: 700;
   text-align: center;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 5px;
-  background: var(--bg, #fff);
-  color: var(--text);
+  background: var(--color-bg);
+  color: var(--color-text);
   box-sizing: border-box;
 }
 
 .input:focus {
   outline: none;
-  border-color: var(--crimson);
+  border-color: var(--color-primary);
 }
 
 .warning {
   font-size: 0.68rem;
-  color: #c8922a;
+  color: var(--color-accent-bright);
   text-align: center;
   width: 100%;
   line-height: 1.4;
@@ -130,8 +130,8 @@
 
 .submitBtn {
   width: 100%;
-  background: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   border: none;
   border-radius: 5px;
   padding: 5px 12px;
@@ -159,17 +159,17 @@
 }
 
 .totalNormal {
-  color: var(--text);
+  color: var(--color-text);
 }
 
 .totalCrit {
-  color: var(--gold, #c8922a);
+  color: var(--color-accent-bright);
 }
 
 .breakdown {
   font-family: 'DM Mono', monospace;
   font-size: 0.68rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   text-align: center;
   line-height: 1.5;
   width: 100%;
@@ -180,7 +180,7 @@
 .critBanner {
   font-size: 0.7rem;
   font-weight: 800;
-  color: var(--gold, #c8922a);
+  color: var(--color-accent-bright);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   text-align: center;
@@ -192,7 +192,7 @@
   width: 100%;
   margin-top: 4px;
   padding-top: 8px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -203,7 +203,7 @@
   width: 100%;
   font-size: 0.68rem;
   font-weight: 700;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -211,7 +211,7 @@
 .dmgGroup {
   width: 100%;
   padding: 4px 0 2px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -222,7 +222,7 @@
   width: 100%;
   font-size: 0.65rem;
   font-weight: 700;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -240,18 +240,18 @@
 .closeResultBtn {
   width: 100%;
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 5px;
   padding: 4px 12px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   cursor: pointer;
   margin-top: 2px;
   transition: background 0.12s, color 0.12s;
 }
 
 .closeResultBtn:hover {
-  background: var(--border);
-  color: var(--text);
+  background: var(--color-border);
+  color: var(--color-text);
 }
