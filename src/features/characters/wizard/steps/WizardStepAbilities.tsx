@@ -1,7 +1,7 @@
 import type { CharacterDraft } from '../../hooks/useCharacterWizard';
 import type { BoostChoicesByLevel, AbilityKey } from '../../../../db/schema';
 import { AbilityBoostPicker } from '../AbilityBoostPicker';
-import { computeAbilityScores, ALL_ABILITIES, ABILITY_ABBR, ABILITY_LABELS } from '../../utils/abilityComputation';
+import { computeAbilityScores, ALL_ABILITIES, ABILITY_ABBR } from '../../utils/abilityComputation';
 import { abilityMod, formatMod } from '../../utils/proficiency';
 import styles from './WizardStepAbilities.module.css';
 
@@ -56,6 +56,20 @@ export function WizardStepAbilities({ draft, onChange }: WizardStepAbilitiesProp
 
   return (
     <div className={styles.step}>
+      <div className={styles.totals}>
+        {ALL_ABILITIES.map(a => {
+          const score = scores[a];
+          const mod = abilityMod(score);
+          return (
+            <div key={a} className={styles.scoreRow}>
+              <span className={styles.scoreName}>{ABILITY_ABBR[a]}</span>
+              <span className={styles.scoreNum}>{score}</span>
+              <span className={styles.scoreMod}>{formatMod(mod)}</span>
+            </div>
+          );
+        })}
+      </div>
+
       <div className={styles.groups}>
         <h3 className={styles.title}>Ability Boosts</h3>
 
@@ -167,22 +181,6 @@ export function WizardStepAbilities({ draft, onChange }: WizardStepAbilitiesProp
             />
           </section>
         )}
-      </div>
-
-      <div className={styles.totals}>
-        <div className={styles.totalsTitle}>Ability Scores</div>
-        {ALL_ABILITIES.map(a => {
-          const score = scores[a];
-          const mod = abilityMod(score);
-          return (
-            <div key={a} className={styles.scoreRow}>
-              <span className={styles.scoreName}>{ABILITY_ABBR[a]}</span>
-              <span className={styles.scoreLabel}>{ABILITY_LABELS[a].slice(0, 3)}</span>
-              <span className={styles.scoreNum}>{score}</span>
-              <span className={styles.scoreMod}>{formatMod(mod)}</span>
-            </div>
-          );
-        })}
       </div>
     </div>
   );

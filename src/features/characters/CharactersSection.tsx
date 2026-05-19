@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { CharacterRecord } from '../../db/schema';
+import type { RollHistoryEntry } from '../../types/diceHistory';
 import { useCharacters } from './hooks/useCharacters';
 import { CharacterSidebar } from './CharacterSidebar';
 import { EmptyCharacterState } from './EmptyCharacterState';
@@ -7,7 +8,11 @@ import { CharacterWizard } from './wizard/CharacterWizard';
 import { CharacterSheet } from './sheet/CharacterSheet';
 import styles from './CharactersSection.module.css';
 
-export function CharactersSection() {
+interface CharactersSectionProps {
+  onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
+}
+
+export function CharactersSection({ onRoll }: CharactersSectionProps) {
   const { characters, loading, selectedId, select, createCharacter, updateCharacter, deleteCharacter } = useCharacters();
   const [showWizard, setShowWizard] = useState(false);
   const selectedCharacter = characters.find(c => c.id === selectedId) ?? null;
@@ -39,6 +44,7 @@ export function CharactersSection() {
             character={selectedCharacter}
             onUpdate={(patch) => updateCharacter(selectedCharacter.id, patch)}
             onDelete={() => deleteCharacter(selectedCharacter.id)}
+            onRoll={onRoll}
           />
         ) : (
           <EmptyCharacterState onNew={() => setShowWizard(true)} />

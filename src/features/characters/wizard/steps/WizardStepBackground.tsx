@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import type { CharacterBackgroundRef, BackgroundRecord } from '../../../../db/schema';
 import { useBackgroundData } from '../../hooks/useBackgroundData';
+import { PickerLayout } from '../shared/PickerLayout';
+import { EntityCard } from '../shared/EntityCard';
+import { DetailPanel, DetailSection } from '../shared/DetailPanel';
 import styles from './WizardStepBackground.module.css';
 
 interface WizardStepBackgroundProps {
@@ -35,74 +38,60 @@ export function WizardStepBackground({ selected, onSelect }: WizardStepBackgroun
     ? backgrounds.find(b => b.id === selected.id) ?? null
     : null;
 
-  return (
-    <div className={styles.step}>
-      <div className={styles.left}>
-        <div className={styles.heading}>
-          <h3 className={styles.title}>Choose Background</h3>
-          <p className={styles.sub}>Your background describes your life before adventuring.</p>
-        </div>
-        <input
-          className={styles.search}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search backgrounds…"
-        />
-        {loading && <div className={styles.loading}>Loading…</div>}
-        <div className={styles.grid}>
-          {filtered.map(b => (
-            <button
-              key={b.id}
-              className={`${styles.card} ${selected?.id === b.id ? styles.cardSelected : ''}`}
-              onClick={() => selectBackground(b)}
-            >
-              <div className={styles.cardName}>{b.name}</div>
-              <div className={styles.cardSkills}>
-                {b.trainedSkills.map(s => (
-                  <span key={s} className={styles.skillBadge}>{s}</span>
-                ))}
-              </div>
-            </button>
+  const detailContent = selectedRecord && (
+    <DetailPanel name={selectedRecord.name} className={styles.detailPanel}>
+      <p className={styles.description}>{selectedRecord.description}</p>
+      <DetailSection label="Trained Skills">
+        <div className={styles.skillList}>
+          {selectedRecord.trainedSkills.map(s => (
+            <span key={s} className={styles.skillBadge}>{s}</span>
+          ))}
+          {selectedRecord.trainedLoreSkills.map(s => (
+            <span key={s} className={`${styles.skillBadge} ${styles.loreBadge}`}>{s} Lore</span>
           ))}
         </div>
-      </div>
-
-      {selectedRecord && (
-        <div className={styles.detail}>
-          <h4 className={styles.detailName}>{selectedRecord.name}</h4>
-          <p className={styles.description}>{selectedRecord.description}</p>
-          <div className={styles.detailSection}>
-            <div className={styles.detailSectionLabel}>Trained Skills</div>
-            <div className={styles.skillList}>
-              {selectedRecord.trainedSkills.map(s => (
-                <span key={s} className={styles.skillBadge}>{s}</span>
-              ))}
-              {selectedRecord.trainedLoreSkills.map(s => (
-                <span key={s} className={`${styles.skillBadge} ${styles.loreBadge}`}>{s} Lore</span>
-              ))}
-            </div>
-          </div>
-          <div className={styles.detailSection}>
-            <div className={styles.detailSectionLabel}>Ability Boosts</div>
-            <div className={styles.boostList}>
-              {selectedRecord.boostOptions.map((opt, i) => (
-                <span key={i} className={styles.boostOpt}>
-                  {opt.choices.map(k => k.toUpperCase()).join(' or ')}
-                </span>
-              ))}
-              {selectedRecord.freeBoostCount > 0 && (
-                <span className={styles.boostOpt}>Free ({selectedRecord.freeBoostCount})</span>
-              )}
-            </div>
-          </div>
-          {selectedRecord.grantedFeat && (
-            <div className={styles.detailSection}>
-              <div className={styles.detailSectionLabel}>Granted Feat</div>
-              <span className={styles.grantedFeat}>{selectedRecord.grantedFeat.name}</span>
-            </div>
+      </DetailSection>
+      <DetailSection label="Ability Boosts">
+        <div className={styles.boostList}>
+          {selectedRecord.boostOptions.map((opt, i) => (
+            <span key={i} className={styles.boostOpt}>
+              {opt.choices.map(k => k.toUpperCase()).join(' or ')}
+            </span>
+          ))}
+          {selectedRecord.freeBoostCount > 0 && (
+            <span className={styles.boostOpt}>Free ({selectedRecord.freeBoostCount})</span>
           )}
         </div>
+      </DetailSection>
+      {selectedRecord.grantedFeat && (
+        <DetailSection label="Granted Feat">
+          <span className={styles.grantedFeat}>{selectedRecord.grantedFeat.name}</span>
+        </DetailSection>
       )}
-    </div>
+    </DetailPanel>
+  );
+
+  return (
+    <PickerLayout
+      title="Choose Background"
+      sub="Your background describes your life before adventuring."
+      search={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Search backgrounds…"
+      loading={loading}
+      detail={detailContent}
+    >
+      <div className={styles.grid}>
+        {filtered.map(b => (
+          <EntityCard
+            key={b.id}
+            name={b.name}
+            selected={selected?.id === b.id}
+            traits={b.trainedSkills}
+            onClick={() => selectBackground(b)}
+          />
+        ))}
+      </div>
+    </PickerLayout>
   );
 }

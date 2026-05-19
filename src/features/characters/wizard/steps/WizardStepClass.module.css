@@ -1,116 +1,8 @@
-.step {
-  display: flex;
-  gap: 20px;
-  flex: 1;
-  min-height: 0;
-}
-
-.left {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
-
-.heading { display: flex; flex-direction: column; gap: 4px; }
-
-.title {
-  font-family: 'Cinzel', Georgia, serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-.sub {
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-}
-
-.search {
-  padding: 7px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-size: 0.82rem;
-}
-
-.search:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
-}
-
-.loading {
-  color: var(--color-text-muted);
-  font-size: 0.82rem;
-  padding: 20px 0;
-  text-align: center;
-}
-
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   gap: 8px;
   overflow-y: auto;
-}
-
-.card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 10px;
-  cursor: pointer;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  transition: border-color 0.1s;
-}
-
-.card:hover { border-color: var(--color-accent); }
-
-.card.cardSelected {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--color-primary-glow);
-}
-
-.cardName {
-  font-family: 'Cinzel', Georgia, serif;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.cardStats {
-  font-size: 0.68rem;
-  color: var(--color-text-muted);
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* Detail pane */
-.detail {
-  width: 260px;
-  flex-shrink: 0;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow-y: auto;
-  align-self: flex-start;
-  max-height: 100%;
-}
-
-.detailName {
-  font-family: 'Cinzel', Georgia, serif;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--color-primary);
 }
 
 .detailStats {
@@ -127,16 +19,6 @@
 
 .statLabel { color: var(--color-text-muted); }
 .statVal { font-weight: 600; color: var(--color-text); }
-
-.detailSection { display: flex; flex-direction: column; gap: 6px; }
-
-.detailSectionLabel {
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--color-text-muted);
-}
 
 .skillList {
   display: flex;
@@ -202,3 +84,8 @@
 }
 
 .kaBtn.kaActive .kaLabel { color: var(--color-primary-text-muted); }
+
+.detailPanel {
+  width: 260px;
+  gap: 12px;
+}

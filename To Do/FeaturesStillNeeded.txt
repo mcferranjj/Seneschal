@@ -19,5 +19,5 @@ Rules:
     
     
 Characters:
-    - needs more exploratory and requirements written up
+    - need to reformat basically everything, add level up functionality, and continue refining the rough draft
     

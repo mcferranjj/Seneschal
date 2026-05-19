@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { CharacterRecord } from '../../../db/schema';
+import type { RollHistoryEntry } from '../../../types/diceHistory';
 import { SheetIdentityBar } from './SheetIdentityBar';
 import { SheetHPBlock } from './SheetHPBlock';
 import { SheetDerivedStats } from './SheetDerivedStats';
@@ -13,9 +14,11 @@ interface CharacterSheetProps {
   character: CharacterRecord;
   onUpdate: (patch: Partial<CharacterRecord>) => Promise<void>;
   onDelete: () => void;
+  onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
+  previewMode?: boolean;
 }
 
-export function CharacterSheet({ character, onUpdate, onDelete }: CharacterSheetProps) {
+export function CharacterSheet({ character, onUpdate, onDelete, onRoll, previewMode }: CharacterSheetProps) {
   const [currentHp, setCurrentHp] = useState(character.currentHp);
   const [tempHp, setTempHp] = useState(character.tempHp);
 
@@ -36,6 +39,7 @@ export function CharacterSheet({ character, onUpdate, onDelete }: CharacterSheet
       <SheetIdentityBar
         character={character}
         onDelete={onDelete}
+        previewMode={previewMode}
       />
       <div className={styles.body}>
         <div className={styles.topRow}>
@@ -49,6 +53,7 @@ export function CharacterSheet({ character, onUpdate, onDelete }: CharacterSheet
           <SheetDerivedStats
             derived={character.derivedStats}
             level={character.level}
+            onRoll={onRoll}
           />
         </div>
 
@@ -57,6 +62,7 @@ export function CharacterSheet({ character, onUpdate, onDelete }: CharacterSheet
         <div className={styles.lowerGrid}>
           <SheetSkills
             character={character}
+            onRoll={onRoll}
           />
           <div className={styles.rightCol}>
             <SheetFeats feats={character.feats} />

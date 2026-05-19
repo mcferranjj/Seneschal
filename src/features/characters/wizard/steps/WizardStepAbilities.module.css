@@ -1,6 +1,7 @@
 .step {
   display: flex;
-  gap: 20px;
+  flex-direction: column;
+  gap: 0;
   flex: 1;
   min-height: 0;
 }
@@ -12,6 +13,7 @@
   gap: 16px;
   overflow-y: auto;
   min-width: 0;
+  padding: 16px;
 }
 
 .title {
@@ -70,64 +72,65 @@
   border: 1px solid var(--color-healing);
 }
 
-/* Score totals panel */
+/* Score totals sticky bar */
 .totals {
-  width: 160px;
-  flex-shrink: 0;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 14px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-self: flex-start;
   position: sticky;
   top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  width: 100%;
 }
 
 .totalsTitle {
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--color-text-muted);
-  margin-bottom: 4px;
+  display: none;
 }
 
 .scoreRow {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 2px;
+  padding: 8px 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
 }
 
 .scoreName {
   font-family: 'DM Mono', monospace;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 700;
   color: var(--color-text-muted);
-  width: 30px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  width: auto;
 }
 
 .scoreLabel {
   font-size: 0.62rem;
   color: var(--color-text-muted);
-  flex: 1;
+  flex: none;
 }
 
 .scoreNum {
-  font-family: 'DM Mono', monospace;
-  font-size: 0.92rem;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.2rem;
   font-weight: 700;
   color: var(--color-text);
-  width: 24px;
-  text-align: right;
+  width: auto;
+  text-align: center;
 }
 
 .scoreMod {
   font-family: 'DM Mono', monospace;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--color-primary);
-  width: 28px;
-  text-align: right;
+  width: auto;
+  text-align: center;
 }

@@ -1,173 +1,12 @@
-.step {
-  display: flex;
-  gap: 20px;
-  flex: 1;
-  min-height: 0;
-}
-
-.left {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
-
-.heading { display: flex; flex-direction: column; gap: 4px; }
-
-.title {
-  font-family: 'Cinzel', Georgia, serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-.sub {
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-}
-
-.search {
-  padding: 7px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-size: 0.82rem;
-}
-
-.search:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
-}
-
-.loading {
-  color: var(--color-text-muted);
-  font-size: 0.82rem;
-  padding: 20px 0;
-  text-align: center;
-}
-
-.groupedList {
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-height: 0;
-}
-
-.rarityGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.rarityHeader {
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 2px 6px;
-  border-radius: 4px;
-  align-self: flex-start;
-}
-
-.rarity_common {
-  background: var(--color-bg-overlay-light);
-  color: var(--color-text-mid);
-  border: 1px solid var(--color-border);
-}
-
-.rarity_uncommon {
-  background: var(--color-accent-on-dark);
-  color: var(--color-accent);
-  border: 1px solid var(--color-accent);
-}
-
-.rarity_rare {
-  background: var(--color-primary-tint);
-  color: var(--color-primary);
-  border: 1px solid var(--color-primary);
-}
-
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 8px;
 }
 
-.card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 10px 10px;
-  cursor: pointer;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  transition: border-color 0.1s;
-}
-
-.card:hover { border-color: var(--color-accent); }
-
-.card.cardSelected {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--color-primary-glow);
-}
-
-.cardName {
-  font-family: 'Cinzel', Georgia, serif;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.cardStats {
-  font-size: 0.68rem;
-  color: var(--color-text-muted);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.traits {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  margin-top: 2px;
-}
-
-.trait {
-  font-size: 0.62rem;
-  font-weight: 600;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: var(--color-primary-tint);
-  color: var(--color-primary);
-}
-
-/* Detail pane */
-.detail {
+.detailPanel {
   width: 240px;
-  flex-shrink: 0;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
   gap: 14px;
-  overflow-y: auto;
-  align-self: flex-start;
-  max-height: 100%;
-}
-
-.detailName {
-  font-family: 'Cinzel', Georgia, serif;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--color-primary);
 }
 
 .detailStats {
@@ -185,14 +24,19 @@
 .statLabel { color: var(--color-text-muted); }
 .statVal { font-weight: 600; color: var(--color-text); }
 
-.detailSection { display: flex; flex-direction: column; gap: 6px; }
+.traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
 
-.detailSectionLabel {
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--color-text-muted);
+.trait {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--color-primary-tint);
+  color: var(--color-primary);
 }
 
 .boostInfo {

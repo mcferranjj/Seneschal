@@ -124,7 +124,7 @@ export function WizardStepFeats({ draft, onChange }: WizardStepFeatsProps) {
         </div>
       </div>
 
-      {activeSlot && (
+      {activeSlot ? (
         <FeatBrowser
           slotType={activeSlot.slotType}
           slotLevel={activeSlot.level}
@@ -136,7 +136,12 @@ export function WizardStepFeats({ draft, onChange }: WizardStepFeatsProps) {
           ancestrySlug={draft.ancestry?.slug}
           classSlug={draft.class?.slug}
           versatileAncestrySlug={draft.heritage?.versatileAncestrySlug ?? undefined}
+          variant="inline"
         />
+      ) : (
+        <div className={styles.browserPlaceholder}>
+          Select a feat slot to browse feats.
+        </div>
       )}
     </div>
   );

@@ -5,7 +5,18 @@
   overflow-y: auto;
 }
 
-.heading { display: flex; flex-direction: column; gap: 4px; }
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 
 .title {
   font-family: 'Cinzel', Georgia, serif;
@@ -19,82 +30,29 @@
   color: var(--color-text-muted);
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 14px;
-}
-
-.section {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.sectionTitle {
-  font-family: 'Cinzel', Georgia, serif;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--color-primary);
-  margin-bottom: 4px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.reviewRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.78rem;
-}
-
-.label {
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
-
-.val {
-  font-weight: 600;
-  color: var(--color-text);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.score {
-  font-family: 'DM Mono', monospace;
+.finishBtn {
+  align-self: flex-start;
+  padding: 10px 16px;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border: none;
+  border-radius: 6px;
   font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
 }
 
-.mod {
-  font-family: 'DM Mono', monospace;
-  font-size: 0.78rem;
-  color: var(--color-primary);
+.finishBtn:hover:not(:disabled) {
+  opacity: 0.9;
 }
 
-.rankBadge {
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.62rem;
-  font-weight: 700;
+.finishBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.rankT { background: var(--color-healing); color: #fff; }
-.rankE { background: var(--color-modified); color: #fff; }
-.rankM { background: var(--color-accent); color: #fff; }
-.rankL { background: var(--color-primary); color: var(--color-primary-text); }
-
-.none {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  font-style: italic;
+.preview {
+  flex: 1;
+  overflow-y: auto;
 }

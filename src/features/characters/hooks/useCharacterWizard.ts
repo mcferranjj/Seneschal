@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type {
-  CharacterRecord, AbilityKey, AbilityScores, CharacterSkills,
+  CharacterRecord, CharacterSkills,
   BoostChoicesByLevel, FeatChoice, CharacterAncestryRef, CharacterHeritageRef,
   CharacterBackgroundRef, CharacterClassRef,
 } from '../../../db/schema';
@@ -10,9 +10,7 @@ import { computeDerivedStats } from '../utils/derivedStats';
 import { computeFeatSlots, mergeFeatChoices } from '../utils/featSlots';
 
 export type WizardStep =
-  | 'info'
-  | 'ancestry'
-  | 'heritage'
+  | 'lineage'
   | 'background'
   | 'class'
   | 'abilities'
@@ -40,7 +38,7 @@ export interface CharacterDraft {
 }
 
 const STEPS: WizardStep[] = [
-  'info', 'ancestry', 'heritage', 'background', 'class',
+  'lineage', 'background', 'class',
   'abilities', 'skills', 'feats', 'review',
 ];
 
@@ -75,9 +73,7 @@ function blankDraft(): CharacterDraft {
 
 function isStepComplete(step: WizardStep, draft: CharacterDraft): boolean {
   switch (step) {
-    case 'info': return draft.name.trim().length > 0;
-    case 'ancestry': return draft.ancestry !== null;
-    case 'heritage': return draft.heritage !== null;
+    case 'lineage': return draft.name.trim().length > 0 && draft.ancestry !== null && draft.heritage !== null;
     case 'background': return draft.background !== null;
     case 'class': return draft.class !== null && draft.boostChoices.classKeyAbility !== null;
     case 'abilities': return true; // always passable
@@ -90,21 +86,31 @@ function isStepComplete(step: WizardStep, draft: CharacterDraft): boolean {
 
 export function useCharacterWizard() {
   const [draft, setDraft] = useState<CharacterDraft>(blankDraft());
-  const [activeStep, setActiveStep] = useState<WizardStep>('info');
+  const [activeStep, setActiveStep] = useState<WizardStep>('lineage');
   const [saving, setSaving] = useState(false);
 
   const activeIndex = STEPS.indexOf(activeStep);
 
+  const stepLabels: Record<WizardStep, string> = {
+    'lineage': 'Lineage',
+    'background': 'Background',
+    'class': 'Class',
+    'abilities': 'Abilities',
+    'skills': 'Skills',
+    'feats': 'Feats',
+    'review': 'Review',
+  };
+
   const stepMeta: WizardStepMeta[] = STEPS.map((key, i) => ({
     key,
-    label: key.charAt(0).toUpperCase() + key.slice(1),
+    label: stepLabels[key],
     completed: i < activeIndex || isStepComplete(key, draft),
   }));
 
   const canBack = activeIndex > 0;
   const canNext = activeIndex < STEPS.length - 1 && isStepComplete(activeStep, draft);
   const isLastStep = activeIndex === STEPS.length - 1;
-  const canFinish = isLastStep && (['info', 'ancestry', 'heritage', 'background', 'class'] as WizardStep[])
+  const canFinish = isLastStep && (['lineage', 'background', 'class'] as WizardStep[])
     .every(s => isStepComplete(s, draft));
 
   const goBack = useCallback(() => {
@@ -218,7 +224,7 @@ export function useCharacterWizard() {
 
   const reset = useCallback(() => {
     setDraft(blankDraft());
-    setActiveStep('info');
+    setActiveStep('lineage');
   }, []);
 
   return {

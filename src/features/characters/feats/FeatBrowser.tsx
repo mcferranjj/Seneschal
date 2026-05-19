@@ -12,6 +12,7 @@ interface FeatBrowserProps {
   ancestrySlug?: string;
   classSlug?: string;
   versatileAncestrySlug?: string;
+  variant?: 'floating' | 'inline';
 }
 
 const ACTION_ICONS: Record<string, string> = {
@@ -33,6 +34,7 @@ function actionCost(feat: FeatRecord): string {
 export function FeatBrowser({
   slotType, slotLevel, currentFeatId, onAssign, onClose,
   ancestrySlug, classSlug, versatileAncestrySlug,
+  variant = 'floating',
 }: FeatBrowserProps) {
   const { filterFeats } = useFeatData();
   const [search, setSearch] = useState('');
@@ -57,7 +59,7 @@ export function FeatBrowser({
   }
 
   return (
-    <div className={styles.panel}>
+    <div className={`${styles.panel} ${variant === 'inline' ? styles.inline : ''}`}>
       <div className={styles.header}>
         <div className={styles.headerTitle}>
           <span className={styles.title}>Choose Feat</span>

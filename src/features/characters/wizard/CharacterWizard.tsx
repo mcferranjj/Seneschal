@@ -4,9 +4,7 @@ import { useCharBuilderSync } from '../hooks/useCharBuilderSync';
 import { CharBuilderSyncBanner } from '../CharBuilderSyncBanner';
 import { WizardProgress } from './WizardProgress';
 import { WizardNav } from './WizardNav';
-import { WizardStepInfo } from './steps/WizardStepInfo';
-import { WizardStepAncestry } from './steps/WizardStepAncestry';
-import { WizardStepHeritage } from './steps/WizardStepHeritage';
+import { WizardStepLineage } from './steps/WizardStepLineage';
 import { WizardStepBackground } from './steps/WizardStepBackground';
 import { WizardStepClass } from './steps/WizardStepClass';
 import { WizardStepAbilities } from './steps/WizardStepAbilities';
@@ -60,25 +58,12 @@ export function CharacterWizard({ onComplete, onCancel }: CharacterWizardProps) 
         />
       )}
       <div className={styles.body}>
-        {activeStep === 'info' && (
-          <WizardStepInfo
-            name={draft.name}
-            playerName={draft.playerName}
-            level={draft.level}
+        {activeStep === 'lineage' && (
+          <WizardStepLineage
+            draft={draft}
             onChange={updateDraft}
-          />
-        )}
-        {activeStep === 'ancestry' && (
-          <WizardStepAncestry
-            selected={draft.ancestry}
-            onSelect={setAncestry}
-          />
-        )}
-        {activeStep === 'heritage' && (
-          <WizardStepHeritage
-            ancestrySlug={draft.ancestry?.slug}
-            selected={draft.heritage}
-            onSelect={setHeritage}
+            onAncestrySelect={setAncestry}
+            onHeritageSelect={setHeritage}
           />
         )}
         {activeStep === 'background' && (

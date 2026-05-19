@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import type { CharacterHeritageRef, HeritageRecord } from '../../../../db/schema';
 import { useHeritageData } from '../../hooks/useHeritageData';
+import { PickerLayout } from '../shared/PickerLayout';
+import { EntityCard } from '../shared/EntityCard';
+import { DetailPanel, DetailSection } from '../shared/DetailPanel';
 import styles from './WizardStepHeritage.module.css';
 
 interface WizardStepHeritageProps {
   ancestrySlug: string | undefined;
   selected: CharacterHeritageRef | null;
   onSelect: (heritage: CharacterHeritageRef | null) => void;
+  hideHeading?: boolean;
 }
 
-export function WizardStepHeritage({ ancestrySlug, selected, onSelect }: WizardStepHeritageProps) {
+export function WizardStepHeritage({ ancestrySlug, selected, onSelect, hideHeading }: WizardStepHeritageProps) {
   const { heritages, loading } = useHeritageData(ancestrySlug);
   const [search, setSearch] = useState('');
 
@@ -36,89 +40,69 @@ export function WizardStepHeritage({ ancestrySlug, selected, onSelect }: WizardS
 
   if (!ancestrySlug) {
     return (
-      <div className={styles.step}>
-        <div className={styles.empty}>Please select an ancestry first.</div>
+      <div className={styles.emptyState}>
+        <p>Please select an ancestry first.</p>
       </div>
     );
   }
 
-  return (
-    <div className={styles.step}>
-      <div className={styles.left}>
-        <div className={styles.heading}>
-          <h3 className={styles.title}>Choose Heritage</h3>
-          <p className={styles.sub}>Your heritage represents your lineage within your ancestry.</p>
+  const detailContent = selectedRecord && (
+    <DetailPanel
+      name={selectedRecord.name}
+      badge={selectedRecord.isVersatile ? <span className={styles.versatileBadge}>Versatile</span> : undefined}
+      className={styles.detailPanel}
+    >
+      <p className={styles.description}>{selectedRecord.description}</p>
+      <DetailSection label="Traits">
+        <div className={styles.traits}>
+          {selectedRecord.traits.map(t => <span key={t} className={styles.trait}>{t}</span>)}
         </div>
-        <input
-          className={styles.search}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search heritages…"
-        />
-        {loading && <div className={styles.loading}>Loading…</div>}
-        <div className={styles.groupedList}>
-          {ancestryHeritages.length > 0 && (
-            <div className={styles.heritageGroup}>
-              <div className={styles.groupHeader}>Ancestry Heritages</div>
-              <div className={styles.grid}>
-                {ancestryHeritages.map(h => (
-                  <button
-                    key={h.id}
-                    className={`${styles.card} ${selected?.id === h.id ? styles.cardSelected : ''}`}
-                    onClick={() => selectHeritage(h)}
-                  >
-                    <span className={styles.cardName}>{h.name}</span>
-                    <div className={styles.traits}>
-                      {h.traits.map(t => (
-                        <span key={t} className={styles.trait}>{t}</span>
-                      ))}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {versatileHeritages.length > 0 && (
-            <div className={styles.heritageGroup}>
-              <div className={`${styles.groupHeader} ${styles.groupHeaderVersatile}`}>Versatile Heritages</div>
-              <div className={styles.grid}>
-                {versatileHeritages.map(h => (
-                  <button
-                    key={h.id}
-                    className={`${styles.card} ${selected?.id === h.id ? styles.cardSelected : ''}`}
-                    onClick={() => selectHeritage(h)}
-                  >
-                    <span className={styles.cardName}>{h.name}</span>
-                    <div className={styles.traits}>
-                      {h.traits.map(t => (
-                        <span key={t} className={styles.trait}>{t}</span>
-                      ))}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      </DetailSection>
+    </DetailPanel>
+  );
 
-      {selectedRecord && (
-        <div className={styles.detail}>
-          <div className={styles.detailHeader}>
-            <h4 className={styles.detailName}>{selectedRecord.name}</h4>
-            {selectedRecord.isVersatile && (
-              <span className={styles.versatileBadge}>Versatile</span>
-            )}
-          </div>
-          <p className={styles.description}>{selectedRecord.description}</p>
-          <div className={styles.detailSection}>
-            <div className={styles.detailSectionLabel}>Traits</div>
-            <div className={styles.traits}>
-              {selectedRecord.traits.map(t => <span key={t} className={styles.trait}>{t}</span>)}
-            </div>
+  return (
+    <PickerLayout
+      title={hideHeading ? undefined : "Choose Heritage"}
+      sub={hideHeading ? undefined : "Your heritage represents your lineage within your ancestry."}
+      search={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Search heritages…"
+      loading={loading}
+      detail={detailContent}
+    >
+      {ancestryHeritages.length > 0 && (
+        <div className={styles.heritageGroup}>
+          <div className={styles.groupHeader}>Ancestry Heritages</div>
+          <div className={styles.grid}>
+            {ancestryHeritages.map(h => (
+              <EntityCard
+                key={h.id}
+                name={h.name}
+                selected={selected?.id === h.id}
+                traits={h.traits}
+                onClick={() => selectHeritage(h)}
+              />
+            ))}
           </div>
         </div>
       )}
-    </div>
+      {versatileHeritages.length > 0 && (
+        <div className={styles.heritageGroup}>
+          <div className={`${styles.groupHeader} ${styles.groupHeaderVersatile}`}>Versatile Heritages</div>
+          <div className={styles.grid}>
+            {versatileHeritages.map(h => (
+              <EntityCard
+                key={h.id}
+                name={h.name}
+                selected={selected?.id === h.id}
+                traits={h.traits}
+                onClick={() => selectHeritage(h)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </PickerLayout>
   );
 }

@@ -438,7 +438,7 @@ export default function App() {
           </div>
         )}
         {activeSection === 'rules' && <RulesSection />}
-        {activeSection === 'characters' && <CharactersSection />}
+        {activeSection === 'characters' && <CharactersSection onRoll={addRollEntry} />}
         {activeSection === 'parties' && <PartiesSection />}
       </div>
     </div>

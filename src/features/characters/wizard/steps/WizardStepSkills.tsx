@@ -1,8 +1,8 @@
 import type { CharacterDraft } from '../../hooks/useCharacterWizard';
-import type { CharacterSkills, SkillRank } from '../../../../db/schema';
+import type { CharacterSkills, SkillRank, AbilityKey } from '../../../../db/schema';
 import { STANDARD_SKILLS, getLockedSkillKeys } from '../../utils/skillHelpers';
 import { computeAbilityScores } from '../../utils/abilityComputation';
-import { abilityMod } from '../../utils/proficiency';
+import { abilityMod, proficiencyBonus, formatMod } from '../../utils/proficiency';
 import styles from './WizardStepSkills.module.css';
 
 interface WizardStepSkillsProps {
@@ -65,6 +65,7 @@ export function WizardStepSkills({ draft, onChange }: WizardStepSkillsProps) {
           const rank = skills[key];
           const isLocked = lockedKeys.has(key);
           const isTrained = rank >= 1;
+          const mod = proficiencyBonus(rank, draft.level) + abilityMod(computedScores[skillDef.ability as AbilityKey]);
 
           return (
             <button
@@ -78,6 +79,7 @@ export function WizardStepSkills({ draft, onChange }: WizardStepSkillsProps) {
               </span>
               <span className={styles.skillName}>{skillDef.label}</span>
               <span className={styles.skillAbility}>{skillDef.ability.toUpperCase()}</span>
+              <span className={styles.skillMod}>{formatMod(mod)}</span>
               {isLocked && <span className={styles.lockIcon} title="Locked by background or class">🔒</span>}
             </button>
           );
@@ -87,14 +89,18 @@ export function WizardStepSkills({ draft, onChange }: WizardStepSkillsProps) {
       {background?.trainedLoreSkills && background.trainedLoreSkills.length > 0 && (
         <div className={styles.loreSection}>
           <div className={styles.loreSectionLabel}>Lore Skills (from Background)</div>
-          {background.trainedLoreSkills.map(s => (
-            <div key={s} className={`${styles.skillRow} ${styles.trained} ${styles.locked}`}>
-              <span className={`${styles.rankBadge} ${styles.rankTrained}`}>T</span>
-              <span className={styles.skillName}>{s} Lore</span>
-              <span className={styles.skillAbility}>INT</span>
-              <span className={styles.lockIcon}>🔒</span>
-            </div>
-          ))}
+          {background.trainedLoreSkills.map(s => {
+            const loreMod = proficiencyBonus(1, draft.level) + abilityMod(computedScores.int);
+            return (
+              <div key={s} className={`${styles.skillRow} ${styles.trained} ${styles.locked}`}>
+                <span className={`${styles.rankBadge} ${styles.rankTrained}`}>T</span>
+                <span className={styles.skillName}>{s} Lore</span>
+                <span className={styles.skillAbility}>INT</span>
+                <span className={styles.skillMod}>{formatMod(loreMod)}</span>
+                <span className={styles.lockIcon}>🔒</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

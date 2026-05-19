@@ -5,9 +5,10 @@ import styles from './SheetIdentityBar.module.css';
 interface SheetIdentityBarProps {
   character: CharacterRecord;
   onDelete: () => void;
+  previewMode?: boolean;
 }
 
-export function SheetIdentityBar({ character, onDelete }: SheetIdentityBarProps) {
+export function SheetIdentityBar({ character, onDelete, previewMode }: SheetIdentityBarProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const ancestry = character.ancestry?.name ?? '';
@@ -37,24 +38,26 @@ export function SheetIdentityBar({ character, onDelete }: SheetIdentityBarProps)
           <span className={styles.level}>Level {character.level}</span>
         </div>
       </div>
-      <div className={styles.actions}>
-        <button
-          className={styles.levelUpBtn}
-          disabled
-          title="Coming soon"
-        >
-          Level Up
-        </button>
-        {confirmDelete ? (
-          <>
-            <span className={styles.confirmText}>Delete?</span>
-            <button className={styles.confirmDeleteBtn} onClick={handleDelete}>Yes</button>
-            <button className={styles.cancelDeleteBtn} onClick={() => setConfirmDelete(false)}>No</button>
-          </>
-        ) : (
-          <button className={styles.deleteBtn} onClick={handleDelete}>Delete</button>
-        )}
-      </div>
+      {!previewMode && (
+        <div className={styles.actions}>
+          <button
+            className={styles.levelUpBtn}
+            disabled
+            title="Coming soon"
+          >
+            Level Up
+          </button>
+          {confirmDelete ? (
+            <>
+              <span className={styles.confirmText}>Delete?</span>
+              <button className={styles.confirmDeleteBtn} onClick={handleDelete}>Yes</button>
+              <button className={styles.cancelDeleteBtn} onClick={() => setConfirmDelete(false)}>No</button>
+            </>
+          ) : (
+            <button className={styles.deleteBtn} onClick={handleDelete}>Delete</button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

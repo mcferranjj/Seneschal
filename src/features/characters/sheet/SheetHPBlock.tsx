@@ -47,7 +47,7 @@ export function SheetHPBlock({
 
   return (
     <div className={styles.block}>
-      <div className={styles.hpDisplay}>
+      <div className={styles.hpTopRow}>
         <div className={styles.hpMain}>
           {directInput ? (
             <input
@@ -74,7 +74,7 @@ export function SheetHPBlock({
         </div>
         <div className={styles.hpLabel}>Hit Points</div>
         {tempHp > 0 && (
-          <div className={styles.tempHp}>+{tempHp} temp</div>
+          <div className={styles.tempHpChip}>+{tempHp} temp</div>
         )}
       </div>
 
@@ -82,7 +82,7 @@ export function SheetHPBlock({
         <div className={`${styles.hpFill} ${barClass}`} style={{ width: `${Math.min(100, pct * 100)}%` }} />
       </div>
 
-      <div className={styles.controls}>
+      <div className={styles.bottomRow}>
         <input
           className={styles.amountInput}
           type="number"
@@ -100,9 +100,6 @@ export function SheetHPBlock({
         <button className={styles.healBtn} onClick={handleHeal} disabled={!amount || parseInt(amount) <= 0}>
           Heal
         </button>
-      </div>
-
-      <div className={styles.tempRow}>
         <span className={styles.tempLabel}>Temp HP</span>
         <input
           className={styles.tempInput}
