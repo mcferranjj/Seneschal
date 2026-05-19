@@ -133,6 +133,7 @@ export interface EncounterCreature {
   eliteWeak?: 'elite' | 'weak'; // Elite/Weak adjustment (Monster Core pg. 6-7)
   scaledLevel?: number; // Custom level scaling; undefined = no scaling
   baseMaxHp?: number; // Raw max HP before elite/weak adjustment; undefined = use maxHp
+  notes?: string; // GM notes for this encounter instance
 }
 
 export interface Encounter {

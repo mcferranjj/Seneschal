@@ -1,4 +1,7 @@
 Minor Improvements:
+    - add initiative rolls to dice history
+    - add creature families as filter options
+
     - make creatures click and draggable into, out of, and around the combat tracker (dragging creatures in the tracker should automatically update their initiative)
 
     - pictures?
@@ -9,9 +12,13 @@ Backend Cleanup/Improvements:
     - consolidate custom creature and official creature storage formats, and consolidate their display
 
 Bug Fixes:
-    - make sure "custom" is always present as a source, even when no custom creatures are in the database. Only turn it on by default if custom creatures are found
+    - aon links broken again
     - fix cases where formatting text (markdown, etc.) is appearing in descriptions of abilities in copy-and-edit windows
     - look into why some descriptions are missing (e.g. Tooth Fairy)
+    - make initiative rolls work and add a button to reroll it
+    - scrolling while hover-to-popup text is on screen makes it confused
+    - hover-to-popup doesn't allow clicking for traits in descriptions. Maybe should just make them all click-only rather than hover, or make that a preference
+    - persistent damage in strikes
 
 Unanswered Questions:
     - is it legal to include pics plus the flavor descriptions in a public product if I make someone prove they own the pdf first?

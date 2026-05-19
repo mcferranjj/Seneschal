@@ -30,11 +30,13 @@ export interface UseEncounterReturn {
   reorderEncounters: (fromIdx: number, toIdx: number) => void;
   deleteEncounter: (idx: number) => void;
   removeCreature: (uid: string) => void;
+  renameCreature: (uid: string, name: string) => void;
   updateHP: (uid: string, delta: number) => void;
   setHPDirect: (uid: string, newHp: number) => void;
   updateConditions: (uid: string, conditions: Condition[]) => void;
   setEliteWeak: (uid: string, adjustment: 'elite' | 'weak' | undefined) => void;
   setScaledLevel: (uid: string, level: number | undefined) => Promise<void>;
+  setCreatureNotes: (uid: string, notes: string) => void;
   duplicateCreature: (uid: string) => void;
   addCustomCreature: (
     name: string,
@@ -48,6 +50,18 @@ export interface UseEncounterReturn {
     abilities?: CustomAbility[],
     isEnemy?: boolean,
   ) => void;
+}
+
+/** Returns a name with a numeric suffix that doesn't conflict with existing names.
+ *  e.g. "Goblin" → "Goblin (2)" if "Goblin" already exists, or "Goblin (3)" if both do. */
+function uniqueName(baseName: string, existing: EncounterCreature[]): string {
+  const takenNames = new Set(existing.map(c => c.name));
+  if (!takenNames.has(baseName)) return baseName;
+  // Strip any existing " (N)" suffix from the base
+  const stripped = baseName.replace(/ \(\d+\)$/, '');
+  let n = 2;
+  while (takenNames.has(`${stripped} (${n})`)) n++;
+  return `${stripped} (${n})`;
 }
 
 export function useEncounter(): UseEncounterReturn {
@@ -118,30 +132,32 @@ export function useEncounter(): UseEncounterReturn {
 
       const strMod = pf2e.system?.abilities?.str?.mod;
       const dexMod = pf2e.system?.abilities?.dex?.mod;
-      const entry: EncounterCreature = {
-        uid: `${c.id}-${Date.now()}-${Math.random()}`,
-        creatureId: c.id,
-        name: c.name,
-        level: baseLevel,
-        hp: maxHp,
-        maxHp,
-        ac,
-        fort,
-        ref,
-        will,
-        strMod,
-        dexMod,
-        traits: c.traits,
-        rarity: c.rarity,
-        init: 0,
-        conditions: [],
-        scaledLevel,
-      };
-      setEncounters(prev =>
-        prev.map((enc, i) =>
+      setEncounters(prev => {
+        const enc = prev[activeEnc];
+        const name = uniqueName(c.name, enc?.creatures ?? []);
+        const entry: EncounterCreature = {
+          uid: `${c.id}-${Date.now()}-${Math.random()}`,
+          creatureId: c.id,
+          name,
+          level: baseLevel,
+          hp: maxHp,
+          maxHp,
+          ac,
+          fort,
+          ref,
+          will,
+          strMod,
+          dexMod,
+          traits: c.traits,
+          rarity: c.rarity,
+          init: 0,
+          conditions: [],
+          scaledLevel,
+        };
+        return prev.map((enc, i) =>
           i === activeEnc ? { ...enc, creatures: [...enc.creatures, entry] } : enc
-        )
-      );
+        );
+      });
     },
     [activeEnc]
   );
@@ -351,14 +367,44 @@ export function useEncounter(): UseEncounterReturn {
           if (i !== activeEnc) return enc;
           const original = enc.creatures.find(c => c.uid === uid);
           if (!original) return enc;
+          // Strip any existing suffix before deduplication so the base name is clean
+          const baseName = original.name.replace(/ \(\d+\)$/, '');
+          const name = uniqueName(baseName, enc.creatures);
           const duplicate: EncounterCreature = {
             ...original,
             uid: `${original.custom ? 'custom' : original.creatureId ?? 'creature'}-${Date.now()}-${Math.random()}`,
+            name,
             hp: original.maxHp,
             conditions: [],
           };
           return { ...enc, creatures: [...enc.creatures, duplicate] };
         })
+      );
+    },
+    [activeEnc]
+  );
+
+  const setCreatureNotes = useCallback(
+    (uid: string, notes: string) => {
+      setEncounters(prev =>
+        prev.map((enc, i) =>
+          i === activeEnc
+            ? { ...enc, creatures: enc.creatures.map(c => c.uid === uid ? { ...c, notes } : c) }
+            : enc
+        )
+      );
+    },
+    [activeEnc]
+  );
+
+  const renameCreature = useCallback(
+    (uid: string, name: string) => {
+      setEncounters(prev =>
+        prev.map((enc, i) =>
+          i === activeEnc
+            ? { ...enc, creatures: enc.creatures.map(c => c.uid === uid ? { ...c, name } : c) }
+            : enc
+        )
       );
     },
     [activeEnc]
@@ -419,11 +465,13 @@ export function useEncounter(): UseEncounterReturn {
     reorderEncounters,
     deleteEncounter,
     removeCreature,
+    renameCreature,
     updateHP,
     setHPDirect,
     updateConditions,
     setEliteWeak,
     setScaledLevel,
+    setCreatureNotes,
     duplicateCreature,
     addCustomCreature,
   };

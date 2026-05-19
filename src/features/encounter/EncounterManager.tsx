@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbility } from '../../types/encounter';
 import type { RollHistoryEntry } from '../../types/diceHistory';
+import { getRecallKnowledge, RK_DC_TABLE, RK_RARITY_ADJUSTMENT, RK_SKILLS } from '../../utils/recallKnowledge';
 import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '../../utils/conditionEffects';
 import { DiceRoller } from '../dice/DiceRoller';
 import { ManualRollInput } from '../dice/ManualRollInput';
@@ -18,63 +19,8 @@ interface CombatCreature extends EncounterCreature {
   init: number;
 }
 
-// ── Recall Knowledge ─────────────────────────────────────────────────────────
-// Base DCs for recalling knowledge, indexed by creature level (−1 through 25).
-// From PF2E Remaster GM Core Table 5-6.
-export const RK_DC_TABLE: Record<number, number> = {
-  [-1]: 13, [0]: 14, [1]: 15, [2]: 16, [3]: 18, [4]: 19, [5]: 20, [6]: 22,
-  [7]: 23, [8]: 24, [9]: 26, [10]: 27, [11]: 28, [12]: 30, [13]: 31, [14]: 32,
-  [15]: 34, [16]: 35, [17]: 36, [18]: 38, [19]: 39, [20]: 40, [21]: 42, [22]: 44,
-  [23]: 46, [24]: 48, [25]: 50,
-};
-
-// Rarity DC adjustments per PF2E Remaster GM Core
-export const RK_RARITY_ADJUSTMENT: Record<string, number> = {
-  uncommon: 2,
-  rare:     5,
-  unique:   10,
-};
-
-// Per-creature-type recall knowledge skills
-export const RK_SKILLS: Record<string, string[]> = {
-  aberration:  ['Occultism'],
-  animal:      ['Nature'],
-  astral:      ['Occultism'],
-  beast:       ['Arcana', 'Nature'],
-  celestial:   ['Religion'],
-  construct:   ['Arcana', 'Crafting'],
-  dragon:      ['Arcana'],
-  elemental:   ['Arcana', 'Nature'],
-  fey:         ['Nature'],
-  fiend:       ['Religion'],
-  fungus:      ['Nature'],
-  humanoid:    ['Society'],
-  monitor:     ['Religion'],
-  ooze:        ['Occultism'],
-  plant:       ['Nature'],
-  spirit:      ['Occultism'],
-  undead:      ['Religion'],
-};
-
-/**
- * Compute the Recall Knowledge DC and relevant skills for a creature.
- * Works for DB creatures, custom creatures, and placeholders alike.
- * - Always returns a DC (based on level + rarity adjustment).
- * - Returns skills only when creature type traits are present; otherwise skills is [].
- */
-export function getRecallKnowledge(level: number, traits: string[], rarity = 'common'): { dc: number; skills: string[] } {
-  const l = Math.max(-1, Math.min(25, level));
-  const baseDc = RK_DC_TABLE[l] ?? 14;
-  const rarityAdj = RK_RARITY_ADJUSTMENT[rarity.toLowerCase()] ?? 0;
-  const dc = baseDc + rarityAdj;
-  const skills = new Set<string>();
-  for (const t of traits) {
-    const tLower = t.toLowerCase();
-    const s = RK_SKILLS[tLower];
-    if (s) s.forEach(sk => skills.add(sk));
-  }
-  return { dc, skills: [...skills].sort() };
-}
+// Re-export so existing importers of these symbols from EncounterManager don't break.
+export { getRecallKnowledge, RK_DC_TABLE, RK_RARITY_ADJUSTMENT, RK_SKILLS };
 
 interface EncounterManagerProps {
   encounters: Encounter[];
@@ -89,12 +35,14 @@ interface EncounterManagerProps {
   onDeleteEncounter: (idx: number) => void;
   onReorderEncounters: (fromIdx: number, toIdx: number) => void;
   onRemoveCreature: (uid: string) => void;
+  onRenameCreature: (uid: string, name: string) => void;
   onDuplicateCreature: (uid: string) => void;
   onUpdateHP: (uid: string, delta: number) => void;
   onSetHP: (uid: string, newHp: number) => void;
   onAddCustomCreature: (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: CustomAttack[], abilities?: CustomAbility[], isEnemy?: boolean) => void;
   onSelectCreature: (id: string, encounterUid: string) => void;
   onSelectEncounterCreature: (uid: string) => void;
+  selectedEncounterUid?: string | null;
   onUpdateConditions: (uid: string, conditions: Condition[]) => void;
   onSetEliteWeak: (uid: string, adjustment: 'elite' | 'weak' | undefined) => void;
   onSetScaledLevel: (uid: string, level: number | undefined) => void;
@@ -143,12 +91,14 @@ export function EncounterManager({
   onDeleteEncounter,
   onReorderEncounters,
   onRemoveCreature,
+  onRenameCreature,
   onDuplicateCreature,
   onUpdateHP,
   onSetHP,
   onAddCustomCreature,
   onSelectCreature,
   onSelectEncounterCreature,
+  selectedEncounterUid,
   onUpdateConditions,
   onSetEliteWeak,
   onSetScaledLevel: _onSetScaledLevel,
@@ -253,6 +203,14 @@ export function EncounterManager({
   const [editInitVal, setEditInitVal] = useState('');
   const [editingHp, setEditingHp] = useState<string | null>(null);
   const [editHpVal, setEditHpVal] = useState('');
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [editNameVal, setEditNameVal] = useState('');
+
+  function commitName(uid: string) {
+    const trimmed = editNameVal.trim();
+    if (trimmed) onRenameCreature(uid, trimmed);
+    setEditingName(null);
+  }
 
   const enc = encounters[activeEnc] ?? encounters[0];
 
@@ -562,7 +520,7 @@ export function EncounterManager({
               return (
                 <div
                   key={c.uid}
-                  className={styles.plannerCard}
+                  className={`${styles.plannerCard} ${selectedEncounterUid === c.uid ? styles.plannerCardSelected : ''}`}
                   onClick={() => {
                     if (c.creatureId) onSelectCreature(c.creatureId, c.uid);
                     else onSelectEncounterCreature(c.uid);
@@ -572,9 +530,28 @@ export function EncounterManager({
                 >
                   {/* Top row: name + HP + buttons */}
                   <div className={styles.plannerCardTop}>
-                    <span className={`${styles.plannerName} ${c.creatureId ? styles.creatureNameClickable : ''}`}>
-                      {c.name}{c.eliteWeak === 'elite' ? ' (Elite)' : c.eliteWeak === 'weak' ? ' (Weak)' : ''}
-                    </span>
+                    {editingName === c.uid ? (
+                      <input
+                        className={styles.nameInput}
+                        value={editNameVal}
+                        autoFocus
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => setEditNameVal(e.target.value)}
+                        onBlur={() => commitName(c.uid)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.stopPropagation(); commitName(c.uid); }
+                          if (e.key === 'Escape') setEditingName(null);
+                        }}
+                      />
+                    ) : (
+                      <span
+                        className={`${styles.plannerName} ${c.creatureId ? styles.creatureNameClickable : ''}`}
+                        title="Double-click to rename"
+                        onDoubleClick={e => { e.stopPropagation(); setEditingName(c.uid); setEditNameVal(c.name); }}
+                      >
+                        {c.name}{c.eliteWeak === 'elite' ? ' (Elite)' : c.eliteWeak === 'weak' ? ' (Weak)' : ''}
+                      </span>
+                    )}
                     <span className={styles.plannerHp} title="Hit Points">
                       <span className={styles.combatDefLabel}>HP</span>
                       <span className={styles.combatDefVal} style={hpDelta !== 0 ? ewValStyle : undefined}>
@@ -715,7 +692,7 @@ export function EncounterManager({
               return (
                 <div
                   key={c.uid}
-                  className={`${styles.combatCard} ${isActive ? styles.combatCardActive : ''} ${c.creatureId ? styles.combatCardClickable : ''}`}
+                  className={`${styles.combatCard} ${isActive ? styles.combatCardActive : ''} ${c.creatureId ? styles.combatCardClickable : ''} ${selectedEncounterUid === c.uid ? styles.combatCardSelected : ''}`}
                   onClick={c.creatureId ? openStatblock : undefined}
                   title={c.creatureId ? 'Click to view statblock' : undefined}
                 >
@@ -745,9 +722,28 @@ export function EncounterManager({
                       </div>
                     )}
 
-                    <span className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''}`}>
-                      {c.name}{c.eliteWeak === 'elite' ? ' (Elite)' : c.eliteWeak === 'weak' ? ' (Weak)' : ''}
-                    </span>
+                    {editingName === c.uid ? (
+                      <input
+                        className={styles.nameInput}
+                        value={editNameVal}
+                        autoFocus
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => setEditNameVal(e.target.value)}
+                        onBlur={() => commitName(c.uid)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.stopPropagation(); commitName(c.uid); }
+                          if (e.key === 'Escape') setEditingName(null);
+                        }}
+                      />
+                    ) : (
+                      <span
+                        className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''}`}
+                        title="Double-click to rename"
+                        onDoubleClick={e => { e.stopPropagation(); setEditingName(c.uid); setEditNameVal(c.name); }}
+                      >
+                        {c.name}{c.eliteWeak === 'elite' ? ' (Elite)' : c.eliteWeak === 'weak' ? ' (Weak)' : ''}
+                      </span>
+                    )}
 
                     {/* HP — on the same row as the name */}
                     {editingHp === c.uid ? (
@@ -898,7 +894,7 @@ export function EncounterManager({
                   )}
 
                   {/* Conditions */}
-                  <div className={styles.conditionRow} onClick={e => e.stopPropagation()}>
+                  <div className={styles.conditionRow}>
                     {c.conditions.map(cond => {
                       const isValued = cond.value != null;
                       return (

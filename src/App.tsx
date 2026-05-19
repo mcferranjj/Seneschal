@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 import type { CreatureRecord } from './db/schema';
-import { creatureRepository } from './db/repositories/CreatureRepository';
 import { importCreatureAsCustom } from './utils/importCreature';
+import { useStatblockSelection } from './hooks/useStatblockSelection';
 import type { Section } from './types/encounter';
 import type { RollHistoryEntry } from './types/diceHistory';
 import type { SyncProgress } from './sync/sync';
@@ -67,11 +67,13 @@ export default function App() {
     reorderEncounters,
     deleteEncounter,
     removeCreature,
+    renameCreature,
     updateHP,
     setHPDirect,
     updateConditions,
     setEliteWeak,
     setScaledLevel,
+    setCreatureNotes,
     duplicateCreature,
     addCustomCreature,
   } = useEncounter();
@@ -143,23 +145,20 @@ export default function App() {
     setRollHistory(prev => [{ ...entry, id: ++rollIdRef.current }, ...prev]);
   }, []);
 
-  // Selected creature (statblock drawer)
-  const [selected, setSelectedState] = useState<CreatureRecord | null>(null);
-  const [selectedEncounterUid, setSelectedEncounterUid] = useState<string | null>(null);
-
-  const setSelected = useCallback((creature: CreatureRecord | null) => {
-    setSelectedState(creature);
-    persistPrefs({ selectedCreatureId: creature?.id ?? null });
-  }, [persistPrefs]);
-
-  // Restore selected creature from persisted ID on mount
-  useEffect(() => {
-    if (!loadedPrefs.selectedCreatureId) return;
-    creatureRepository.get(loadedPrefs.selectedCreatureId)
-      .then(c => { if (c) setSelectedState(c); })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Selected creature (statblock drawer) — source tracking ensures only one
+  // column shows a highlight at a time (results vs encounter tracker).
+  const {
+    selected,
+    selectedEncounterUid,
+    selectionSource,
+    selectCreatureById,
+    selectCreature,
+    toggleResultsSelection,
+    clearSelection,
+  } = useStatblockSelection(
+    loadedPrefs.selectedCreatureId,
+    id => persistPrefs({ selectedCreatureId: id }),
+  );
 
   // Column widths (px) — React state is the source of truth at rest.
   // During a drag we write directly to the CSS custom property on the layout
@@ -240,26 +239,18 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const selectCreatureById = useCallback(async (id: string, encounterUid?: string) => {
-    const creature = await creatureRepository.get(id);
-    if (creature) {
-      setSelected(creature);
-      setSelectedEncounterUid(encounterUid ?? null);
-    }
-  }, []);
-
   const handleCopyCreature = useCallback((creature: CreatureRecord) => {
     const draft = importCreatureAsCustom(creature);
     setWizardEditCreature(draft);
-    setSelected(null);
+    clearSelection();
     setWizardOpen(true);
-  }, []);
+  }, [clearSelection]);
 
   const openWizard = useCallback(() => {
-    setSelected(null);
+    clearSelection();
     setWizardEditCreature(undefined);
     setWizardOpen(true);
-  }, []);
+  }, [clearSelection]);
 
   const openEditWizard = useCallback((creature: CreatureRecord) => {
     setWizardEditCreature(creature);
@@ -270,13 +261,13 @@ export default function App() {
     await handleWizardSave(creature, saved => {
       setWizardOpen(false);
       setWizardEditCreature(undefined);
-      setSelected(saved);
+      selectCreature(saved);
     });
-  }, [handleWizardSave]);
+  }, [handleWizardSave, selectCreature]);
 
   const onDeleteCreature = useCallback(async (id: string) => {
-    await handleDeleteCreature(id, () => setSelected(null));
-  }, [handleDeleteCreature]);
+    await handleDeleteCreature(id, clearSelection);
+  }, [handleDeleteCreature, clearSelection]);
 
   return (
     <div className={styles.app}>
@@ -318,8 +309,8 @@ export default function App() {
               <ResultsList
                 results={results}
                 totalCount={totalCount}
-                selectedId={selected?.id ?? null}
-                onSelect={c => { setSelected(selected?.id === c.id ? null : c); setSelectedEncounterUid(null); }}
+                selectedId={selectionSource === 'results' ? (selected?.id ?? null) : null}
+                onSelect={toggleResultsSelection}
                 onAddToEncounter={addToEncounter}
                 loading={searchLoading}
                 syncing={isSyncing}
@@ -344,6 +335,7 @@ export default function App() {
               <EncounterManager
                 encounters={encounters}
                 activeEnc={activeEnc}
+                selectedEncounterUid={selectionSource === 'encounter' ? selectedEncounterUid : null}
                 partySize={partySize}
                 partyLevel={partyLevel}
                 onActiveEncChange={setActiveEnc}
@@ -354,11 +346,12 @@ export default function App() {
                 onDeleteEncounter={deleteEncounter}
                 onReorderEncounters={reorderEncounters}
                 onRemoveCreature={removeCreature}
+                onRenameCreature={renameCreature}
                 onDuplicateCreature={duplicateCreature}
                 onUpdateHP={updateHP}
                 onSetHP={setHPDirect}
                 onAddCustomCreature={addCustomCreature}
-                onSelectCreature={(id, uid) => selectCreatureById(id, uid)}
+                onSelectCreature={selectCreatureById}
                 onSelectEncounterCreature={() => {
                   // Custom creatures don't have a statblock in the DB — nothing to show.
                 }}
@@ -386,7 +379,7 @@ export default function App() {
             <div className={styles.statblockCol}>
               <StatblockDrawer
                 creature={selected}
-                onClose={() => setSelected(null)}
+                onClose={clearSelection}
                 onAddToEncounter={addToEncounter}
                 wizardOpen={wizardOpen}
                 wizardEditCreature={wizardEditCreature}
@@ -397,6 +390,11 @@ export default function App() {
                 onEditCreature={openEditWizard}
                 onRoll={addRollEntry}
                 onCopyAsCustom={handleCopyCreature}
+                encounterName={
+                  selected && selectedEncounterUid
+                    ? encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.name
+                    : undefined
+                }
                 activeConditions={
                   selected && selectedEncounterUid
                     ? (encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.conditions ?? [])
@@ -417,6 +415,17 @@ export default function App() {
                     ? (level) => setScaledLevel(selectedEncounterUid, level)
                     : undefined
                 }
+                activeNotes={
+                  selected && selectedEncounterUid
+                    ? (encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.notes ?? '')
+                    : undefined
+                }
+                onSetNotes={
+                  selectedEncounterUid
+                    ? (notes) => setCreatureNotes(selectedEncounterUid, notes)
+                    : undefined
+                }
+                encounterUid={selectedEncounterUid ?? undefined}
               />
             </div>
           </div>

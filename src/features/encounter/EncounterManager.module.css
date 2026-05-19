@@ -308,6 +308,11 @@
   flex-shrink: 0;
 }
 
+.plannerCardSelected {
+  border-color: var(--crimson);
+  background: rgba(92, 20, 20, 0.06);
+}
+
 .plannerCardTop {
   display: flex;
   align-items: center;
@@ -1082,6 +1087,10 @@
   flex-shrink: 0;
 }
 
+.combatCardSelected {
+  border-color: var(--crimson);
+}
+
 .combatCardClickable {
   cursor: pointer;
 }
@@ -1092,7 +1101,6 @@
 
 .combatCardActive {
   background: rgba(92, 20, 20, 0.06);
-  border-color: var(--crimson);
 }
 
 .combatCardActive.combatCardClickable:hover {
@@ -1647,4 +1655,19 @@
 .hpInput::placeholder {
   color: var(--text-mute);
   font-weight: 400;
+}
+
+/* ── Inline creature name edit input ── */
+.nameInput {
+  flex: 1;
+  min-width: 0;
+  padding: 1px 5px;
+  border: 1px solid var(--crimson);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  outline: none;
 }

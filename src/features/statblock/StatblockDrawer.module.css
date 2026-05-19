@@ -84,7 +84,7 @@
 .content {
   flex: 1;
   overflow-y: auto;
-  overflow-x: clip;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -113,6 +113,12 @@
   color: #fff;
   line-height: 1.2;
   display: block;
+}
+
+.creatureOriginalName {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-style: italic;
 }
 
 .creatureLevel {
@@ -330,6 +336,118 @@
   border-color: #2a7a6a;
   color: #2a7a6a;
   font-weight: 700;
+}
+
+/* ── GM Notes button (header) ─────────────────────────────────────────────── */
+
+.notesBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.78rem;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+  line-height: 1;
+}
+
+.notesBtn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255,255,255,0.6);
+  color: #fff;
+}
+
+/* Active = panel is open */
+.notesBtnActive {
+  background: rgba(180, 140, 40, 0.45);
+  border-color: rgba(255, 220, 100, 0.7);
+}
+
+.notesBtnActive:hover {
+  background: rgba(180, 140, 40, 0.65);
+}
+
+/* Has content = notes are non-empty (dot indicator) */
+.notesBtnHasContent::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 220, 100, 0.9);
+  pointer-events: none;
+}
+
+/* notesBtn needs position:relative for the dot indicator */
+.notesBtn {
+  position: relative;
+}
+
+/* ── GM Notes panel (below traits) ───────────────────────────────────────── */
+
+.notesPanel {
+  background: rgba(180, 140, 20, 0.07);
+  border-bottom: 2px solid rgba(180, 140, 20, 0.25);
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.notesTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(180, 140, 20, 0.35);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 32px;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.notesTextarea:focus {
+  outline: none;
+  border-color: rgba(180, 140, 20, 0.7);
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.notesTextarea::placeholder {
+  color: var(--text-mute);
+  font-style: italic;
+}
+
+.notesUndoBtn {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid rgba(180, 140, 20, 0.4);
+  border-radius: 3px;
+  color: rgba(120, 90, 10, 0.85);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 7px;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+
+.notesUndoBtn:hover {
+  background: rgba(180, 140, 20, 0.12);
+  border-color: rgba(180, 140, 20, 0.7);
+  color: rgba(100, 70, 0, 1);
 }
 
 /* Traits row */

@@ -39,7 +39,9 @@ import { ItemBlock } from './ItemBlock';
 import { CustomAbilityBlock } from './CustomAbilityBlock';
 import { SpellcastingBlock } from './SpellcastingBlock';
 import { TraitChip } from './TraitChip';
+import { NotesPanel } from './NotesPanel';
 import { usePf2kwTooltip } from '../../hooks/usePf2kwTooltip';
+import { getAonUrl } from '../../utils/aonSearch';
 import styles from './StatblockDrawer.module.css';
 
 function skillDisplayName(raw: string): string {
@@ -68,6 +70,14 @@ interface DrawerProps {
   /** Callback to set or clear custom level scaling on the current encounter instance */
   onSetScaledLevel?: (level: number | undefined) => void;
   onCopyAsCustom?: (creature: CreatureRecord) => void;
+  /** Custom name given to this encounter creature instance (may differ from the creature's canonical name) */
+  encounterName?: string;
+  /** GM notes for the currently-selected encounter creature instance */
+  activeNotes?: string;
+  /** Callback to persist note changes for the current encounter instance */
+  onSetNotes?: (notes: string) => void;
+  /** UID of the currently-selected encounter creature instance (used to key notes state) */
+  encounterUid?: string;
 }
 
 export function StatblockDrawer({
@@ -87,6 +97,10 @@ export function StatblockDrawer({
   activeScaledLevel,
   onSetScaledLevel,
   onCopyAsCustom,
+  encounterName,
+  activeNotes,
+  onSetNotes,
+  encounterUid,
 }: DrawerProps) {
   return (
     <aside className={styles.drawer} aria-label="Creature statblock">
@@ -110,6 +124,10 @@ export function StatblockDrawer({
           onDelete={onDeleteCreature}
           onEdit={onEditCreature}
           onCopyAsCustom={onCopyAsCustom}
+          encounterName={encounterName}
+          activeNotes={activeNotes}
+          onSetNotes={onSetNotes}
+          encounterUid={encounterUid}
         />
       ) : (
         <div className={styles.emptyState}>
@@ -120,43 +138,6 @@ export function StatblockDrawer({
       )}
     </aside>
   );
-}
-
-// submit str: name and str: type, returns most likely URL
-// URL will always be remaster content because aon returns it at higher priority
-// if legacy content is wanted, will need to rework this
-async function GetAONURL (search: {name: string, type: string}) {
-  try {
-    
-    // build search query for elasticsearch
-    // if other words are found to break search, include them in EXCLUDE_WORDS
-    const EXCLUDE_WORDS = ["spellcaster"];
-    let wordlist = (search.name.match(/\b\w+\b/g) ?? [])
-      .filter(w => !EXCLUDE_WORDS.includes(w.toLowerCase()));
-    // this is a total sloppy hack but it's the only place it's needed :)
-    let bodyPrefix = `{"query":{"function_score":{"query":{"bool":{"should":[{"match_phrase_prefix":{"name.sayt":{"query":"${search.name.toLowerCase()}"}}},{"term":{"name":"${search.name.toLowerCase()}"}},{"bool":{"must":[`;
-    let bodySuffix = `,{"term":{"type":"${search.type}"}}]}}],"minimum_should_match":1,"must_not":[{"term":{"exclude_from_search":true}},{"term":{"category":"item-bonus"}},{"exists":{"field":"remaster_id"}},{"exists":{"field":"item_child_id"}}]}},"boost_mode":"multiply","functions":[{"filter":{"terms":{"type":["Ancestry","Class","Versatile Heritage"]}},"weight":1.2},{"filter":{"terms":{"type":["Trait"]}},"weight":1.05}]}},"size":20,"sort":["_score","_doc"],"_source":{"excludes":["text"]}}`
-    const bodyMiddle = wordlist.map(word =>
-      `{"multi_match":{"query":"${word}","type":"best_fields","fields":["name","legacy_name","remaster_name"],"fuzziness":"auto"}}`
-    ).join(',');
-    const body = bodyPrefix + bodyMiddle + bodySuffix;
-
-    // send req and parse response
-    const response = await fetch ('https://elasticsearch.aonprd.com/aon/_search', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body,
-      });
-    const data = await response.json();
-    let url: string | null = null;
-    if (data.hits.total.value !== 0) {
-      url = data.hits.hits[0]._source.url;
-    }
-    return url;
-  }
-  catch (error) {
-    console.error("err - GetAONURL - Error making POST request:", error);
-  }
 }
 
 function StatblockContent({
@@ -171,6 +152,10 @@ function StatblockContent({
   onDelete,
   onEdit,
   onCopyAsCustom,
+  encounterName,
+  activeNotes,
+  onSetNotes,
+  encounterUid,
 }: {
   creature: CreatureRecord;
   onClose: () => void;
@@ -183,12 +168,19 @@ function StatblockContent({
   onDelete?: (id: string) => void;
   onEdit?: (creature: CreatureRecord) => void;
   onCopyAsCustom?: (creature: CreatureRecord) => void;
+  encounterName?: string;
+  activeNotes?: string;
+  onSetNotes?: (notes: string) => void;
+  encounterUid?: string;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [scaleDropdownOpen, setScaleDropdownOpen] = useState(false);
   // Local preview level — used when onSetScaledLevel is not provided (not in encounter yet)
   const [previewScaledLevel, setPreviewScaledLevel] = useState<number | undefined>(undefined);
   const [sneakAttackActive, setSneakAttackActive] = useState(false);
+
+  // Notes panel open/closed state — owned here so the header button can toggle it
+  const [notesOpen, setNotesOpen] = useState(() => !!(activeNotes));
 
   const { containerRef: pf2kwRef, tooltip: pf2kwTooltip } = usePf2kwTooltip();
 
@@ -265,6 +257,12 @@ function StatblockContent({
     setSneakAttackActive(false);
   }, [creature.id]);
 
+  // Reset notesOpen when the creature changes — open automatically if notes exist
+  useEffect(() => {
+    setNotesOpen(!!(activeNotes));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creature.id]);
+
   const level = getLevel(c);
 
   const size = getSize(c);
@@ -296,9 +294,8 @@ function StatblockContent({
   const aonType = creature.entityType === 'hazard' ? 'Hazard' : 'Creature';
   const [aonURL, setAonURL] = useState<string | null>(null);
   useEffect(() => {
-    GetAONURL({ name: c.name, type: aonType }).then(url => {
-      console.log('GetAONURL result:', url);
-      if (url) setAonURL('https://2e.aonprd.com' + url);
+    getAonUrl({ name: c.name, type: aonType }).then(url => {
+      if (url) setAonURL(url);
     });
   }, [c.name, c.type]);
 
@@ -394,10 +391,14 @@ function StatblockContent({
         document.body,
       )}
       {/* Header */}
+      {(() => {
+        const hasCustomName = encounterName && encounterName !== c.name;
+        const displayName = hasCustomName ? encounterName! : c.name;
+        return (
       <div className={styles.header}>
         <div className={styles.headerMain}>
           <span className={styles.creatureName}>
-            {c.name}{activeEliteWeak === 'elite' ? ' (Elite)' : activeEliteWeak === 'weak' ? ' (Weak)' : ''}
+            {displayName}{activeEliteWeak === 'elite' ? ' (Elite)' : activeEliteWeak === 'weak' ? ' (Weak)' : ''}
             {effectiveScaledLevel != null && (
               <span className={styles.scaledBadge}> ⇅ Lv {effectiveScaledLevel}</span>
             )}
@@ -412,6 +413,9 @@ function StatblockContent({
             {activeEliteWeak && ` (base ${effectiveScaledLevel ?? level})`}
             {effectiveScaledLevel != null && !activeEliteWeak && ` (base ${level})`}
             {creature.entityType !== 'hazard' && ` · ${size}`}
+            {hasCustomName && (
+              <span className={styles.creatureOriginalName}> · {c.name}</span>
+            )}
           </span>
         </div>
         <div className={styles.headerActions}>
@@ -434,6 +438,16 @@ function StatblockContent({
           {onCopyAsCustom && (
             <button className={styles.copyBtn} onClick={() => onCopyAsCustom(creature)} title="Copy and edit as custom creature">
               ⧉
+            </button>
+          )}
+          {/* Notes toggle — only shown when an encounter creature is selected */}
+          {onSetNotes && (
+            <button
+              className={`${styles.notesBtn} ${notesOpen ? styles.notesBtnActive : ''} ${activeNotes ? styles.notesBtnHasContent : ''}`}
+              title={notesOpen ? 'Hide notes' : 'Add GM notes'}
+              onClick={() => setNotesOpen(o => !o)}
+            >
+              📝
             </button>
           )}
           {/* Level scaling button — shown whenever the callback is available or as a preview */}
@@ -483,6 +497,8 @@ function StatblockContent({
           </button>
         </div>
       </div>
+        );
+      })()}
 
       {/* Traits */}
       <div className={styles.traitsRow}>
@@ -490,6 +506,16 @@ function StatblockContent({
           <TraitChip key={t} trait={t} rarity={rarity} />
         ))}
       </div>
+
+      {/* GM Notes panel — shown when notesOpen; state managed inside NotesPanel */}
+      {onSetNotes && (
+        <NotesPanel
+          key={encounterUid}
+          activeNotes={activeNotes ?? ''}
+          onSetNotes={onSetNotes}
+          open={notesOpen}
+        />
+      )}
 
       {imageUrl && (
         <div className={styles.imageContainer}>
