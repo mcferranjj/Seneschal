@@ -1,0 +1,133 @@
+.step {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+}
+
+.groups {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.title {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.sectionHint {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin-top: -4px;
+}
+
+.sectionLabel {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.bgBoosts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lockedBoostRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lockedChip {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  background: var(--color-healing-tint);
+  color: var(--color-healing);
+  border: 1px solid var(--color-healing);
+}
+
+/* Score totals panel */
+.totals {
+  width: 160px;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: flex-start;
+  position: sticky;
+  top: 0;
+}
+
+.totalsTitle {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.scoreRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.scoreName {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  width: 30px;
+}
+
+.scoreLabel {
+  font-size: 0.62rem;
+  color: var(--color-text-muted);
+  flex: 1;
+}
+
+.scoreNum {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-text);
+  width: 24px;
+  text-align: right;
+}
+
+.scoreMod {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--color-primary);
+  width: 28px;
+  text-align: right;
+}

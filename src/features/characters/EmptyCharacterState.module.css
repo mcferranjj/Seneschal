@@ -1,0 +1,47 @@
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 20px;
+  color: var(--color-text-muted);
+}
+
+.icon {
+  font-size: 3.5rem;
+  opacity: 0.12;
+  color: var(--color-primary);
+  line-height: 1;
+}
+
+.heading {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--color-text-mid);
+  margin-top: 4px;
+}
+
+.sub {
+  font-size: 0.85rem;
+  text-align: center;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.btn {
+  margin-top: 8px;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border: none;
+  border-radius: 7px;
+  padding: 10px 22px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+
+.btn:hover { opacity: 0.88; }

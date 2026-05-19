@@ -14,6 +14,10 @@ export class CharacterRepository implements ICharacterRepository {
     return db.characters.toArray();
   }
 
+  async getById(id: string): Promise<CharacterRecord | undefined> {
+    return db.characters.get(id);
+  }
+
   async put(record: CharacterRecord): Promise<void> {
     await db.characters.put(record);
   }

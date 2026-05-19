@@ -1,0 +1,130 @@
+.block {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.toggleBtn {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+
+.toggleBtn:hover { color: var(--color-text); border-color: var(--color-accent); }
+
+.rollResult {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.78rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  padding: 4px 8px;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.rollLabel { color: var(--color-text-muted); font-size: 0.7rem; }
+.rollDice  { color: var(--color-text-mid); }
+.rollMod   { color: var(--color-accent); }
+.rollEq    { color: var(--color-text-muted); }
+.rollTotal { font-weight: 700; color: var(--color-text); }
+.crit      { color: var(--color-healing); }
+.fumble    { color: var(--color-damage); }
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.skillRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-align: left;
+  width: 100%;
+  transition: background 0.1s;
+}
+
+.skillRow:hover {
+  background: var(--color-border-light);
+}
+
+.rankBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  flex-shrink: 0;
+}
+
+.untrained { background: var(--color-border); color: var(--color-text-muted); }
+.trained   { background: #8b6914; color: #f5e6c0; }
+.expert    { background: #7a7a7a; color: #f0f0f0; }
+.master    { background: #b8860b; color: #fff8dc; }
+.legendary { background: #6a0dad; color: #f0e6ff; }
+
+.skillName {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--color-text);
+}
+
+.skillAbility {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  font-family: 'DM Mono', monospace;
+}
+
+.skillMod {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text);
+  min-width: 34px;
+  text-align: right;
+}
+
+.divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 0;
+}

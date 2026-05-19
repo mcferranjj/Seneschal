@@ -1,0 +1,97 @@
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.groupLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.lockedRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.lockedBoost {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  background: var(--color-healing-tint);
+  color: var(--color-healing);
+  border: 1px solid var(--color-healing);
+}
+
+.lockedFlaw {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  background: var(--color-damage-tint);
+  color: var(--color-damage);
+  border: 1px solid var(--color-damage);
+}
+
+.slotRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slotNum {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  width: 14px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.abilityBtns {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.abilityBtn {
+  padding: 4px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  color: var(--color-text-mid);
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.abilityBtn:hover:not(.disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.abilityBtn.chosen {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
+}
+
+.abilityBtn.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

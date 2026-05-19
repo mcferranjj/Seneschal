@@ -1,0 +1,76 @@
+.bar {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  padding: 0 16px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  gap: 2px;
+  scrollbar-width: none;
+}
+
+.bar::-webkit-scrollbar { display: none; }
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 10px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  transition: color 0.12s, border-color 0.12s;
+  position: relative;
+}
+
+.step:not(.future):hover {
+  color: var(--color-text);
+}
+
+.step.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: 700;
+}
+
+.step.completed {
+  color: var(--color-healing);
+}
+
+.step.future {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.stepNum {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: var(--color-bg-overlay-mid);
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.step.active .stepNum {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.step.completed .stepNum {
+  background: var(--color-healing-tint);
+  color: var(--color-healing);
+}
+
+.stepLabel {
+  font-weight: 600;
+}
