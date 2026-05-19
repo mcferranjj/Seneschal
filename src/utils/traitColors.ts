@@ -4,50 +4,56 @@
  * Shared color logic for creature trait badges. Previously duplicated between
  * StatblockDrawer.tsx (traitColor + rarity colors) and CreatureRow.tsx
  * (RARITY_COLORS + TRAIT_COLORS). Pure data + one pure function — no React, no DB.
+ *
+ * Colors are read from CSS custom properties at call time so they respond to
+ * theme changes without a page reload.
  */
 
-/** Rarity-specific badge colors. */
+/** Read a CSS custom property from :root. Falls back to the provided default. */
+function cssVar(name: string, fallback: string): string {
+  if (typeof document === 'undefined') return fallback;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
+/** Rarity-specific badge colors, read live from the theme. */
+export function rarityColor(rarity: string): string | undefined {
+  switch (rarity.toLowerCase()) {
+    case 'uncommon': return cssVar('--color-trait-uncommon', '#8a6a18');
+    case 'rare':     return cssVar('--color-trait-rare',     '#2a4a8a');
+    case 'unique':   return cssVar('--color-trait-unique',   '#6a2a8a');
+    default:         return undefined;
+  }
+}
+
+/** Default trait chip color (all non-rarity traits). */
+export function defaultTraitColor(): string {
+  return cssVar('--color-trait-default', '#522e2c');
+}
+
+// ── Legacy named exports kept for backwards compat ────────────────────────────
+
+/** @deprecated use rarityColor() instead */
 export const RARITY_COLORS: Record<string, string> = {
   uncommon: '#8a6a18',
-  rare: '#2a4a8a',
-  unique: '#6a2a8a',
+  rare:     '#2a4a8a',
+  unique:   '#6a2a8a',
 };
 
-/** Alignment / elemental trait badge colors. */
-export const TRAIT_COLORS: Record<string, string> = {
-  lg: '#2255aa',
-  ng: '#2255aa',
-  cg: '#2255aa',
-  ln: '#555',
-  n: '#555',
-  cn: '#555',
-  le: '#aa2222',
-  ne: '#aa2222',
-  ce: '#aa2222',
-  good: '#2255aa',
-  evil: '#aa2222',
-  lawful: '#555',
-  chaotic: '#555',
-  neutral: '#555',
-  // Creature-type accent colors (used in CreatureRow)
-  undead: '#6b2222',
-  construct: '#4a4a5a',
-  humanoid: '#6a5a3a',
-  animal: '#3a5a3a',
-  dragon: '#5a3a6a',
-  fiend: '#6a2a4a',
-  celestial: '#2a4a6a',
-};
+/** Alignment / creature-type trait badge colors (all default to the theme color). */
+export const TRAIT_COLORS: Record<string, string> = {};
 
 /**
  * Returns the background color for a trait badge.
  * Rarity traits (uncommon / rare / unique) take priority over the type colors.
- * Falls back to a default brown for all other traits.
+ * Falls back to the theme's default trait color for all other traits.
  */
 export function traitColor(trait: string, rarity: string): string {
   const t = trait.toLowerCase();
-  if (t === rarity.toLowerCase() && RARITY_COLORS[rarity]) return RARITY_COLORS[rarity];
-  return TRAIT_COLORS[t] ?? '#8b4513';
+  if (t === rarity.toLowerCase()) {
+    const rc = rarityColor(rarity);
+    if (rc) return rc;
+  }
+  return defaultTraitColor();
 }
 
 /**
@@ -55,5 +61,6 @@ export function traitColor(trait: string, rarity: string): string {
  * (no rarity context). Used in list views where rarity is handled separately.
  */
 export function traitBg(trait: string): string {
-  return TRAIT_COLORS[trait.toLowerCase()] ?? '#6a5a3a';
+  const rc = rarityColor(trait);
+  return rc ?? defaultTraitColor();
 }

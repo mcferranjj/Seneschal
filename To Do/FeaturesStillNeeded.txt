@@ -1,7 +1,6 @@
 Encounters:
     - flesh out settings
         - default preferences
-        - color preferences
 
     - add ability to export/import monsters, full database, encounters, etc.
 

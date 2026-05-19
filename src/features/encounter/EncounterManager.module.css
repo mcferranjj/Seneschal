@@ -1,8 +1,8 @@
 .manager {
   flex: 1;
   min-width: 0;
-  border-right: 1px solid var(--border);
-  background: var(--bg);
+  border-right: 1px solid var(--color-border);
+  background: var(--color-bg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -12,20 +12,19 @@
 .tabs {
   display: flex;
   align-items: stretch;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
   overflow: hidden;
 }
 
-/* Scrollable area that holds the individual tab wrappers */
 .tabsScroll {
   display: flex;
   align-items: stretch;
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: var(--border) transparent; /* Firefox thumb/track */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
 }
 
 .tabsScroll::-webkit-scrollbar {
@@ -37,7 +36,7 @@
 }
 
 .tabsScroll::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--color-border);
   border-radius: 2px;
 }
 
@@ -48,7 +47,7 @@
 }
 
 .tabWrapperActive {
-  border-bottom-color: var(--crimson);
+  border-bottom-color: var(--color-primary);
 }
 
 .tab {
@@ -59,22 +58,22 @@
   cursor: pointer;
   border: none;
   background: none;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   transition: color 0.12s;
 }
 
 .tabActive {
   font-weight: 700;
-  color: var(--crimson);
+  color: var(--color-primary);
 }
 
 .tabRenameInput {
   padding: 4px 6px;
   font-size: 0.72rem;
-  border: 1px solid var(--crimson);
+  border: 1px solid var(--color-primary);
   border-radius: 3px;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--color-bg);
+  color: var(--color-text);
   width: 90px;
   outline: none;
 }
@@ -85,7 +84,7 @@
   border-radius: 2px;
   background: none;
   border: none;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
@@ -97,7 +96,7 @@
 }
 
 .tabDeleteBtn:hover {
-  color: var(--crimson);
+  color: var(--color-primary);
 }
 
 .tabDeleteConfirm {
@@ -112,8 +111,8 @@
   padding: 2px 7px;
   border-radius: 3px;
   border: none;
-  background: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   cursor: pointer;
   line-height: 1.4;
 }
@@ -122,36 +121,36 @@
   font-size: 13px;
   padding: 2px 7px;
   border-radius: 3px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   background: none;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   cursor: pointer;
   line-height: 1.4;
 }
 
 .addTabBtn {
   padding: 8px;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   cursor: pointer;
   border: none;
   background: none;
   font-size: 15px;
   flex-shrink: 0;
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--color-border);
   transition: color 0.12s;
 }
 
 .addTabBtn:hover {
-  color: var(--text);
+  color: var(--color-text);
 }
 
 .openResultsBtn {
   width: 22px;
   height: 22px;
   border-radius: 4px;
-  background: var(--brown);
-  border: 1px solid var(--border);
-  color: var(--parchment);
+  background: var(--color-accent-brown);
+  border: 1px solid var(--color-border);
+  color: var(--color-surface);
   font-size: 10px;
   cursor: pointer;
   display: flex;
@@ -163,13 +162,13 @@
 }
 
 .openResultsBtn:hover {
-  background: var(--text-mid);
+  background: var(--color-text-mid);
 }
 
 /* ── XP Budget ── */
 .budget {
   padding: 8px 12px 7px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
@@ -185,7 +184,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 .diffLabel {
@@ -195,7 +194,7 @@
 
 .budgetBar {
   height: 4px;
-  background: var(--border-l);
+  background: var(--color-border-light);
   border-radius: 3px;
   overflow: hidden;
   margin-bottom: 5px;
@@ -221,7 +220,6 @@
   row-gap: 3px;
 }
 
-/* When the party controls wrap, keep "Party N +" on one line and "× Lvl N +" on the next */
 .partyControlsSplit {
   display: contents;
 }
@@ -235,16 +233,16 @@
 .partyLabel {
   font-size: 0.65rem;
   font-weight: 600;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 .stepBtn {
   width: 16px;
   height: 16px;
   border-radius: 3px;
-  background: var(--parchment);
-  border: 1px solid var(--border);
-  color: var(--text-mute);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
   font-size: 12px;
   line-height: 1;
   cursor: pointer;
@@ -256,14 +254,14 @@
 }
 
 .stepBtn:hover {
-  background: var(--border-l);
+  background: var(--color-border-light);
 }
 
 .partyVal {
   font-family: 'DM Mono', monospace;
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--color-text);
   min-width: 14px;
   text-align: center;
 }
@@ -272,7 +270,7 @@
   font-family: 'DM Mono', monospace;
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
 }
 
 /* ── Creature list ── */
@@ -288,7 +286,7 @@
 
 .emptyHint {
   font-size: 0.78rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   text-align: center;
   padding: 12px 0;
   line-height: 1.6;
@@ -296,8 +294,8 @@
 
 /* ── Planner mode creature card (rich display) ── */
 .plannerCard {
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 6px 9px;
   display: flex;
@@ -309,8 +307,8 @@
 }
 
 .plannerCardSelected {
-  border-color: var(--crimson);
-  background: rgba(92, 20, 20, 0.06);
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
 }
 
 .plannerCardTop {
@@ -324,7 +322,7 @@
   flex: 1;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -345,7 +343,6 @@
   flex-shrink: 0;
 }
 
-/* Defense row in planner mode: single line, clipped if column is extremely narrow. */
 .plannerDefenseRow {
   display: flex;
   align-items: center;
@@ -363,13 +360,13 @@
 
 .plannerMeta {
   font-size: 0.67rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 .scaledBadge {
   font-size: 0.65rem;
   font-weight: 700;
-  color: #2a7a6a;
+  color: var(--color-modified);
   letter-spacing: 0.02em;
 }
 
@@ -386,7 +383,7 @@
   font-weight: 700;
   padding: 1px 6px;
   border-radius: 3px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   background: none;
   cursor: pointer;
   line-height: 1.5;
@@ -395,38 +392,38 @@
 }
 
 .eliteBtn {
-  color: #8a6a18;
+  color: var(--color-accent-dark);
 }
 
 .eliteBtn:hover {
-  border-color: #8a6a18;
-  background: rgba(138, 106, 24, 0.1);
+  border-color: var(--color-accent-dark);
+  background: var(--color-accent-on-dark);
 }
 
 .eliteBtnActive {
-  background: #8a6a18;
-  border-color: #8a6a18;
-  color: #f0e6cc;
+  background: var(--color-accent-dark);
+  border-color: var(--color-accent-dark);
+  color: var(--color-primary-text);
 }
 
 .eliteBtnActive:hover {
-  background: #6e5412;
-  border-color: #6e5412;
+  background: var(--color-accent-darker);
+  border-color: var(--color-accent-darker);
 }
 
 .weakBtn {
-  color: #2a5a8a;
+  color: var(--rarity-rare);
 }
 
 .weakBtn:hover {
-  border-color: #2a5a8a;
+  border-color: var(--rarity-rare);
   background: rgba(42, 90, 138, 0.1);
 }
 
 .weakBtnActive {
-  background: #2a5a8a;
-  border-color: #2a5a8a;
-  color: #f0e6cc;
+  background: var(--rarity-rare);
+  border-color: var(--rarity-rare);
+  color: var(--color-primary-text);
 }
 
 .weakBtnActive:hover {
@@ -434,10 +431,10 @@
   border-color: #1e4570;
 }
 
-/* Legacy card styles kept for any remaining usage */
+/* Legacy card styles */
 .creatureCard {
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 6px 9px;
   display: flex;
@@ -453,7 +450,7 @@
 .creatureName {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--color-text);
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -465,13 +462,13 @@
 }
 
 .creatureNameClickable:hover {
-  color: var(--crimson);
+  color: var(--color-primary);
   text-decoration: underline;
 }
 
 .creatureMeta {
   font-size: 0.67rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 .removeBtn {
@@ -479,8 +476,8 @@
   height: 18px;
   border-radius: 3px;
   background: none;
-  border: 1px solid var(--border);
-  color: var(--text-mute);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
@@ -492,9 +489,9 @@
 }
 
 .removeBtn:hover {
-  background: #3a1a1a;
-  color: #f0e6cc;
-  border-color: #3a1a1a;
+  background: var(--color-primary-dark);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary-dark);
 }
 
 .duplicateBtn {
@@ -502,8 +499,8 @@
   height: 18px;
   border-radius: 3px;
   background: none;
-  border: 1px solid var(--border);
-  color: var(--text-mute);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
@@ -515,17 +512,17 @@
 }
 
 .duplicateBtn:hover {
-  background: #1a2a3a;
-  color: #f0e6cc;
-  border-color: #1a2a3a;
+  background: var(--color-surface-dark);
+  color: var(--color-primary-text);
+  border-color: var(--color-surface-dark);
 }
 
 /* ── Custom creature form ── */
 .customForm {
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 8px 10px;
-  background: var(--parchment);
+  background: var(--color-surface);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -534,15 +531,15 @@
 .customInput {
   width: 100%;
   padding: 5px 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--color-bg);
+  color: var(--color-text);
   font-size: 0.8rem;
 }
 
 .customInput:focus {
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
@@ -555,12 +552,12 @@
 .wizardTitle {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--color-text);
 }
 
 .wizardHint {
   font-size: 0.68rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   margin-top: -2px;
 }
 
@@ -575,7 +572,7 @@
   align-items: center;
   gap: 6px;
   font-size: 0.72rem;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   cursor: pointer;
   user-select: none;
 }
@@ -595,7 +592,7 @@
 .wizardStatLabel {
   font-size: 0.63rem;
   font-weight: 700;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   width: 26px;
@@ -616,9 +613,9 @@
 .tierBtn {
   padding: 2px 0;
   border-radius: 3px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text-mute);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
   font-size: 0.6rem;
   font-weight: 700;
   cursor: pointer;
@@ -627,31 +624,31 @@
 }
 
 .tierBtn:hover {
-  border-color: var(--brown);
-  color: var(--text-mid);
+  border-color: var(--color-accent-brown);
+  color: var(--color-text-mid);
 }
 
 .tierBtnActive {
-  background: var(--crimson);
-  border-color: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 .wizardStatInput {
   width: 56px;
   flex-shrink: 0;
   padding: 2px 4px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--color-bg);
+  color: var(--color-text);
   font-size: 0.75rem;
   font-family: 'DM Mono', monospace;
   text-align: center;
 }
 
 .wizardStatInput:focus {
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
@@ -659,17 +656,17 @@
   width: 70px;
   flex-shrink: 0;
   padding: 2px 4px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--color-bg);
+  color: var(--color-text);
   font-size: 0.72rem;
   font-family: 'DM Mono', monospace;
   text-align: center;
 }
 
 .wizardDmgInput:focus {
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
@@ -682,10 +679,10 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   margin-top: 6px;
   padding-top: 6px;
-  border-top: 1px solid var(--border-l);
+  border-top: 1px solid var(--color-border-light);
 }
 
 .wizardSectionHead:first-child {
@@ -696,9 +693,9 @@
 
 .wizardAddBtn {
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 3px;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-size: 0.63rem;
   padding: 1px 6px;
   cursor: pointer;
@@ -707,14 +704,14 @@
 }
 
 .wizardAddBtn:hover {
-  border-color: var(--crimson);
-  color: var(--crimson);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 /* ── Attack draft card ── */
 .attackDraft {
-  background: var(--bg);
-  border: 1px solid var(--border-l);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
   border-radius: 5px;
   padding: 5px 7px;
   display: flex;
@@ -745,8 +742,8 @@
   width: 22px;
   height: 22px;
   border-radius: 4px;
-  border: 1px solid var(--border);
-  background: var(--parchment);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
   cursor: pointer;
   font-size: 12px;
   display: flex;
@@ -757,33 +754,33 @@
 }
 
 .typeToggleMelee {
-  border-color: #7a5c2e;
+  border-color: var(--color-accent-brown);
 }
 
 .typeToggleRanged {
-  border-color: #2a4a7a;
+  border-color: var(--rarity-rare);
 }
 
 .attackNameInput {
   flex: 1;
   padding: 2px 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: var(--parchment);
-  color: var(--text);
+  background: var(--color-surface);
+  color: var(--color-text);
   font-size: 0.75rem;
   min-width: 0;
 }
 
 .attackNameInput:focus {
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
 .attackSubLabel {
   font-size: 0.6rem;
   font-weight: 700;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   flex-shrink: 0;
 }
@@ -793,8 +790,8 @@
   height: 18px;
   border-radius: 3px;
   background: none;
-  border: 1px solid var(--border);
-  color: var(--text-mute);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
   font-size: 12px;
   cursor: pointer;
   flex-shrink: 0;
@@ -805,15 +802,15 @@
 }
 
 .removeAttackBtn:hover {
-  background: #3a1a1a;
-  color: #f0e6cc;
-  border-color: #3a1a1a;
+  background: var(--color-primary-dark);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary-dark);
 }
 
 /* ── Ability draft card ── */
 .abilityDraft {
-  background: var(--bg);
-  border: 1px solid var(--border-l);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
   border-radius: 5px;
   padding: 5px 7px;
   display: flex;
@@ -830,26 +827,26 @@
 .abilityNameInput {
   flex: 1;
   padding: 2px 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: var(--parchment);
-  color: var(--text);
+  background: var(--color-surface);
+  color: var(--color-text);
   font-size: 0.75rem;
   min-width: 0;
 }
 
 .abilityNameInput:focus {
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
 .abilityDescInput {
   width: 100%;
   padding: 3px 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: var(--parchment);
-  color: var(--text);
+  background: var(--color-surface);
+  color: var(--color-text);
   font-size: 0.72rem;
   resize: vertical;
   line-height: 1.4;
@@ -858,7 +855,7 @@
 }
 
 .abilityDescInput:focus {
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
@@ -884,28 +881,28 @@
 }
 
 .combatAtkName {
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   font-weight: 600;
   font-family: inherit;
   font-size: 0.7rem;
 }
 
 .combatAtkBonus {
-  color: var(--crimson);
+  color: var(--color-primary);
   font-weight: 700;
 }
 
 .combatAtkDmg {
-  color: var(--text-mid);
+  color: var(--color-text-mid);
 }
 
 .combatAtkRange {
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-size: 0.6rem;
 }
 
 .combatAtkTraits {
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-size: 0.6rem;
   font-style: italic;
 }
@@ -920,13 +917,13 @@
 .combatAbilityChip {
   display: inline-flex;
   align-items: center;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 1px 7px;
   font-size: 0.63rem;
   font-weight: 600;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   cursor: default;
 }
 
@@ -949,8 +946,8 @@
   flex: 1;
   padding: 5px 0;
   border-radius: 5px;
-  background: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   border: none;
   font-size: 0.78rem;
   font-weight: 600;
@@ -961,16 +958,16 @@
   flex: 1;
   padding: 5px 0;
   border-radius: 5px;
-  background: var(--bg);
-  color: var(--text-mute);
-  border: 1px solid var(--border);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
   font-size: 0.78rem;
   cursor: pointer;
 }
 
 .addPlaceholderBtn {
   width: 100%;
-  border: 1px dashed var(--border);
+  border: 1px dashed var(--color-border);
   border-radius: 6px;
   padding: 7px;
   display: flex;
@@ -978,29 +975,29 @@
   justify-content: center;
   cursor: pointer;
   background: none;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-size: 0.75rem;
   transition: border-color 0.12s, color 0.12s;
 }
 
 .addPlaceholderBtn:hover {
-  border-color: var(--text-mute);
-  color: var(--text-mid);
+  border-color: var(--color-text-muted);
+  color: var(--color-text-mid);
 }
 
 /* ── Start combat ── */
 .startCombatRow {
   padding: 10px;
   flex-shrink: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
 }
 
 .startCombatBtn {
   width: 100%;
   padding: 8px 0;
   border-radius: 6px;
-  background: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   border: none;
   font-size: 0.8rem;
   font-weight: 700;
@@ -1023,7 +1020,7 @@
 
 .combatHeader {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1033,7 +1030,7 @@
 .roundLabel {
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--color-text);
   white-space: nowrap;
   flex-shrink: 1;
 }
@@ -1041,8 +1038,8 @@
 .nextTurnBtn {
   padding: 4px 12px;
   border-radius: 5px;
-  background: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   border: none;
   font-size: 0.72rem;
   font-weight: 600;
@@ -1055,9 +1052,9 @@
   margin-left: auto;
   padding: 4px 10px;
   border-radius: 5px;
-  background: var(--bg);
-  color: var(--text-mute);
-  border: 1px solid var(--border);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
   font-size: 0.72rem;
   cursor: pointer;
   white-space: nowrap;
@@ -1075,8 +1072,8 @@
 }
 
 .combatCard {
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 7px 9px;
   transition: background 0.15s, border-color 0.15s;
@@ -1088,7 +1085,7 @@
 }
 
 .combatCardSelected {
-  border-color: var(--crimson);
+  border-color: var(--color-primary);
 }
 
 .combatCardClickable {
@@ -1096,15 +1093,15 @@
 }
 
 .combatCardClickable:hover {
-  background: rgba(122, 92, 46, 0.06);
+  background: var(--color-accent-tint);
 }
 
 .combatCardActive {
-  background: rgba(92, 20, 20, 0.06);
+  background: var(--color-primary-tint);
 }
 
 .combatCardActive.combatCardClickable:hover {
-  background: rgba(92, 20, 20, 0.1);
+  background: color-mix(in srgb, var(--color-primary-tint) 80%, transparent);
 }
 
 .combatCardTop {
@@ -1118,8 +1115,8 @@
   width: 24px;
   height: 24px;
   border-radius: 4px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1127,13 +1124,13 @@
   font-family: 'DM Mono', monospace;
   font-size: 0.67rem;
   font-weight: 700;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
 }
 
 .initBadgeActive {
-  background: var(--crimson);
-  border-color: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 .combatCreatureInfo {
@@ -1145,7 +1142,7 @@
   flex: 1;
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--color-text);
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1154,9 +1151,8 @@
 }
 
 .combatNameActive {
-  color: var(--crimson);
+  color: var(--color-primary);
 }
-
 
 .combatDefenseRow {
   display: flex;
@@ -1177,13 +1173,13 @@
 }
 
 .combatDefStat:hover {
-  background: var(--border-l);
+  background: var(--color-border-light);
 }
 
 .combatDefLabel {
   font-size: 0.6rem;
   font-weight: 700;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   text-transform: uppercase;
 }
 
@@ -1191,10 +1187,10 @@
   font-family: 'DM Mono', monospace;
   font-size: 0.7rem;
   font-weight: 700;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
 }
 
-/* rollable spans (attack bonus, damage) */
+/* rollable spans */
 .rollable {
   cursor: pointer;
   border-radius: 3px;
@@ -1203,7 +1199,7 @@
 }
 
 .rollable:hover {
-  background: var(--border-l);
+  background: var(--color-border-light);
 }
 
 .conditionRow {
@@ -1218,7 +1214,7 @@
 .conditionChip {
   display: inline-flex;
   align-items: center;
-  background: #5a3a8a;
+  background: var(--color-condition);
   color: #fff;
   border-radius: 8px;
   padding: 2px 8px;
@@ -1244,8 +1240,8 @@
 .conditionPopup {
   position: fixed;
   z-index: 1001;
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
   padding: 0;
@@ -1261,7 +1257,7 @@
   justify-content: space-between;
   padding: 10px 12px 8px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border-l);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .conditionPopupBody {
@@ -1276,13 +1272,13 @@
   font-family: 'Cinzel', Georgia, serif;
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--crimson);
+  color: var(--color-primary);
   letter-spacing: 0.03em;
 }
 
 .conditionSortToggle {
   display: flex;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   overflow: hidden;
   flex-shrink: 0;
@@ -1291,7 +1287,7 @@
 .conditionSortBtn {
   background: none;
   border: none;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-size: 0.68rem;
   padding: 2px 9px;
   cursor: pointer;
@@ -1299,24 +1295,24 @@
 }
 
 .conditionSortBtn + .conditionSortBtn {
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--color-border);
 }
 
 .conditionSortBtnActive {
-  background: var(--crimson);
+  background: var(--color-primary);
   color: #fff;
 }
 
 .conditionSortBtn:not(.conditionSortBtnActive):hover {
-  background: var(--border-l);
-  color: var(--text);
+  background: var(--color-border-light);
+  color: var(--color-text);
 }
 
 .conditionPickerClose {
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-size: 0.7rem;
   padding: 2px 8px;
   cursor: pointer;
@@ -1325,8 +1321,8 @@
 }
 
 .conditionPickerClose:hover {
-  border-color: var(--crimson);
-  color: var(--crimson);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .conditionAlphaGrid {
@@ -1350,7 +1346,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1360,10 +1356,10 @@
 }
 
 .conditionPickerBtn {
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   font-size: 0.72rem;
   padding: 2px 8px;
   cursor: pointer;
@@ -1371,17 +1367,17 @@
 }
 
 .conditionPickerBtn:hover {
-  border-color: #5a3a8a;
-  color: #5a3a8a;
-  background: rgba(90, 58, 138, 0.08);
+  border-color: var(--color-condition);
+  color: var(--color-condition);
+  background: var(--color-condition-tint);
 }
 
 /* ── Condition hover tooltip ── */
 .conditionTooltip {
   position: fixed;
   z-index: 1002;
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
   padding: 10px 12px 12px;
@@ -1394,23 +1390,23 @@
   font-family: 'Cinzel', Georgia, serif;
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--crimson);
+  color: var(--color-primary);
   margin-bottom: 4px;
 }
 
 .conditionTooltipEffect {
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-style: italic;
   margin-bottom: 6px;
   padding-bottom: 6px;
-  border-bottom: 1px solid var(--border-l);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .conditionTooltipDesc {
   font-size: 0.75rem;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   line-height: 1.5;
   margin: 0;
 }
@@ -1425,24 +1421,24 @@
 
 .conditionValueLabel {
   font-size: 0.78rem;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   font-weight: 600;
 }
 
 .conditionValueDisplay {
   font-size: 1.1rem;
   font-family: 'DM Mono', monospace;
-  color: var(--text);
+  color: var(--color-text);
   font-weight: 700;
   min-width: 28px;
   text-align: center;
 }
 
 .conditionStepBtn {
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   font-size: 1rem;
   width: 28px;
   height: 28px;
@@ -1456,13 +1452,13 @@
 }
 
 .conditionStepBtn:hover {
-  border-color: var(--crimson);
-  color: var(--crimson);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .conditionValueConfirm {
-  background: #3a7a3a;
-  border: 1px solid #3a7a3a;
+  background: var(--color-healing);
+  border: 1px solid var(--color-healing);
   border-radius: 6px;
   color: #fff;
   font-size: 0.75rem;
@@ -1479,9 +1475,9 @@
 
 .addConditionBtn {
   background: none;
-  border: 1px dashed var(--border);
+  border: 1px dashed var(--color-border);
   border-radius: 8px;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-size: 0.63rem;
   cursor: pointer;
   padding: 1px 6px;
@@ -1489,17 +1485,17 @@
 }
 
 .addConditionBtn:hover {
-  border-color: var(--crimson);
-  color: var(--crimson);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .conditionInput {
   font-size: 0.68rem;
   padding: 1px 6px;
-  border: 1px solid var(--crimson);
+  border: 1px solid var(--color-primary);
   border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--color-bg);
+  color: var(--color-text);
   width: 150px;
   outline: none;
 }
@@ -1513,7 +1509,7 @@
 
 .hpBar {
   height: 3px;
-  background: var(--border-l);
+  background: var(--color-border-light);
   border-radius: 2px;
   overflow: hidden;
   margin-bottom: 5px;
@@ -1537,17 +1533,17 @@
   font-size: 0.65rem;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
 }
 
 .hpBtnDmg {
-  background: #2a1010;
-  color: #cc6666;
+  background: var(--color-primary-darker);
+  color: var(--color-damage-bright);
 }
 
 .hpBtnHeal {
-  background: #0e2a0e;
-  color: #66aa66;
+  background: var(--color-healing-dark);
+  color: var(--color-healing-bright);
 }
 
 /* ── Recall Knowledge row ── */
@@ -1563,7 +1559,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
@@ -1571,19 +1567,19 @@
   font-family: 'DM Mono', monospace;
   font-size: 0.67rem;
   font-weight: 700;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   flex-shrink: 0;
 }
 
 .rkSkills {
   font-size: 0.63rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-style: italic;
 }
 
 /* ── Tab drag-over indicator ── */
 .tabWrapperDragOver {
-  border-left: 2px solid var(--crimson);
+  border-left: 2px solid var(--color-primary);
 }
 
 /* ── Condition picker drag handle ── */
@@ -1609,16 +1605,15 @@
   width: 34px;
   height: 24px;
   border-radius: 4px;
-  border: 1px solid var(--crimson);
-  background: var(--bg);
-  color: var(--text);
+  border: 1px solid var(--color-primary);
+  background: var(--color-bg);
+  color: var(--color-text);
   font-family: 'DM Mono', monospace;
   font-size: 0.67rem;
   font-weight: 700;
   text-align: center;
   padding: 0 2px;
   flex-shrink: 0;
-  /* hide number input spin buttons */
   -moz-appearance: textfield;
 }
 
@@ -1640,9 +1635,9 @@
   width: 70px;
   height: 20px;
   border-radius: 4px;
-  border: 1px solid var(--crimson);
-  background: var(--bg);
-  color: var(--text);
+  border: 1px solid var(--color-primary);
+  background: var(--color-bg);
+  color: var(--color-text);
   font-family: 'DM Mono', monospace;
   font-size: 0.75rem;
   font-weight: 700;
@@ -1653,7 +1648,7 @@
 }
 
 .hpInput::placeholder {
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-weight: 400;
 }
 
@@ -1662,10 +1657,10 @@
   flex: 1;
   min-width: 0;
   padding: 1px 5px;
-  border: 1px solid var(--crimson);
+  border: 1px solid var(--color-primary);
   border-radius: 4px;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--color-bg);
+  color: var(--color-text);
   font-size: 0.8rem;
   font-weight: 600;
   font-family: inherit;

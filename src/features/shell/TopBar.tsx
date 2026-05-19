@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Section } from '../../types/encounter';
+import type { Theme } from '../../utils/themeEngine';
 import styles from './TopBar.module.css';
 import { HelpModal } from './HelpModal';
+import { ThemePicker } from './ThemePicker';
 
 interface TopBarProps {
   activeSection: Section;
@@ -10,13 +12,16 @@ interface TopBarProps {
   historyOpen: boolean;
   onToggleHistory: () => void;
   onResetDatabase: () => Promise<void>;
+  activeTheme: Theme;
+  onApplyTheme: (theme: Theme) => void;
 }
 
-export function TopBar({ activeSection, onSectionChange, historyCount, historyOpen, onToggleHistory, onResetDatabase }: TopBarProps) {
+export function TopBar({ activeSection, onSectionChange, historyCount, historyOpen, onToggleHistory, onResetDatabase, activeTheme, onApplyTheme }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu on outside click
@@ -104,6 +109,10 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
             </button>
             {menuOpen && (
               <div className={styles.settingsMenu}>
+                <button className={styles.settingsMenuItem} onClick={() => { setMenuOpen(false); setThemePickerOpen(true); }}>
+                  <span className={styles.settingsMenuIcon}>🎨</span>
+                  Theme
+                </button>
                 <button className={styles.settingsMenuItem} onClick={handleResetClick}>
                   <span className={styles.settingsMenuIcon}>🗑</span>
                   Reset creature database
@@ -115,6 +124,13 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
       </header>
 
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
+      {themePickerOpen && (
+        <ThemePicker
+          activeTheme={activeTheme}
+          onApply={onApplyTheme}
+          onClose={() => setThemePickerOpen(false)}
+        />
+      )}
 
       {confirmOpen && (
         <div className={styles.overlay} onClick={() => !resetting && setConfirmOpen(false)}>

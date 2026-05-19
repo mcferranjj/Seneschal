@@ -9,6 +9,7 @@ import { useEncounter } from './hooks/useEncounter';
 import { useSearch } from './hooks/useSearch';
 import type { SearchFilters } from './search/search';
 import { useUIPrefs } from './hooks/useUIPrefs';
+import { useTheme } from './hooks/useTheme';
 import { TopBar } from './features/shell/TopBar';
 import { SearchPanel } from './features/creatures/SearchPanel/SearchPanel';
 import { ResultsList } from './features/creatures/ResultsList/ResultsList';
@@ -20,6 +21,9 @@ import { RollHistory } from './features/roll-history/RollHistory';
 import styles from './features/shell/App.module.css';
 
 export default function App() {
+  // Theme — loads from localStorage, derives all tokens, applies to :root
+  const { activeTheme, setTheme } = useTheme();
+
   // Persisted UI preferences — loaded once from localStorage on mount
   const { loadedPrefs, persistPrefs } = useUIPrefs();
 
@@ -278,6 +282,8 @@ export default function App() {
         historyOpen={historyOpen}
         onToggleHistory={() => setHistoryOpen(o => !o)}
         onResetDatabase={handleResetDatabase}
+        activeTheme={activeTheme}
+        onApplyTheme={setTheme}
       />
       {historyOpen && (
         <RollHistory

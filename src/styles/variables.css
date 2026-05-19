@@ -1,18 +1,106 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   BASE TOKENS  (user-configurable)
+   These are the 9 values the theme picker exposes. All other colors are derived
+   from these at runtime by themeEngine.ts, which overwrites them on :root.
+   The values here serve as the "Default Parchment" fallback for first load.
+───────────────────────────────────────────────────────────────────────────── */
 :root {
-  --bg: #f4ead6;
-  --parchment: #faf4e8;
-  --crimson: #5c1414;
-  --brown: #7a5c2e;
-  --gold: #9a7228;
-  --border: #d8c8a4;
-  --border-l: #ecddc4;
-  --text: #2a1a0e;
-  --text-mid: #5a3a20;
-  --text-mute: #8a6a4a;
-  --rarity-common: #5a7a3a;
-  --rarity-uncommon: #8a6a18;
-  --rarity-rare: #2a4a8a;
-  --rarity-unique: #6a2a8a;
-  --trait-include: #3a7a3a;
-  --trait-exclude: #8a2a18;
+  --color-bg:        #f4ead6;
+  --color-surface:   #faf4e8;
+  --color-primary:   #5c1414;
+  --color-accent:    #9a7228;
+  --color-text:      #2a1a0e;
+  --color-healing:   #3a7a3a;
+  --color-damage:    #8a2a18;
+  --color-condition: #5a3a8a;
+  --color-modified:  #2a7a6a;
+
+  /* ── Trait badge base tokens (user-overrideable via theme picker) ────────── */
+  --color-trait-default:  #522e2c;
+  --color-trait-uncommon: #8a6a18;
+  --color-trait-rare:     #2a4a8a;
+  --color-trait-unique:   #6a2a8a;
+
+  /* ── PF2e-locked filter-trait tokens ──────────────────────────────────── */
+  --rarity-common:    #5a7a3a;
+  --rarity-uncommon:  #8a6a18;
+  --rarity-rare:      #2a4a8a;
+  --rarity-unique:    #6a2a8a;
+  --trait-include:    #3a7a3a;
+  --trait-exclude:    #8a2a18;
+
+  /* ── Derived tokens ─────────────────────────────────────────────────────
+     Computed at runtime by themeEngine.ts. The values below match the
+     Default Parchment theme and are the CSS fallback if JS hasn't run yet.
+  ──────────────────────────────────────────────────────────────────────── */
+
+  /* From --color-bg */
+  --color-bg-banner:        #fdf3dc;
+  --color-bg-error:         #3a1a1a;
+  --color-bg-overlay-light: rgba(0,0,0,0.04);
+  --color-bg-overlay-mid:   rgba(0,0,0,0.07);
+  --color-bg-modal-scrim:   rgba(0,0,0,0.65);
+  --color-bg-popup:         #2a2118;
+
+  /* From --color-surface */
+  --color-surface-dark:     #2a1a1a;
+  --color-border:           #d8c8a4;
+  --color-border-light:     #ecddc4;
+  --color-border-banner:    #d4b870;
+
+  /* From --color-primary */
+  --color-primary-text:           #f0e6cc;
+  --color-primary-text-muted:     rgba(240,230,204,0.6);
+  --color-primary-text-dim:       rgba(240,230,204,0.72);
+  --color-primary-text-faint:     rgba(240,230,204,0.55);
+  --color-primary-glow:           rgba(92,20,20,0.12);
+  --color-primary-tint:           rgba(92,20,20,0.06);
+  --color-primary-hover:          #a52020;
+  --color-primary-dark:           #3a1a1a;
+  --color-primary-darker:         #2a1010;
+  --color-trait-bar:              #2e1a19;
+  --color-trait-bar-border:       #1e100f;
+  --color-surface-on-primary:     rgba(255,255,255,0.09);
+  --color-surface-on-primary-2:   rgba(255,255,255,0.18);
+  --color-surface-on-primary-3:   rgba(255,255,255,0.22);
+  --color-border-on-primary:      rgba(255,255,255,0.18);
+  --color-border-on-primary-2:    rgba(255,255,255,0.35);
+
+  /* From --color-accent */
+  --color-accent-bright:     #c8922a;
+  --color-accent-dark:       #8a6a18;
+  --color-accent-darker:     #6e5412;
+  --color-accent-deep:       #5a3a0a;
+  --color-accent-on-dark:    rgba(200,146,42,0.12);
+  --color-accent-tooltip:    rgba(255,220,100,0.9);
+  --color-accent-tooltip-2:  rgba(180,140,40,0.5);
+  --color-accent-tooltip-3:  rgba(180,140,20,0.12);
+  --color-accent-tint:       rgba(122,92,46,0.06);
+  --color-accent-brown:      #7a5c2e;
+  --color-accent-on-deep:    #2a1a00;
+
+  /* From --color-text */
+  --color-text-mid:     #5a3a20;
+  --color-text-muted:   #8a6a4a;
+  --color-roll-hover:   rgba(139,69,19,0.15);
+  --color-roll-hover-2: rgba(139,69,19,0.10);
+  --color-roll-hover-3: rgba(139,69,19,0.04);
+
+  /* From --color-healing */
+  --color-healing-tint:   rgba(58,122,58,0.15);
+  --color-healing-dark:   #0e2a0e;
+  --color-healing-bright: #66aa66;
+
+  /* From --color-damage */
+  --color-damage-tint:   rgba(138,42,24,0.15);
+  --color-damage-bright: #cc6666;
+  --color-fumble:        #8a2a18;
+
+  /* From --color-condition */
+  --color-condition-tint: rgba(90,58,138,0.08);
+
+  /* From --color-modified */
+  --color-modified-tint:   rgba(42,122,106,0.15);
+  --color-modified-bright: rgba(180,255,230,0.9);
+  --color-modified-mid:    rgba(42,122,106,0.55);
 }

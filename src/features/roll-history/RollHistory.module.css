@@ -5,8 +5,8 @@
   z-index: 600;
   width: 280px;
   max-height: 480px;
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
   display: flex;
@@ -19,14 +19,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 9px 12px 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
 .title {
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--color-text);
 }
 
 .headerActions {
@@ -39,16 +39,16 @@
   font-size: 0.68rem;
   padding: 2px 8px;
   border-radius: 4px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   background: none;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   cursor: pointer;
   transition: color 0.1s, border-color 0.1s;
 }
 
 .clearBtn:hover:not(:disabled) {
-  color: var(--crimson);
-  border-color: var(--crimson);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .clearBtn:disabled {
@@ -59,7 +59,7 @@
 .closeBtn {
   background: none;
   border: none;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-size: 0.85rem;
   cursor: pointer;
   line-height: 1;
@@ -67,7 +67,7 @@
 }
 
 .closeBtn:hover {
-  color: var(--crimson);
+  color: var(--color-primary);
 }
 
 .list {
@@ -79,7 +79,7 @@
 .empty {
   text-align: center;
   font-size: 0.78rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   padding: 24px 0;
 }
 
@@ -89,7 +89,7 @@
   justify-content: space-between;
   gap: 10px;
   padding: 6px 12px;
-  border-bottom: 1px solid var(--border-l);
+  border-bottom: 1px solid var(--color-border-light);
   transition: background 0.1s;
 }
 
@@ -98,7 +98,7 @@
 }
 
 .entry:hover {
-  background: rgba(139, 69, 19, 0.04);
+  background: var(--color-roll-hover-3);
 }
 
 .entryLeft {
@@ -112,7 +112,7 @@
 .entryLabel {
   font-size: 0.62rem;
   font-weight: 600;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -123,7 +123,7 @@
 .entryCreature {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -132,20 +132,20 @@
 .entryExpr {
   font-family: 'DM Mono', monospace;
   font-size: 0.72rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-weight: 600;
 }
 
 .entryBreakdown {
   font-family: 'DM Mono', monospace;
   font-size: 0.65rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   opacity: 0.75;
 }
 
 .entryTime {
   font-size: 0.6rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   opacity: 0.6;
 }
 
@@ -159,13 +159,13 @@
 }
 
 .entryTotalNormal {
-  color: var(--text);
+  color: var(--color-text);
 }
 
 .entryTotalCrit {
-  color: var(--gold, #c8922a);
+  color: var(--color-accent-bright);
 }
 
 .entryTotalFumble {
-  color: #c03030;
+  color: var(--color-fumble);
 }

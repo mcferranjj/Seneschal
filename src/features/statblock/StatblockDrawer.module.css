@@ -5,8 +5,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-left: 1px solid var(--border);
-  background: var(--parchment);
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
 /* Empty state */
@@ -17,7 +17,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 .emptyIcon {
@@ -30,7 +30,7 @@
   font-family: 'Cinzel', Georgia, serif;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
 }
 
 .emptyHint {
@@ -38,10 +38,10 @@
 }
 
 .imageContainer {
-  background: var(--parchment);
+  background: var(--color-surface);
   display: flex;
   justify-content: center;
-  border-bottom: 1px solid var(--border-l);
+  border-bottom: 1px solid var(--color-border-light);
   padding: 8px;
   flex-shrink: 0;
 }
@@ -63,8 +63,8 @@
 }
 
 .rollMod:hover {
-  background: rgba(139, 69, 19, 0.15);
-  color: var(--crimson);
+  background: var(--color-roll-hover);
+  color: var(--color-primary);
 }
 
 /* MAP individual roll spans inside the bracket */
@@ -76,8 +76,8 @@
 }
 
 .mapRoll:hover {
-  background: rgba(139, 69, 19, 0.15);
-  color: var(--crimson);
+  background: var(--color-roll-hover);
+  color: var(--color-primary);
 }
 
 /* Scrollable content */
@@ -94,8 +94,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  background: var(--crimson);
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   padding: 11px 14px 10px;
   gap: 10px;
   flex-shrink: 0;
@@ -110,20 +110,20 @@
   font-family: 'Cinzel', Georgia, serif;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-primary-text);
   line-height: 1.2;
   display: block;
 }
 
 .creatureOriginalName {
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--color-primary-text-faint);
   font-style: italic;
 }
 
 .creatureLevel {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-primary-text-muted);
   margin-top: 1px;
   display: block;
 }
@@ -138,24 +138,24 @@
 .aonLink {
   font-size: 0.65rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--color-primary-text-dim);
   text-decoration: none;
   letter-spacing: 0.04em;
   padding: 2px 6px;
-  border: 1px solid rgba(255,255,255,0.25);
+  border: 1px solid var(--color-border-on-primary);
   border-radius: 4px;
   transition: color 0.12s, border-color 0.12s;
 }
 
 .aonLink:hover {
-  color: #fff;
-  border-color: rgba(255,255,255,0.6);
+  color: var(--color-primary-text);
+  border-color: var(--color-border-on-primary-2);
 }
 
 .closeBtn {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--color-surface-on-primary-2);
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--color-primary-text-dim);
   font-size: 0.9rem;
   cursor: pointer;
   width: 24px;
@@ -169,14 +169,14 @@
 }
 
 .closeBtn:hover {
-  background: rgba(255, 255, 255, 0.28);
-  color: #fff;
+  background: var(--color-surface-on-primary-3);
+  color: var(--color-primary-text);
 }
 
 .editBtn {
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255,255,255,0.25);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--color-surface-on-primary);
+  border: 1px solid var(--color-border-on-primary);
+  color: var(--color-primary-text-dim);
   font-size: 0.85rem;
   cursor: pointer;
   width: 24px;
@@ -190,15 +190,15 @@
 }
 
 .editBtn:hover {
-  background: rgba(255, 255, 255, 0.28);
-  border-color: rgba(255,255,255,0.6);
-  color: #fff;
+  background: var(--color-surface-on-primary-3);
+  border-color: var(--color-border-on-primary-2);
+  color: var(--color-primary-text);
 }
 
 .copyBtn {
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255,255,255,0.25);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--color-surface-on-primary);
+  border: 1px solid var(--color-border-on-primary);
+  color: var(--color-primary-text-dim);
   font-size: 0.85rem;
   cursor: pointer;
   width: 24px;
@@ -212,9 +212,9 @@
 }
 
 .copyBtn:hover {
-  background: rgba(255, 255, 255, 0.28);
-  border-color: rgba(255,255,255,0.6);
-  color: #fff;
+  background: var(--color-surface-on-primary-3);
+  border-color: var(--color-border-on-primary-2);
+  color: var(--color-primary-text);
 }
 
 /* ── Level Scaling ────────────────────────────────────────────────────────── */
@@ -222,7 +222,7 @@
 .scaledBadge {
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgba(180, 255, 230, 0.9);
+  color: var(--color-modified-bright);
   letter-spacing: 0.03em;
 }
 
@@ -232,9 +232,9 @@
 }
 
 .scaleBtn {
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255,255,255,0.25);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--color-surface-on-primary);
+  border: 1px solid var(--color-border-on-primary);
+  color: var(--color-primary-text-dim);
   font-size: 0.85rem;
   cursor: pointer;
   width: 24px;
@@ -247,19 +247,19 @@
 }
 
 .scaleBtn:hover {
-  background: rgba(255, 255, 255, 0.28);
-  border-color: rgba(255,255,255,0.6);
-  color: #fff;
+  background: var(--color-surface-on-primary-3);
+  border-color: var(--color-border-on-primary-2);
+  color: var(--color-primary-text);
 }
 
 .scaleBtnActive {
-  background: rgba(42, 122, 106, 0.5);
-  border-color: rgba(180, 255, 230, 0.6);
-  color: rgba(180, 255, 230, 0.95);
+  background: var(--color-modified-mid);
+  border-color: var(--color-modified-bright);
+  color: var(--color-modified-bright);
 }
 
 .scaleBtnActive:hover {
-  background: rgba(42, 122, 106, 0.7);
+  background: var(--color-modified-tint);
 }
 
 .scaleDropdown {
@@ -267,8 +267,8 @@
   top: calc(100% + 6px);
   right: 0;
   z-index: 300;
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.2);
   padding: 6px;
@@ -280,9 +280,9 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   padding: 2px 4px 6px;
-  border-bottom: 1px solid var(--border-l);
+  border-bottom: 1px solid var(--color-border-light);
   margin-bottom: 4px;
 }
 
@@ -295,14 +295,14 @@
   border-radius: 4px;
   background: none;
   font-size: 0.75rem;
-  color: #8a2a18;
+  color: var(--color-damage);
   cursor: pointer;
   margin-bottom: 4px;
   transition: background 0.1s;
 }
 
 .scaleDropdownRemove:hover {
-  background: rgba(138, 42, 24, 0.1);
+  background: var(--color-damage-tint);
 }
 
 .scaleDropdownList {
@@ -319,31 +319,31 @@
   border-radius: 3px;
   background: none;
   font-size: 0.72rem;
-  color: var(--text);
+  color: var(--color-text);
   cursor: pointer;
   text-align: center;
   transition: background 0.1s, border-color 0.1s;
 }
 
 .scaleDropdownItem:hover {
-  background: rgba(139, 69, 19, 0.1);
-  border-color: var(--border);
-  color: var(--crimson);
+  background: var(--color-roll-hover-2);
+  border-color: var(--color-border);
+  color: var(--color-primary);
 }
 
 .scaleDropdownItemActive {
-  background: rgba(42, 122, 106, 0.15);
-  border-color: #2a7a6a;
-  color: #2a7a6a;
+  background: var(--color-modified-tint);
+  border-color: var(--color-modified);
+  color: var(--color-modified);
   font-weight: 700;
 }
 
 /* ── GM Notes button (header) ─────────────────────────────────────────────── */
 
 .notesBtn {
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255,255,255,0.25);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--color-surface-on-primary);
+  border: 1px solid var(--color-border-on-primary);
+  color: var(--color-primary-text-dim);
   font-size: 0.78rem;
   cursor: pointer;
   width: 24px;
@@ -355,22 +355,23 @@
   flex-shrink: 0;
   transition: background 0.12s, border-color 0.12s;
   line-height: 1;
+  position: relative;
 }
 
 .notesBtn:hover {
-  background: rgba(255, 255, 255, 0.28);
-  border-color: rgba(255,255,255,0.6);
-  color: #fff;
+  background: var(--color-surface-on-primary-3);
+  border-color: var(--color-border-on-primary-2);
+  color: var(--color-primary-text);
 }
 
 /* Active = panel is open */
 .notesBtnActive {
-  background: rgba(180, 140, 40, 0.45);
-  border-color: rgba(255, 220, 100, 0.7);
+  background: var(--color-accent-tooltip-2);
+  border-color: var(--color-accent-tooltip);
 }
 
 .notesBtnActive:hover {
-  background: rgba(180, 140, 40, 0.65);
+  background: var(--color-accent-tooltip-2);
 }
 
 /* Has content = notes are non-empty (dot indicator) */
@@ -382,20 +383,15 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: rgba(255, 220, 100, 0.9);
+  background: var(--color-accent-tooltip);
   pointer-events: none;
-}
-
-/* notesBtn needs position:relative for the dot indicator */
-.notesBtn {
-  position: relative;
 }
 
 /* ── GM Notes panel (below traits) ───────────────────────────────────────── */
 
 .notesPanel {
-  background: rgba(180, 140, 20, 0.07);
-  border-bottom: 2px solid rgba(180, 140, 20, 0.25);
+  background: var(--color-accent-tooltip-3);
+  border-bottom: 2px solid var(--color-accent-tooltip-2);
   padding: 6px 10px;
   display: flex;
   flex-direction: column;
@@ -409,12 +405,12 @@
   resize: none;
   overflow-y: auto;
   background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(180, 140, 20, 0.35);
+  border: 1px solid var(--color-accent-tooltip-2);
   border-radius: 4px;
   padding: 5px 8px;
   font-size: 0.8rem;
   font-family: inherit;
-  color: var(--text);
+  color: var(--color-text);
   line-height: 1.5;
   min-height: 32px;
   transition: border-color 0.12s, background 0.12s;
@@ -422,21 +418,21 @@
 
 .notesTextarea:focus {
   outline: none;
-  border-color: rgba(180, 140, 20, 0.7);
+  border-color: var(--color-accent-dark);
   background: rgba(255, 255, 255, 0.75);
 }
 
 .notesTextarea::placeholder {
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-style: italic;
 }
 
 .notesUndoBtn {
   align-self: flex-start;
   background: none;
-  border: 1px solid rgba(180, 140, 20, 0.4);
+  border: 1px solid var(--color-accent-tooltip-2);
   border-radius: 3px;
-  color: rgba(120, 90, 10, 0.85);
+  color: var(--color-accent-dark);
   font-size: 0.7rem;
   font-weight: 600;
   cursor: pointer;
@@ -445,19 +441,19 @@
 }
 
 .notesUndoBtn:hover {
-  background: rgba(180, 140, 20, 0.12);
-  border-color: rgba(180, 140, 20, 0.7);
-  color: rgba(100, 70, 0, 1);
+  background: var(--color-accent-tooltip-3);
+  border-color: var(--color-accent-dark);
+  color: var(--color-accent-deeper, var(--color-accent-dark));
 }
 
-/* Traits row */
+/* Traits row — PF2e-locked colors */
 .traitsRow {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   padding: 6px 10px;
-  background: #4a1010;
-  border-bottom: 2px solid #360c0c;
+  background: var(--color-trait-bar);
+  border-bottom: 2px solid var(--color-trait-bar-border);
   flex-shrink: 0;
 }
 
@@ -467,7 +463,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #fff;
-  background: #8b4513;
+  background: var(--color-trait-default);
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 3px;
   padding: 2px 7px;
@@ -492,7 +488,7 @@
   position: fixed;
   z-index: 400;
   width: 260px;
-  max-height: 200px; /* matches TOOLTIP_MAX_H in TraitChip.tsx */
+  max-height: 200px;
   overflow-y: auto;
   background: #2a1a0a;
   border: 1px solid rgba(255,255,255,0.15);
@@ -507,7 +503,6 @@
   line-height: 1.5;
   white-space: normal;
   transition: opacity 0.1s;
-  /* top/left set via JS on mouseEnter */
 }
 
 .traitTooltipName {
@@ -520,9 +515,6 @@
   letter-spacing: 0.05em;
 }
 
-/* Pinned trait popup — same dark parchment style as the hover tooltip but
-   with a header row containing the name and an ✕ close button, and no
-   max-height cap so long descriptions are fully scrollable. */
 .traitPinnedPopup {
   position: fixed;
   z-index: 450;
@@ -541,7 +533,6 @@
   color: #e8d8b8;
   line-height: 1.5;
   white-space: normal;
-  /* top/left set via JS on click */
 }
 
 .traitPinnedPopupHeader {
@@ -593,13 +584,13 @@
   width: 300px;
   max-height: 380px;
   overflow-y: auto;
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.18);
   padding: 8px 10px 10px;
   font-size: 0.8rem;
-  color: var(--text);
+  color: var(--color-text);
 }
 
 .abilityPopupHeader {
@@ -608,7 +599,7 @@
   justify-content: space-between;
   gap: 6px;
   margin-bottom: 6px;
-  border-bottom: 1px solid var(--border-l);
+  border-bottom: 1px solid var(--color-border-light);
   padding-bottom: 5px;
 }
 
@@ -616,12 +607,12 @@
   font-family: 'Cinzel', Georgia, serif;
   font-size: 0.9rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--color-text);
 }
 
 .abilityPopupSource {
   font-size: 0.66rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   font-style: italic;
   flex-shrink: 0;
 }
@@ -629,7 +620,7 @@
 .abilityPopupClose {
   background: none;
   border: none;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   cursor: pointer;
   font-size: 0.75rem;
   line-height: 1;
@@ -639,21 +630,21 @@
 }
 
 .abilityPopupClose:hover {
-  background: rgba(0,0,0,0.08);
-  color: var(--text);
+  background: var(--color-bg-overlay-mid);
+  color: var(--color-text);
 }
 
 .abilityPopupDesc {
   font-size: 0.78rem;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   line-height: 1.55;
 }
 
 /* Clickable ability name link inside a glossary popup description */
 .glossaryLink {
   cursor: pointer;
-  color: var(--crimson);
-  border-bottom: 1px dotted var(--crimson);
+  color: var(--color-primary);
+  border-bottom: 1px dotted var(--color-primary);
   transition: opacity 0.1s;
 }
 
@@ -664,34 +655,34 @@
 /* Clickable ability name (has glossary entry) */
 .abilityNameClickable {
   cursor: pointer;
-  border-bottom: 1px dotted var(--text-mid);
+  border-bottom: 1px dotted var(--color-text-mid);
   transition: color 0.1s, border-color 0.1s;
 }
 
 .abilityNameClickable:hover {
-  color: var(--crimson);
-  border-bottom-color: var(--crimson);
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 /* Body */
 .body {
   padding: 10px 14px 16px;
   font-size: 0.82rem;
-  color: var(--text);
+  color: var(--color-text);
   line-height: 1.5;
   flex: 1;
 }
 
 .divider {
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   margin: 7px 0;
 }
 
 .sourceLine {
   margin: 0 0 5px;
   font-size: 0.72rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 /* Elite/Weak adjustment banner shown at top of statblock body */
@@ -704,26 +695,23 @@
   line-height: 1.5;
 }
 
-/* Recall Knowledge line — same typographic weight/size as .sourceLine */
+/* Recall Knowledge line */
 .rkLine {
   margin: 0 0 5px;
   font-size: 0.72rem;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
-/* "RK DC" prefix — matches the <strong> weight used in source/conditions lines */
 .rkLineLabel {
   font-weight: 700;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
-/* The numeric DC value */
 .rkLineDc {
   font-weight: 700;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
-/* Skills list — italic like the <em> source title */
 .rkLineSkills {
   font-style: italic;
 }
@@ -745,30 +733,29 @@
   line-height: 1.55;
 }
 
-/* Sneak Attack toggle row shown above the attack list */
+/* Sneak Attack toggle row */
 .sneakAttackRow {
   display: flex;
   align-items: center;
   gap: 6px;
   margin: 4px 0 6px;
   font-size: 0.78rem;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
 }
 
 .sneakAttackToggle {
   display: none;
 }
 
-/* Render the label itself as a pill toggle button */
 .sneakAttackLabel {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 3px 10px 3px 8px;
   border-radius: 4px;
-  border: 1.5px solid var(--text-mute);
+  border: 1.5px solid var(--color-text-muted);
   background: transparent;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   cursor: pointer;
   user-select: none;
   font-size: 0.78rem;
@@ -784,9 +771,9 @@
 }
 
 .sneakAttackToggle:checked + .sneakAttackLabel {
-  border-color: var(--crimson);
-  background: color-mix(in srgb, var(--crimson) 12%, transparent);
-  color: var(--crimson);
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
+  color: var(--color-primary);
 }
 
 .sneakAttackToggle:checked + .sneakAttackLabel::before {
@@ -794,8 +781,8 @@
 }
 
 .sneakAttackLabel:hover {
-  border-color: var(--crimson);
-  color: var(--crimson);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .sneakAttackDice {
@@ -806,17 +793,17 @@
 
 .attackTypeLabel {
   font-style: italic;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
 }
 
 .mapBracket {
   font-size: 0.8em;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
 }
 
 .attackTraits {
   font-size: 0.82em;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   font-style: italic;
 }
 
@@ -824,18 +811,17 @@
 .attackTraitKw {
   position: relative;
   cursor: help;
-  border-bottom: 1px dashed var(--gold);
-  /* inherits italic + color from .attackTraits */
+  border-bottom: 1px dashed var(--color-accent);
 }
 
-/* Pinned state — underline becomes solid to signal it's locked open */
+/* Pinned state */
 .attackTraitKwPinned {
   cursor: pointer;
-  border-bottom: 2px solid var(--gold);
+  border-bottom: 2px solid var(--color-accent);
 }
 
 .actionSymbol {
-  color: var(--crimson);
+  color: var(--color-primary);
   font-weight: 700;
 }
 
@@ -850,13 +836,13 @@
 
 .itemName {
   font-size: 0.85rem;
-  color: var(--text);
+  color: var(--color-text);
   font-family: 'Cinzel', Georgia, serif;
 }
 
 .itemTraits {
   font-size: 0.8em;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   font-style: italic;
 }
 
@@ -866,7 +852,7 @@
   font-style: italic;
   padding: 3px 8px;
   border-radius: 3px;
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--color-bg-overlay-light);
   border-left: 3px solid currentColor;
   line-height: 1.5;
 }
@@ -878,9 +864,9 @@
   margin: 4px 0 2px 0.5rem;
   padding: 3px 10px;
   border-radius: 4px;
-  border: 1px solid var(--crimson);
+  border: 1px solid var(--color-primary);
   background: transparent;
-  color: var(--crimson);
+  color: var(--color-primary);
   font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
@@ -889,9 +875,9 @@
 }
 
 .rollAllDmgBtn:hover {
-  background: var(--crimson);
-  color: #f0e6cc;
-  border-color: var(--crimson);
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
 }
 
 .rollAllDmgMod {
@@ -905,7 +891,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   margin: 5px 0 1px 0.3rem;
 }
 
@@ -923,7 +909,7 @@
 
 .spellNameLink {
   cursor: pointer;
-  color: var(--crimson);
+  color: var(--color-primary);
   text-decoration: underline;
   text-decoration-style: dotted;
   text-underline-offset: 2px;
@@ -931,24 +917,24 @@
 }
 
 .spellNameLink:hover {
-  color: var(--crimson);
+  color: var(--color-primary);
   text-decoration-style: solid;
 }
 
-/* Spell detail popup — position:fixed applied inline, coordinates clamped to viewport */
+/* Spell detail popup */
 .spellPopup {
   z-index: 200;
   width: 320px;
   max-height: 420px;
   overflow-y: auto;
   overflow-x: hidden;
-  background: var(--parchment);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.18);
   padding: 8px 10px 10px;
   font-size: 0.8rem;
-  color: var(--text);
+  color: var(--color-text);
 }
 
 .spellPopupHeader {
@@ -964,7 +950,7 @@
   flex-shrink: 0;
   background: none;
   border: none;
-  color: var(--text-mute);
+  color: var(--color-text-muted);
   cursor: pointer;
   font-size: 0.75rem;
   line-height: 1;
@@ -973,14 +959,14 @@
 }
 
 .spellPopupClose:hover {
-  background: rgba(0,0,0,0.08);
-  color: var(--text);
+  background: var(--color-bg-overlay-mid);
+  color: var(--color-text);
 }
 
 .itemDesc {
   margin: 1px 0 1px 0.5rem;
   font-size: 0.8rem;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
 }
 
 .itemDesc p {
@@ -995,13 +981,13 @@
 
 .itemDesc hr {
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   margin: 6px 0;
 }
 
 .flavorBox {
-  background: rgba(122, 92, 46, 0.07);
-  border-left: 3px solid var(--gold);
+  background: var(--color-accent-tint);
+  border-left: 3px solid var(--color-accent);
   border-radius: 0 4px 4px 0;
   padding: 8px 12px;
   margin: 2px 0 4px;
@@ -1010,7 +996,7 @@
 .publicNotes {
   font-size: 0.77rem;
   font-style: italic;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
   line-height: 1.6;
 }
 
@@ -1020,7 +1006,7 @@
 
 .publicNotes hr {
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   margin: 6px 0;
 }
 
@@ -1029,8 +1015,8 @@
   margin-top: 14px;
   padding: 7px 16px;
   border-radius: 6px;
-  background: var(--crimson);
-  color: #f0e6cc;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   border: none;
   font-size: 0.8rem;
   font-weight: 600;
@@ -1051,8 +1037,8 @@
   padding: 5px 12px;
   border-radius: 4px;
   background: transparent;
-  color: #8a2a18;
-  border: 1px solid #8a2a18;
+  color: var(--color-damage);
+  border: 1px solid var(--color-damage);
   font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
@@ -1061,7 +1047,7 @@
 }
 
 .deleteBtn:hover {
-  background: #8a2a18;
+  background: var(--color-damage);
   color: #fff;
 }
 
@@ -1071,13 +1057,13 @@
   align-items: center;
   gap: 8px;
   font-size: 0.75rem;
-  color: var(--text-mid);
+  color: var(--color-text-mid);
 }
 
 .deleteConfirmBtn {
   padding: 4px 10px;
   border-radius: 4px;
-  background: #8a2a18;
+  background: var(--color-damage);
   color: #fff;
   border: none;
   font-size: 0.72rem;
@@ -1089,8 +1075,8 @@
   padding: 4px 10px;
   border-radius: 4px;
   background: transparent;
-  color: var(--text-mute);
-  border: 1px solid var(--border);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
   font-size: 0.72rem;
   cursor: pointer;
 }
