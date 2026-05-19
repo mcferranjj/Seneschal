@@ -1,0 +1,62 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.skillBadge {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--color-healing-tint);
+  color: var(--color-healing);
+  text-transform: capitalize;
+}
+
+.loreBadge {
+  background: var(--color-accent-tint);
+  color: var(--color-accent-dark);
+}
+
+.description {
+  font-size: 0.8rem;
+  color: var(--color-text-mid);
+  line-height: 1.5;
+}
+
+.skillList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.boostList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.boostOpt {
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: 'DM Mono', monospace;
+  background: var(--color-bg-overlay-mid);
+  color: var(--color-text-mid);
+  border: 1px solid var(--color-border);
+}
+
+.grantedFeat {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-accent-dark);
+  font-style: italic;
+}
+
+.detailPanel {
+  width: 260px;
+  gap: 12px;
+}

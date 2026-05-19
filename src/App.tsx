@@ -17,6 +17,7 @@ import { StatblockDrawer } from './features/statblock/StatblockDrawer';
 import { EncounterManager } from './features/encounter/EncounterManager';
 import { RulesSection } from './features/rules/RulesSection';
 import { CharactersSection } from './features/characters/CharactersSection';
+import { PartiesSection } from './features/parties/PartiesSection';
 import { RollHistory } from './features/roll-history/RollHistory';
 import styles from './features/shell/App.module.css';
 
@@ -437,7 +438,8 @@ export default function App() {
           </div>
         )}
         {activeSection === 'rules' && <RulesSection />}
-        {activeSection === 'characters' && <CharactersSection />}
+        {activeSection === 'characters' && <CharactersSection onRoll={addRollEntry} />}
+        {activeSection === 'parties' && <PartiesSection />}
       </div>
     </div>
   );

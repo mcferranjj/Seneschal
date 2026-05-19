@@ -1,0 +1,91 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.detailStats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.statLabel { color: var(--color-text-muted); }
+.statVal { font-weight: 600; color: var(--color-text); }
+
+.skillList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.skillBadge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--color-healing-tint);
+  color: var(--color-healing);
+  text-transform: capitalize;
+}
+
+.keyAbilityFixed {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.keyAbilityOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kaBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s;
+}
+
+.kaBtn:hover { border-color: var(--color-primary); }
+
+.kaBtn.kaActive {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.kaBtn:first-child {
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--color-text);
+}
+
+.kaBtn.kaActive:first-child { color: var(--color-primary-text); }
+
+.kaLabel {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+}
+
+.kaBtn.kaActive .kaLabel { color: var(--color-primary-text-muted); }
+
+.detailPanel {
+  width: 260px;
+  gap: 12px;
+}

@@ -1,0 +1,58 @@
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.sub {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.finishBtn {
+  align-self: flex-start;
+  padding: 10px 16px;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.finishBtn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.finishBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.preview {
+  flex: 1;
+  overflow-y: auto;
+}

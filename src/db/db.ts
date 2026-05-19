@@ -1,6 +1,9 @@
 import Dexie, { type Table } from 'dexie';
 import { resolvePublicationTitle } from '../sync/publicationRegistry';
-import type { CreatureRecord, MetaRecord, TraitDescriptionsRecord, CharacterRecord, EncounterStateRecord } from './schema';
+import type {
+  CreatureRecord, MetaRecord, TraitDescriptionsRecord, CharacterRecord, EncounterStateRecord,
+  AncestryRecord, HeritageRecord, BackgroundRecord, ClassRecord, FeatRecord,
+} from './schema';
 
 // Re-export so existing callers that import from db.ts continue to work
 export type { CharacterRecord, EncounterStateRecord };
@@ -11,6 +14,11 @@ class SeneschalDatabase extends Dexie {
   encounterState!: Table<EncounterStateRecord, string>;
   characters!: Table<CharacterRecord, string>;
   traitDescriptions!: Table<TraitDescriptionsRecord, string>;
+  ancestries!: Table<AncestryRecord, string>;
+  heritages!: Table<HeritageRecord, string>;
+  backgrounds!: Table<BackgroundRecord, string>;
+  classes!: Table<ClassRecord, string>;
+  feats!: Table<FeatRecord, string>;
 
   constructor() {
     super('SeneschalGMAssistant');
@@ -65,6 +73,26 @@ class SeneschalDatabase extends Dexie {
         c.packSource,
       );
     }));
+    // Version 8: add character builder reference tables and update characters index.
+    // Clears old incompatible character records (old schema used flat string fields).
+    this.version(8).stores({
+      creatures:         'id, entityType, nameLower, level, rarity, size, packSource, publication, *traits',
+      meta:              'key',
+      encounterState:    'key',
+      characters:        'id, nameLower, level',
+      traitDescriptions: 'key',
+      ancestries:        'id, nameLower, slug, *traits, rarity',
+      heritages:         'id, nameLower, ancestrySlug, isVersatile',
+      backgrounds:       'id, nameLower, rarity',
+      classes:           'id, nameLower, slug',
+      feats:             'id, nameLower, level, category, *traits, rarity, [category+level]',
+    }).upgrade(tx => {
+      // Clear old character records — the CharacterRecord schema changed from a flat
+      // string-based shape (ancestry: string, class: string) to a rich structured shape
+      // with nested refs, boost choices, and skills. The old shape is incompatible and
+      // cannot be migrated automatically.
+      return tx.table('characters').clear();
+    });
   }
 }
 

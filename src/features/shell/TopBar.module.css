@@ -147,6 +147,35 @@
   flex-shrink: 0;
 }
 
+.settingsMenuDivider {
+  height: 1px;
+  background: var(--color-border-on-primary);
+  margin: 3px 6px;
+  opacity: 0.4;
+}
+
+.settingsMenuItemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.settingsMenuSyncStatus {
+  font-size: 0.7rem;
+  color: var(--color-primary-text-muted);
+  font-style: italic;
+}
+
+.settingsMenuSyncDone {
+  font-size: 0.7rem;
+  color: var(--color-healing);
+}
+
+.settingsMenuSyncError {
+  font-size: 0.7rem;
+  color: var(--color-damage);
+}
+
 /* ── Confirmation dialog ── */
 
 .overlay {

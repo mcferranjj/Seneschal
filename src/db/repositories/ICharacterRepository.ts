@@ -9,6 +9,7 @@ import type { CharacterRecord } from '../schema';
 
 export interface ICharacterRepository {
   getAll(): Promise<CharacterRecord[]>;
+  getById(id: string): Promise<CharacterRecord | undefined>;
   put(record: CharacterRecord): Promise<void>;
   add(record: CharacterRecord): Promise<void>;
   update(id: string, changes: Partial<CharacterRecord>): Promise<void>;

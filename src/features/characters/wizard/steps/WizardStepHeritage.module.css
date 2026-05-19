@@ -1,0 +1,76 @@
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.heritageGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.groupHeader {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  align-self: flex-start;
+  background: var(--color-bg-overlay-light);
+  color: var(--color-text-mid);
+  border: 1px solid var(--color-border);
+}
+
+.groupHeaderVersatile {
+  background: var(--color-accent-on-dark);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.versatileBadge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--color-condition-tint);
+  color: var(--color-condition, #5a3a8a);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.trait {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--color-primary-tint);
+  color: var(--color-primary);
+}
+
+.description {
+  font-size: 0.8rem;
+  color: var(--color-text-mid);
+  line-height: 1.5;
+}
+
+.detailPanel {
+  width: 260px;
+  gap: 12px;
+}

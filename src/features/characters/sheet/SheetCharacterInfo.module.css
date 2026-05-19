@@ -1,0 +1,90 @@
+.block {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.header:hover { background: var(--color-border-light); }
+
+.title {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  flex: 1;
+}
+
+.chevron {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.body {
+  padding: 4px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.value {
+  font-size: 0.82rem;
+  color: var(--color-text);
+}
+
+.traitRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--color-border);
+  color: var(--color-text-mid);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+
+.empty {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}

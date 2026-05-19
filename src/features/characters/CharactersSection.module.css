@@ -1,8 +1,16 @@
-.page {
+.layout {
+  display: flex;
+  flex-direction: row;
   flex: 1;
+  overflow: hidden;
+  height: 100%;
+}
+
+.mainPanel {
+  flex: 1;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .header {
