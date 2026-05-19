@@ -1,6 +1,6 @@
 import type { PF2ECreature, PF2EItem } from '../../types/pf2e';
 import type { CreatureRecord } from '../../db/schema';
-import type { DamageGroupInput } from '../dice/DiceRoller';
+import type { DamageGroupInput } from '../../types/damage';
 import { formatMod } from '../../utils/formatters';
 import { extractDamageGroups } from '../../utils/foundryMacros';
 import { isSneakAttackEligible } from '../../utils/pf2eHelpers';
@@ -126,10 +126,13 @@ export function getPassives(c: PF2ECreature): PF2EItem[] {
   );
 }
 
-export function getDamageString(damageRolls: Record<string, { damage: string; damageType: string }> | undefined): string {
+export function getDamageString(damageRolls: Record<string, { damage: string; damageType: string; category?: string }> | undefined): string {
   if (!damageRolls) return '';
   return Object.values(damageRolls)
-    .map(d => `${d.damage} ${d.damageType}`)
+    .map(d => {
+      const typeLabel = d.category === 'persistent' ? `persistent ${d.damageType}` : d.damageType;
+      return `${d.damage} ${typeLabel}`;
+    })
     .join(' + ');
 }
 
@@ -173,9 +176,9 @@ export function getHazardDetails(c: PF2ECreature): HazardDetails {
 }
 
 export function getDamageGroups(
-  damageRolls: Record<string, { damage: string; damageType: string }> | undefined,
+  damageRolls: Record<string, { damage: string; damageType: string; category?: string }> | undefined,
   modOffset = 0,
-): { expr: string; label: string }[] {
+): DamageGroupInput[] {
   if (!damageRolls) return [];
   const entries = Object.values(damageRolls);
   return entries.map((d, i) => {
@@ -184,7 +187,9 @@ export function getDamageGroups(
     if (i === 0 && modOffset !== 0) {
       expr = `${expr}${modOffset >= 0 ? `+${modOffset}` : modOffset}`;
     }
-    return { expr, label: d.damageType };
+    const isPersistent = d.category === 'persistent';
+    const label = isPersistent ? `persistent ${d.damageType}` : d.damageType;
+    return { expr, label, ...(isPersistent ? { persistent: true } : {}) };
   });
 }
 

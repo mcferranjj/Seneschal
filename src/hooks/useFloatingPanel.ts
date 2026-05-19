@@ -25,6 +25,7 @@ export function useFloatingPanel(
   onClose: () => void,
 ) {
   const ref = useRef<HTMLDivElement>(null);
+  const [clampedX, setClampedX] = useState(anchorX);
   const [clampedY, setClampedY] = useState(anchorY);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const dragRef = useRef<{
@@ -36,17 +37,21 @@ export function useFloatingPanel(
 
   useOutsideClick(ref, onClose);
 
-  // Clamp vertical position so the panel stays fully within the viewport
+  // Clamp position so the panel stays fully within the viewport
   useEffect(() => {
     if (pos) return; // user is dragging — skip auto-clamp
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
-    // Clamp bottom edge
+    // Vertical: clamp bottom then top
     const bottomOverflow = rect.bottom - window.innerHeight + 8;
-    // Clamp top edge (rect.top may be negative after bottom-clamp shifts it up)
     const topOverflow = 8 - rect.top;
     if (bottomOverflow > 0) setClampedY(y => y - bottomOverflow);
     else if (topOverflow > 0) setClampedY(y => y + topOverflow);
+    // Horizontal: clamp right then left
+    const rightOverflow = rect.right - window.innerWidth + 8;
+    const leftOverflow = 8 - rect.left;
+    if (rightOverflow > 0) setClampedX(x => x - rightOverflow);
+    else if (leftOverflow > 0) setClampedX(x => x + leftOverflow);
   });
 
   const onDragHandlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -66,15 +71,14 @@ export function useFloatingPanel(
     if (!dragRef.current) return;
     const dx = e.clientX - dragRef.current.startMouseX;
     const dy = e.clientY - dragRef.current.startMouseY;
+    const rect = ref.current?.getBoundingClientRect();
+    const panelW = rect?.width ?? 0;
+    const panelH = rect?.height ?? 0;
+    const newX = dragRef.current.startPanelX + dx;
     const newY = dragRef.current.startPanelY + dy;
-    const panelH = ref.current?.getBoundingClientRect().height ?? 0;
-    const clampedDragY = Math.min(
-      window.innerHeight - panelH - 8,
-      Math.max(8, newY),
-    );
     setPos({
-      x: dragRef.current.startPanelX + dx,
-      y: clampedDragY,
+      x: Math.min(window.innerWidth - panelW - 8, Math.max(8, newX)),
+      y: Math.min(window.innerHeight - panelH - 8, Math.max(8, newY)),
     });
   }, []);
 
@@ -82,7 +86,7 @@ export function useFloatingPanel(
     dragRef.current = null;
   }, []);
 
-  const panelLeft = pos ? pos.x : anchorX;
+  const panelLeft = pos ? pos.x : clampedX;
   const panelTop = pos ? pos.y : clampedY;
   const panelTransform = pos ? 'none' : 'translateX(-50%)';
   /** Available height from the panel's top edge to the bottom of the viewport (minus 8px margin). */

@@ -3,7 +3,7 @@ import type { Condition } from '../../types/encounter';
 import { computeAttackPenalty, computeDamagePenalty } from '../../utils/conditionEffects';
 import { getDamageString, getDamageGroups, withSneakAttack } from './statblockHelpers';
 import { slugToTitle } from '../../utils/formatters';
-import type { DamageGroupInput } from '../dice/DiceRoller';
+import type { DamageGroupInput } from '../../types/damage';
 import { AttackLine } from './AttackLine';
 
 interface AttackBlockProps {
@@ -61,11 +61,14 @@ export function AttackBlock({ item, onRollAttack, onRollDamage, onManualRollAtta
   // Combine condition damage penalty and elite/weak damage modifier
   const totalDmgMod = dmgPen + ewMod;
 
-  // Build one group per damage type so multi-type attacks (e.g. slashing + fire) all roll
-  const baseDamageGroups = getDamageGroups(item.system?.damageRolls, totalDmgMod);
+  // Build one group per damage type so multi-type attacks (e.g. slashing + fire) all roll.
+  // Persistent groups are included and carry persistent: true so the DiceRoller can
+  // display them as a static expression rather than rolling them.
+  const allDamageGroups = getDamageGroups(item.system?.damageRolls, totalDmgMod);
+
   // If there are no structured rolls but damage has a dice expression, fall back
-  const damageGroups: DamageGroupInput[] = baseDamageGroups.length > 0
-    ? baseDamageGroups
+  const damageGroups: DamageGroupInput[] = allDamageGroups.length > 0
+    ? allDamageGroups
     : (() => {
         const m = damage.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
         if (!m) return [];
