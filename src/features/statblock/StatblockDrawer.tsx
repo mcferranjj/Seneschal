@@ -1,6 +1,5 @@
 
 import { useState, useCallback, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import type { CreatureRecord } from '../../db/schema';
 import type { PF2ECreature } from '../../types/pf2e';
 import type { RollHistoryEntry } from '../../types/diceHistory';
@@ -40,7 +39,8 @@ import { CustomAbilityBlock } from './CustomAbilityBlock';
 import { SpellcastingBlock } from './SpellcastingBlock';
 import { TraitChip } from './TraitChip';
 import { NotesPanel } from './NotesPanel';
-import { usePf2kwTooltip } from '../../hooks/usePf2kwTooltip';
+import { useContainerTraitTooltip } from '../../hooks/useContainerTraitTooltip';
+import { TraitHoverPopup, TraitPinnedPopup } from './TraitPopup';
 import { getAonUrl } from '../../utils/aonSearch';
 import styles from './StatblockDrawer.module.css';
 
@@ -182,7 +182,13 @@ function StatblockContent({
   // Notes panel open/closed state — owned here so the header button can toggle it
   const [notesOpen, setNotesOpen] = useState(() => !!(activeNotes));
 
-  const { containerRef: pf2kwRef, tooltip: pf2kwTooltip } = usePf2kwTooltip();
+  const {
+    containerRef: pf2kwRef,
+    popupRef:     pf2kwPopupRef,
+    hover:        pf2kwHover,
+    pinned:       pf2kwPinned,
+    closePin:     pf2kwClosePin,
+  } = useContainerTraitTooltip();
 
   const {
     diceRoll, multiDamageRoll, manualRoll,
@@ -384,12 +390,8 @@ function StatblockContent({
 
   return (
     <div className={styles.content} ref={pf2kwRef} onClick={handleBodyClick} onContextMenu={handleBodyContextMenu}>
-      {pf2kwTooltip && createPortal(
-        <span className={styles.traitTooltip} style={{ top: pf2kwTooltip.top, bottom: pf2kwTooltip.bottom, left: pf2kwTooltip.left, maxHeight: pf2kwTooltip.maxH, opacity: 1 }}>
-          {pf2kwTooltip.text}
-        </span>,
-        document.body,
-      )}
+      {pf2kwHover && !pf2kwPinned && <TraitHoverPopup {...pf2kwHover} />}
+      {pf2kwPinned && <TraitPinnedPopup {...pf2kwPinned} popupRef={pf2kwPopupRef} onClose={pf2kwClosePin} />}
       {/* Header */}
       {(() => {
         const hasCustomName = encounterName && encounterName !== c.name;

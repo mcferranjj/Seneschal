@@ -134,6 +134,9 @@ export interface EncounterCreature {
   scaledLevel?: number; // Custom level scaling; undefined = no scaling
   baseMaxHp?: number; // Raw max HP before elite/weak adjustment; undefined = use maxHp
   notes?: string; // GM notes for this encounter instance
+  perception?: number; // Perception modifier (creatures) — used for initiative rolls
+  stealthMod?: number; // Stealth modifier (hazards) — used for initiative rolls
+  isHazard?: boolean; // True for hazard entity types
 }
 
 export interface Encounter {

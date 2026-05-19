@@ -54,9 +54,13 @@ textarea {
 /* PF2E keyword tooltips — injected via dangerouslySetInnerHTML */
 .pf2kw {
   border-bottom: 1px dashed var(--gold);
-  cursor: help;
+  cursor: pointer;
   position: relative;
   display: inline;
+}
+
+.pf2kw:hover {
+  border-bottom-style: solid;
 }
 
 /* .pf2kw::after tooltip removed — now handled by usePf2kwTooltip portal */

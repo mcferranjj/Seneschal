@@ -132,6 +132,8 @@ export function useEncounter(): UseEncounterReturn {
 
       const strMod = pf2e.system?.abilities?.str?.mod;
       const dexMod = pf2e.system?.abilities?.dex?.mod;
+      const perception = isHazard ? undefined : (pf2e.system?.perception?.mod ?? pf2e.system?.perception?.value);
+      const stealthMod = isHazard ? (pf2e.system?.attributes?.stealth?.value) : undefined;
       setEncounters(prev => {
         const enc = prev[activeEnc];
         const name = uniqueName(c.name, enc?.creatures ?? []);
@@ -153,6 +155,9 @@ export function useEncounter(): UseEncounterReturn {
           init: 0,
           conditions: [],
           scaledLevel,
+          perception,
+          stealthMod,
+          isHazard: isHazard || undefined,
         };
         return prev.map((enc, i) =>
           i === activeEnc ? { ...enc, creatures: [...enc.creatures, entry] } : enc

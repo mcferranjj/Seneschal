@@ -236,7 +236,21 @@ export function EncounterManager({
 
     const newOnes = enc.creatures
       .filter(c => !prevUids.has(c.uid))
-      .map(c => ({ ...c, init: cryptoD(20) }));
+      .map(c => {
+        const { init, roll, mod, label } = rollInitiative(c);
+        if (onRoll) {
+          onRoll({
+            expression: `1d20${mod >= 0 ? `+${mod}` : mod}`,
+            label,
+            creatureName: c.name,
+            rolls: [roll],
+            modifier: mod,
+            total: init,
+            timestamp: Date.now(),
+          });
+        }
+        return { ...c, init };
+      });
     const kept = prev.filter(c => encUids.has(c.uid));
 
     if (newOnes.length === 0 && kept.length === prev.length) return;
@@ -265,9 +279,34 @@ export function EncounterManager({
     return live ? { ...cc, hp: live.hp, maxHp: live.maxHp, conditions: live.conditions } : cc;
   });
 
+  function rollInitiative(c: EncounterCreature): { init: number; roll: number; mod: number; label: string } {
+    const roll = cryptoD(20);
+    if (c.isHazard) {
+      const mod = c.stealthMod ?? 0;
+      return { init: roll + mod, roll, mod, label: `${c.name} · Stealth (Initiative)` };
+    } else {
+      const mod = c.perception ?? 0;
+      return { init: roll + mod, roll, mod, label: `${c.name} · Perception (Initiative)` };
+    }
+  }
+
   function startCombat() {
     const rolled: CombatCreature[] = enc.creatures
-      .map(c => ({ ...c, init: cryptoD(20) }))
+      .map(c => {
+        const { init, roll, mod, label } = rollInitiative(c);
+        if (onRoll) {
+          onRoll({
+            expression: `1d20${mod >= 0 ? `+${mod}` : mod}`,
+            label,
+            creatureName: c.name,
+            rolls: [roll],
+            modifier: mod,
+            total: init,
+            timestamp: Date.now(),
+          });
+        }
+        return { ...c, init };
+      })
       .sort((a, b) => b.init - a.init);
     setCombatCreatures(rolled);
     setCombatMode(true);
