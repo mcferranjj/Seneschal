@@ -9,7 +9,6 @@ Backend Cleanup/Improvements:
     - consolidate custom creature and official creature storage formats, and consolidate their display
 
 Bug Fixes:
-    - look into why some descriptions are missing (e.g. Tooth Fairy)
 
 Unanswered Questions:
     - is it legal to include pics plus the flavor descriptions in a public product if I make someone prove they own the pdf first?

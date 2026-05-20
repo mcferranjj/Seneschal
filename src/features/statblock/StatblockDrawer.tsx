@@ -378,7 +378,6 @@ function StatblockContent({
     : creature.publication === 'Custom'
       ? (creature.customData?.spellcasting ?? [])
       : importSpellcasting(creature);
-  const hasSpellcasting = spellcastingEntries.length > 0;
   const publicNotes = c.system?.details?.publicNotes ?? '';
   const publication = c.system?.details?.publication?.title;
 
@@ -1069,7 +1068,7 @@ function StatblockContent({
           );
         })}
 
-        {!isHazard && publicNotes && !hasSpellcasting && (
+        {!isHazard && publicNotes && (
           <>
             <hr className={styles.divider} />
             <div className={styles.flavorBox}>
