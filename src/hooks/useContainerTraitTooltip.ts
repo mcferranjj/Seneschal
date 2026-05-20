@@ -44,6 +44,10 @@ export function useContainerTraitTooltip(): UseContainerTraitTooltipReturn {
 
   pinnedRef.current = pinned;
 
+  // Ref-copy of hover so the pointermove handler can read it without re-registering
+  const hoverRef = useRef<TraitTooltipState | null>(null);
+  hoverRef.current = hover;
+
   const closePin = useCallback(() => setPinned(null), []);
 
   // ── DOM listeners for hover and click-to-pin ──────────────────────────────
@@ -64,12 +68,6 @@ export function useContainerTraitTooltip(): UseContainerTraitTooltipReturn {
       setHover({ trait: kw.textContent ?? '', desc, pos: calcPopupPosition(kw, POPUP_OPTIONS) });
     }
 
-    function onOut(e: MouseEvent) {
-      if (pinnedRef.current) return;
-      if (!getKw(e)) return;
-      setHover(null);
-    }
-
     function onMouseDown(e: MouseEvent) {
       const kw = getKw(e);
       if (!kw) return;
@@ -86,14 +84,26 @@ export function useContainerTraitTooltip(): UseContainerTraitTooltipReturn {
     }
 
     container.addEventListener('mouseover',  onOver);
-    container.addEventListener('mouseout',   onOut);
     container.addEventListener('mousedown',  onMouseDown);
     return () => {
       container.removeEventListener('mouseover',  onOver);
-      container.removeEventListener('mouseout',   onOut);
       container.removeEventListener('mousedown',  onMouseDown);
     };
   }, []);
+
+  // ── Dismiss hover when pointer is no longer over a .pf2kw ────────────────
+  // pointermove on window lets us reliably detect when the cursor leaves a
+  // .pf2kw regardless of inline layout, portalled popups, or bubbling quirks.
+  useEffect(() => {
+    if (!hover) return;
+    function onPointerMove(e: PointerEvent) {
+      if (pinnedRef.current) return;
+      const kw = (e.target as HTMLElement).closest?.('.pf2kw');
+      if (!kw) setHover(null);
+    }
+    window.addEventListener('pointermove', onPointerMove);
+    return () => window.removeEventListener('pointermove', onPointerMove);
+  }, [hover]);
 
   // ── Dismiss hover on scroll; suppress re-trigger while scrolling ──────────
   useEffect(() => {
