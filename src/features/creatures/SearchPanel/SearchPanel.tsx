@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SearchFilters, PublicationInfo } from '../../../search/search';
-import { getAllTraits, getAllPublicationsWithMeta } from '../../../search/search';
+import { getAllTraits, getAllFamilies, getAllPublicationsWithMeta } from '../../../search/search';
 import type { PublicationEra, PublicationCategory } from '../../../sync/publicationRegistry';
 import { CREATURE_TYPES, SIZES, RARITIES, HAZARD_TYPES } from '../../../data/pf2eConstants';
 import styles from './SearchPanel.module.css';
@@ -92,6 +92,7 @@ interface SearchPanelProps {
 
 export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchPanelProps) {
   const [allTraits, setAllTraits] = useState<string[]>([]);
+  const [allFamilies, setAllFamilies] = useState<string[]>([]);
   const [allPublicationsWithMeta, setAllPublicationsWithMeta] = useState<PublicationInfo[]>([]);
   const [traitInput, setTraitInput] = useState('');
   const [collapsedEras, setCollapsedEras] = useState<Set<string>>(new Set(['legacy', 'sf2e']));
@@ -105,6 +106,7 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
   useEffect(() => {
     if (!disabled) {
       getAllTraits().then(setAllTraits).catch(() => {});
+      getAllFamilies().then(setAllFamilies).catch(() => {});
       getAllPublicationsWithMeta().then(pubs => {
         setAllPublicationsWithMeta(pubs);
         if (!publicationsInitialized.current) {
@@ -163,6 +165,10 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
   function toggleCreatureType(value: string, checked: boolean) {
     const lower = value.toLowerCase();
     set({ creatureTypes: checked ? [...filters.creatureTypes, lower] : filters.creatureTypes.filter(x => x !== lower) });
+  }
+
+  function toggleFamily(value: string, checked: boolean) {
+    set({ families: checked ? [...filters.families, value] : filters.families.filter(x => x !== value) });
   }
 
   function toggleSize(value: string, checked: boolean) {
@@ -397,6 +403,25 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
         </div>
       )}
 
+      {(!(filters.entityTypes.includes('hazard') && !filters.entityTypes.includes('npc')) || filters.families.length > 0) && allFamilies.length > 0 && (
+        <div className={styles.section}>
+          <span className={styles.label}>Family</span>
+          <div className={styles.checkGroup}>
+            {allFamilies.map(f => (
+              <label key={f} className={styles.checkLabel}>
+                <input
+                  type="checkbox"
+                  checked={filters.families.includes(f)}
+                  onChange={e => toggleFamily(f, e.target.checked)}
+                  disabled={disabled}
+                />
+                {f}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       {(filters.entityTypes.length === 0 || filters.entityTypes.includes('hazard') || filters.hazardTypes.length > 0) && (
         <div className={styles.section}>
           <span className={styles.label}>Hazard Type</span>
@@ -552,6 +577,7 @@ export function SearchPanel({ filters, onChange, disabled, partyLevel }: SearchP
             entityTypes: [],
             creatureTypes: [],
             hazardTypes: [],
+            families: [],
             sizes: [],
             rarities: [],
             publications: [],

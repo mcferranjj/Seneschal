@@ -6,6 +6,7 @@ import type {
 } from '../types/encounter';
 import { getDamageString, getAttacks, getActions, getPassives } from '../features/statblock/statblockHelpers';
 import { toEditableText } from './foundryMacros';
+import { normalizeFamily } from './pf2eHelpers';
 
 function mapActionCost(raw: string | number | null | undefined): AbilityActionType | undefined {
   if (raw == null) return undefined;
@@ -362,6 +363,9 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
   const pf2eWeaknesses = weaknesses.map(w => ({ type: w.type, value: w.value, exceptions: w.exceptions ? [w.exceptions] : undefined }));
   const pf2eSenses = senses.map(s => ({ type: s.name, range: s.range }));
 
+  // Capture family from source for NPCs (only reached in the non-hazard path)
+  const family = normalizeFamily(system?.details?.creatureType);
+
   return {
     id,
     entityType: source.entityType,
@@ -374,6 +378,7 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
     packSource: 'custom',
     publication: 'Custom',
     blobSha: '',
+    family,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: {
       _id: id,

@@ -109,6 +109,7 @@ export interface CreatureRecord {
   data: PF2ECreature;
   /** Indexed for filtering; set for complex hazards only */
   isComplex?: boolean;
+  family?: string;
   customData?: {
     attacks?: CustomAttack[];
     abilities?: CustomAbility[];
