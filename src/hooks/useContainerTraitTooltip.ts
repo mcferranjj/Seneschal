@@ -30,9 +30,17 @@ export interface UseContainerTraitTooltipReturn {
   closePin:     () => void;
 }
 
+export interface UseContainerTraitTooltipOptions {
+  /** When false, listeners are not attached and hover/pinned are forced to null. Defaults to true. */
+  enabled?: boolean;
+}
+
 const POPUP_OPTIONS = { popupWidth: 260, popupMaxHeight: 200, centerOnAnchor: true } as const;
 
-export function useContainerTraitTooltip(): UseContainerTraitTooltipReturn {
+export function useContainerTraitTooltip(
+  { enabled = true }: UseContainerTraitTooltipOptions = {},
+): UseContainerTraitTooltipReturn {
+
   const containerRef   = useRef<HTMLDivElement>(null);
   const popupRef       = useRef<HTMLDivElement>(null);
   const pinnedRef      = useRef<TraitTooltipState | null>(null);
@@ -52,6 +60,8 @@ export function useContainerTraitTooltip(): UseContainerTraitTooltipReturn {
 
   // ── DOM listeners for hover and click-to-pin ──────────────────────────────
   useEffect(() => {
+    if (!enabled) return;
+
     const container = containerRef.current;
     if (!container) return;
 
@@ -89,7 +99,7 @@ export function useContainerTraitTooltip(): UseContainerTraitTooltipReturn {
       container.removeEventListener('mouseover',  onOver);
       container.removeEventListener('mousedown',  onMouseDown);
     };
-  }, []);
+  }, [enabled]);
 
   // ── Dismiss hover when pointer is no longer over a .pf2kw ────────────────
   // pointermove on window lets us reliably detect when the cursor leaves a
@@ -130,5 +140,5 @@ export function useContainerTraitTooltip(): UseContainerTraitTooltipReturn {
     return () => window.removeEventListener('pointerdown', onDown);
   }, [pinned]);
 
-  return { containerRef, popupRef, hover, pinned, closePin };
+  return { containerRef, popupRef, hover: enabled ? hover : null, pinned: enabled ? pinned : null, closePin };
 }

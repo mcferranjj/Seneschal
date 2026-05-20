@@ -182,13 +182,17 @@ function StatblockContent({
   // Notes panel open/closed state — owned here so the header button can toggle it
   const [notesOpen, setNotesOpen] = useState(() => !!(activeNotes));
 
+  // Disable trait popups when viewing an encounter instance — the encounter's own
+  // trait tooltip handler owns interactions in that context.
+  const traitPopupsEnabled = encounterUid == null;
+
   const {
     containerRef: pf2kwRef,
     popupRef:     pf2kwPopupRef,
     hover:        pf2kwHover,
     pinned:       pf2kwPinned,
     closePin:     pf2kwClosePin,
-  } = useContainerTraitTooltip();
+  } = useContainerTraitTooltip({ enabled: traitPopupsEnabled });
 
   const {
     diceRoll, multiDamageRoll, manualRoll,

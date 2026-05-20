@@ -1,5 +1,4 @@
 Minor Improvements:
-    - Remove trait popus from creature descriptions. 
     - add creature families as filter options
 
     - make creatures click and draggable into, out of, and around the combat tracker (dragging creatures in the tracker should automatically update their initiative)
