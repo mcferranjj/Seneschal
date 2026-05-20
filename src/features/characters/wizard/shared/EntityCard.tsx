@@ -33,7 +33,7 @@ export function EntityCard({ name, selected, stats, traits, onClick, onDoubleCli
       ref={domRef}
       className={`${styles.card} ${selected ? styles.cardSelected : ''} ${collapsed ? styles.cardCollapsed : ''}`}
       onClick={collapsed ? undefined : onClick}
-      onDoubleClick={collapsed ? undefined : onDoubleClick}
+      onDoubleClick={collapsed ? undefined : (onDoubleClick ? e => { e.preventDefault(); onDoubleClick(); } : undefined)}
       role="button"
       tabIndex={collapsed ? -1 : 0}
       aria-hidden={collapsed || undefined}

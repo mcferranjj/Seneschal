@@ -467,7 +467,7 @@ export function EncounterManager({
                 <button
                   className={`${styles.tab} ${i === activeEnc ? styles.tabActive : ''}`}
                   onClick={() => onActiveEncChange(i)}
-                  onDoubleClick={() => { setRenamingTab(i); setRenameVal(en.name); }}
+                  onDoubleClick={e => { e.preventDefault(); setRenamingTab(i); setRenameVal(en.name); }}
                   title="Double-click to rename"
                 >
                   {en.name}
@@ -627,7 +627,7 @@ export function EncounterManager({
                       <span
                         className={`${styles.plannerName} ${c.creatureId ? styles.creatureNameClickable : ''}`}
                         title="Double-click to rename"
-                        onDoubleClick={e => { e.stopPropagation(); setEditingName(c.uid); setEditNameVal(c.name); }}
+                        onDoubleClick={e => { e.preventDefault(); e.stopPropagation(); setEditingName(c.uid); setEditNameVal(c.name); }}
                       >
                         {c.name}{c.eliteWeak === 'elite' ? ' (Elite)' : c.eliteWeak === 'weak' ? ' (Weak)' : ''}
                       </span>
@@ -832,7 +832,7 @@ export function EncounterManager({
                       <span
                         className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''}`}
                         title="Double-click to rename"
-                        onDoubleClick={e => { e.stopPropagation(); setEditingName(c.uid); setEditNameVal(c.name); }}
+                        onDoubleClick={e => { e.preventDefault(); e.stopPropagation(); setEditingName(c.uid); setEditNameVal(c.name); }}
                       >
                         {c.name}{c.eliteWeak === 'elite' ? ' (Elite)' : c.eliteWeak === 'weak' ? ' (Weak)' : ''}
                       </span>

@@ -44,6 +44,18 @@ export function CharactersSection({ onRoll }: CharactersSectionProps) {
     setSidebarCollapsed(true);
   };
 
+  const expandBtn = sidebarCollapsed ? (
+    <button
+      className={styles.expandSidebarBtn}
+      onClick={() => setSidebarCollapsed(false)}
+      title="Show characters"
+      aria-label="Show characters"
+      type="button"
+    >
+      ››
+    </button>
+  ) : undefined;
+
   return (
     <div className={styles.layout}>
       <CharacterSidebar
@@ -57,32 +69,27 @@ export function CharactersSection({ onRoll }: CharactersSectionProps) {
         onToggleCollapsed={() => setSidebarCollapsed(c => !c)}
       />
       <div className={styles.mainPanel}>
-        {sidebarCollapsed && (
-          <button
-            className={styles.expandSidebarBtn}
-            onClick={() => setSidebarCollapsed(false)}
-            title="Show characters"
-            aria-label="Show characters"
-            type="button"
-          >
-            ››
-          </button>
-        )}
         {showWizard ? (
           <CharacterWizard
             onComplete={handleWizardComplete}
             onCancel={() => setShowWizard(false)}
-          />
-        ) : selectedCharacter ? (
-          <CharacterSheet
-            key={selectedCharacter.id}
-            character={selectedCharacter}
-            onUpdate={(patch) => updateCharacter(selectedCharacter.id, patch)}
-            onDelete={() => deleteCharacter(selectedCharacter.id)}
-            onRoll={onRoll}
+            headerLeft={expandBtn}
           />
         ) : (
-          <EmptyCharacterState onNew={() => { setShowWizard(true); setSidebarCollapsed(true); }} />
+          <>
+            {expandBtn}
+            {selectedCharacter ? (
+              <CharacterSheet
+                key={selectedCharacter.id}
+                character={selectedCharacter}
+                onUpdate={(patch) => updateCharacter(selectedCharacter.id, patch)}
+                onDelete={() => deleteCharacter(selectedCharacter.id)}
+                onRoll={onRoll}
+              />
+            ) : (
+              <EmptyCharacterState onNew={() => { setShowWizard(true); setSidebarCollapsed(true); }} />
+            )}
+          </>
         )}
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import type React from 'react';
 import type { CharacterRecord } from '../../../db/schema';
 import { useCharacterWizard } from '../hooks/useCharacterWizard';
 import { useCharBuilderSync } from '../hooks/useCharBuilderSync';
@@ -18,9 +19,11 @@ import styles from './CharacterWizard.module.css';
 interface CharacterWizardProps {
   onComplete: (record: CharacterRecord) => Promise<void>;
   onCancel: () => void;
+  /** Optional node rendered at the start of the header row (e.g. sidebar expand button). */
+  headerLeft?: React.ReactNode;
 }
 
-export function CharacterWizard({ onComplete, onCancel }: CharacterWizardProps) {
+export function CharacterWizard({ onComplete, onCancel, headerLeft }: CharacterWizardProps) {
   const { isSyncing, progress, triggerSync, hasData } = useCharBuilderSync();
   const wizard = useCharacterWizard();
   const {
@@ -82,6 +85,7 @@ export function CharacterWizard({ onComplete, onCancel }: CharacterWizardProps) 
   return (
     <div className={styles.wizard}>
       <div className={styles.header}>
+        {headerLeft && <div className={styles.headerLeft}>{headerLeft}</div>}
         <h2 className={styles.title}>Character Builder</h2>
       </div>
       <WizardProgress
