@@ -4,9 +4,6 @@ Encounters:
 
     - add ability to export/import monsters, full database, encounters, etc.
 
-    - name generator
-    - random monster quirk generator
-
     - in the custom creature wizard, add functionality to browse and add/scale abilities from all other monsters, filterable by creature type
     
 
