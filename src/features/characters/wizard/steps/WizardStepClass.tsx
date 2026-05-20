@@ -1,10 +1,12 @@
-import { useState } from 'react';
 import type { CharacterClassRef, ClassRecord, AbilityKey } from '../../../../db/schema';
 import { useClassData } from '../../hooks/useClassData';
 import { ABILITY_LABELS, ABILITY_ABBR } from '../../utils/abilityComputation';
 import { PickerLayout } from '../shared/PickerLayout';
 import { EntityCard } from '../shared/EntityCard';
 import { DetailPanel, DetailSection } from '../shared/DetailPanel';
+import { RaritySection } from '../shared/RaritySection';
+import { groupByRarity, RARITY_ORDER } from '../shared/groupByRarity';
+import { usePickerSearch } from '../shared/usePickerSearch';
 import styles from './WizardStepClass.module.css';
 
 interface WizardStepClassProps {
@@ -12,17 +14,36 @@ interface WizardStepClassProps {
   keyAbility: AbilityKey | null;
   onSelect: (cls: CharacterClassRef | null) => void;
   onKeyAbilityChange: (ka: AbilityKey) => void;
+  /** Called when the user clicks "Select" on the highlighted class (or double-clicks). */
+  onConfirm?: () => void;
+}
+
+function profLabel(rank: number): string {
+  if (rank >= 4) return 'Legendary';
+  if (rank >= 3) return 'Master';
+  if (rank >= 2) return 'Expert';
+  if (rank >= 1) return 'Trained';
+  return 'Untrained';
 }
 
 export function WizardStepClass({
-  selected, keyAbility, onSelect, onKeyAbilityChange,
+  selected, keyAbility, onSelect, onKeyAbilityChange, onConfirm,
 }: WizardStepClassProps) {
   const { classes, loading } = useClassData();
-  const [search, setSearch] = useState('');
-
-  const filtered = classes
-    .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const { search, setSearch, filtered: filteredUnsorted } = usePickerSearch({
+    items: classes,
+    getName: c => c.name,
+  });
+  const filtered = filteredUnsorted
+    .slice()
+    .sort((a, b) => {
+      const rarityDiff =
+        RARITY_ORDER.indexOf(a.rarity as typeof RARITY_ORDER[number]) -
+        RARITY_ORDER.indexOf(b.rarity as typeof RARITY_ORDER[number]);
+      if (rarityDiff !== 0) return rarityDiff;
+      return a.name.localeCompare(b.name);
+    });
+  const groupedByRarity = groupByRarity(filtered);
 
   function selectClass(c: ClassRecord) {
     onSelect({
@@ -48,36 +69,15 @@ export function WizardStepClass({
     ? classes.find(c => c.id === selected.id) ?? null
     : null;
 
-  const profLabel = (rank: number) =>
-    rank >= 4 ? 'Legendary' : rank >= 3 ? 'Master' : rank >= 2 ? 'Expert' : rank >= 1 ? 'Trained' : 'Untrained';
-
   const detailContent = selectedRecord && (
     <DetailPanel name={selectedRecord.name} className={styles.detailPanel}>
       <div className={styles.detailStats}>
-        <div className={styles.statRow}>
-          <span className={styles.statLabel}>HP per Level</span>
-          <span className={styles.statVal}>{selectedRecord.hp}</span>
-        </div>
-        <div className={styles.statRow}>
-          <span className={styles.statLabel}>Perception</span>
-          <span className={styles.statVal}>{profLabel(selectedRecord.perception)}</span>
-        </div>
-        <div className={styles.statRow}>
-          <span className={styles.statLabel}>Fortitude</span>
-          <span className={styles.statVal}>{profLabel(selectedRecord.savingThrows.fortitude)}</span>
-        </div>
-        <div className={styles.statRow}>
-          <span className={styles.statLabel}>Reflex</span>
-          <span className={styles.statVal}>{profLabel(selectedRecord.savingThrows.reflex)}</span>
-        </div>
-        <div className={styles.statRow}>
-          <span className={styles.statLabel}>Will</span>
-          <span className={styles.statVal}>{profLabel(selectedRecord.savingThrows.will)}</span>
-        </div>
-        <div className={styles.statRow}>
-          <span className={styles.statLabel}>Additional Skills</span>
-          <span className={styles.statVal}>{selectedRecord.additionalSkills}</span>
-        </div>
+        <Stat label="HP per Level"     value={selectedRecord.hp} />
+        <Stat label="Perception"       value={profLabel(selectedRecord.perception)} />
+        <Stat label="Fortitude"        value={profLabel(selectedRecord.savingThrows.fortitude)} />
+        <Stat label="Reflex"           value={profLabel(selectedRecord.savingThrows.reflex)} />
+        <Stat label="Will"             value={profLabel(selectedRecord.savingThrows.will)} />
+        <Stat label="Additional Skills" value={selectedRecord.additionalSkills} />
       </div>
 
       {selectedRecord.trainedSkills.length > 0 && (
@@ -110,6 +110,12 @@ export function WizardStepClass({
           </div>
         )}
       </DetailSection>
+
+      {selectedRecord.publication && (
+        <DetailSection label="Source">
+          <div className={styles.source}>{selectedRecord.publication}</div>
+        </DetailSection>
+      )}
     </DetailPanel>
   );
 
@@ -123,19 +129,45 @@ export function WizardStepClass({
       loading={loading}
       detail={detailContent}
     >
-      <div className={styles.grid}>
-        {filtered.map(c => (
-          <EntityCard
-            key={c.id}
-            name={c.name}
-            selected={selected?.id === c.id}
-            stats={
-              <><span>HP {c.hp}</span><span>{c.keyAbilityOptions.map(k => ABILITY_ABBR[k]).join('/')}</span></>
-            }
-            onClick={() => selectClass(c)}
-          />
-        ))}
-      </div>
+      {groupedByRarity.map(({ rarity, items }) => (
+        <RaritySection key={rarity} rarity={rarity}>
+          <div className={styles.grid}>
+            {items.map(c => {
+              const isSelected = selected?.id === c.id;
+              return (
+                <EntityCard
+                  key={c.id}
+                  name={c.name}
+                  selected={isSelected}
+                  stats={
+                    <>
+                      <span>HP {c.hp}</span>
+                      <span>{c.keyAbilityOptions.map(k => ABILITY_ABBR[k]).join('/')}</span>
+                    </>
+                  }
+                  onClick={() => selectClass(c)}
+                  onDoubleClick={() => {
+                    selectClass(c);
+                    onConfirm?.();
+                  }}
+                  action={isSelected && onConfirm
+                    ? { label: 'Select', onClick: () => onConfirm(), variant: 'primary' as const }
+                    : undefined}
+                />
+              );
+            })}
+          </div>
+        </RaritySection>
+      ))}
     </PickerLayout>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className={styles.statRow}>
+      <span className={styles.statLabel}>{label}</span>
+      <span className={styles.statVal}>{value}</span>
+    </div>
   );
 }

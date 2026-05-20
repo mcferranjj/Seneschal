@@ -291,6 +291,25 @@ export function processFoundryHtml(raw: string): string {
 }
 
 /**
+ * Drop the rules-summary "<Subject> Mechanics" section (and everything after
+ * it, including any subsequent heritage block) from a Foundry journal lore
+ * page. The structured detail panels in the UI already render HP, size,
+ * speed, ability boosts, languages, traits, etc., so the duplicate text
+ * block is just noise.
+ *
+ * Used for ancestry descriptions: PF2e ancestry data stores only a one-line
+ * flavor blurb in `system.description.value`, with the full prose linked via
+ * an `@UUID[...JournalEntryPage...]` macro that we inline during sync. That
+ * inlined HTML ends with a "<Ancestry> Mechanics" heading we want to strip.
+ */
+export function stripMechanicsSection(html: string): string {
+  if (!html) return html;
+  const match = html.match(/<h[1-6]\b[^>]*>[^<]*\bMechanics\b[^<]*<\/h[1-6]>/i);
+  if (!match || match.index === undefined) return html;
+  return html.slice(0, match.index).trimEnd();
+}
+
+/**
  * Returns true if the PF2EItem is a limited-use ability (recharge, per-day,
  * per-encounter, etc.) rather than an at-will action. Used to determine whether
  * elite/weak adjustments apply +2 or +4 damage.

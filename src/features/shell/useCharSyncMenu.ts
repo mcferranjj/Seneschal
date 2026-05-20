@@ -9,13 +9,13 @@ export function useCharSyncMenu() {
   const [progress, setProgress] = useState<SyncProgress>({ phase: 'idle' });
   const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const triggerSync = useCallback(async () => {
+  const triggerSync = useCallback(async (force = false) => {
     if (isSyncing) return;
     if (doneTimerRef.current) clearTimeout(doneTimerRef.current);
     setIsSyncing(true);
     setProgress({ phase: 'checking' });
     try {
-      await runCharBuilderSync(p => setProgress(p), true);
+      await runCharBuilderSync(p => setProgress(p), force);
     } catch {
       // progress callback already set the error phase
     } finally {

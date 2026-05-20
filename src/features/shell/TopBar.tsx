@@ -27,6 +27,40 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
 
   const { isSyncing: charSyncing, progress: charSyncProgress, triggerSync: handleCharSync } = useCharSyncMenu();
 
+  // Track whether the most recent sync reported "Up to date" — used to keep
+  // the "Up to date ✓" message and the Force re-sync option visible until the
+  // user closes the settings menu, regardless of the hook's auto-clear timer.
+  const [wasUpToDate, setWasUpToDate] = useState(false);
+  useEffect(() => {
+    if (
+      charSyncProgress.phase === 'done' &&
+      charSyncProgress.message === 'Up to date'
+    ) {
+      setWasUpToDate(true);
+    }
+  }, [charSyncProgress]);
+
+  // Reset the up-to-date sticky flag when the menu closes.
+  useEffect(() => {
+    if (!menuOpen) setWasUpToDate(false);
+  }, [menuOpen]);
+
+  // Clear the sticky flag the moment a new sync starts so stale UI doesn't
+  // flash alongside the new run.
+  useEffect(() => {
+    if (charSyncing) setWasUpToDate(false);
+  }, [charSyncing]);
+
+  const onClickSync = () => {
+    setWasUpToDate(false);
+    handleCharSync(false);
+  };
+
+  const onClickForceSync = () => {
+    setWasUpToDate(false);
+    handleCharSync(true);
+  };
+
   // Close menu on outside click
   useEffect(() => {
     if (!menuOpen) return;
@@ -125,7 +159,7 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
                 <div className={styles.settingsMenuDivider} />
                 <button
                   className={styles.settingsMenuItem}
-                  onClick={handleCharSync}
+                  onClick={onClickSync}
                   disabled={charSyncing}
                 >
                   <span className={styles.settingsMenuIcon}>✦</span>
@@ -139,14 +173,33 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
                         {charSyncProgress.phase === 'saving' && 'Saving…'}
                       </span>
                     )}
-                    {!charSyncing && charSyncProgress.phase === 'done' && (
+                    {!charSyncing && wasUpToDate && (
                       <span className={styles.settingsMenuSyncDone}>Up to date ✓</span>
+                    )}
+                    {!charSyncing && !wasUpToDate && charSyncProgress.phase === 'done' && (
+                      <span className={styles.settingsMenuSyncDone}>Synced ✓</span>
                     )}
                     {!charSyncing && charSyncProgress.phase === 'error' && (
                       <span className={styles.settingsMenuSyncError}>Failed — click to retry</span>
                     )}
                   </span>
                 </button>
+                {wasUpToDate && (
+                  <button
+                    className={`${styles.settingsMenuItem} ${styles.settingsMenuItemSub}`}
+                    onClick={onClickForceSync}
+                    disabled={charSyncing}
+                    title="Re-download all character builder data, even though nothing has changed upstream"
+                  >
+                    <span className={styles.settingsMenuIcon}>↻</span>
+                    <span className={styles.settingsMenuItemBody}>
+                      <span>Force re-sync anyway</span>
+                      <span className={styles.settingsMenuSyncStatus}>
+                        Re-download all character data
+                      </span>
+                    </span>
+                  </button>
+                )}
                 <div className={styles.settingsMenuDivider} />
                 <button className={styles.settingsMenuItem} onClick={handleResetClick}>
                   <span className={styles.settingsMenuIcon}>🗑</span>

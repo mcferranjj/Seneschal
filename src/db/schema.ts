@@ -197,6 +197,7 @@ export interface AncestryRecord {
   boosts: AncestryBoostSet;
   languages: string[];
   additionalLanguages: { count: number; options: string[] };
+  description: string;
   grantedItems: GrantedItem[];
   publication: string; remaster: boolean; blobSha: string;
 }

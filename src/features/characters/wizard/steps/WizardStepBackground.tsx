@@ -1,23 +1,26 @@
-import { useState } from 'react';
 import type { CharacterBackgroundRef, BackgroundRecord } from '../../../../db/schema';
 import { useBackgroundData } from '../../hooks/useBackgroundData';
 import { PickerLayout } from '../shared/PickerLayout';
 import { EntityCard } from '../shared/EntityCard';
 import { DetailPanel, DetailSection } from '../shared/DetailPanel';
+import { FoundryHtml } from '../shared/FoundryHtml';
+import { usePickerSearch } from '../shared/usePickerSearch';
 import styles from './WizardStepBackground.module.css';
 
 interface WizardStepBackgroundProps {
   selected: CharacterBackgroundRef | null;
   onSelect: (background: CharacterBackgroundRef | null) => void;
+  /** Called when the user clicks "Select" on the highlighted background (or double-clicks). */
+  onConfirm?: () => void;
 }
 
-export function WizardStepBackground({ selected, onSelect }: WizardStepBackgroundProps) {
+export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardStepBackgroundProps) {
   const { backgrounds, loading } = useBackgroundData();
-  const [search, setSearch] = useState('');
-
-  const filtered = backgrounds.filter(b =>
-    b.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const { search, setSearch, filtered } = usePickerSearch({
+    items: backgrounds,
+    getName: b => b.name,
+    getKeywords: b => b.trainedSkills,
+  });
 
   function selectBackground(b: BackgroundRecord) {
     const slug = b.slug ?? b.name.toLowerCase().replace(/\s+/g, '-');
@@ -40,7 +43,9 @@ export function WizardStepBackground({ selected, onSelect }: WizardStepBackgroun
 
   const detailContent = selectedRecord && (
     <DetailPanel name={selectedRecord.name} className={styles.detailPanel}>
-      <p className={styles.description}>{selectedRecord.description}</p>
+      {selectedRecord.description && (
+        <FoundryHtml html={selectedRecord.description} />
+      )}
       <DetailSection label="Trained Skills">
         <div className={styles.skillList}>
           {selectedRecord.trainedSkills.map(s => (
@@ -68,6 +73,11 @@ export function WizardStepBackground({ selected, onSelect }: WizardStepBackgroun
           <span className={styles.grantedFeat}>{selectedRecord.grantedFeat.name}</span>
         </DetailSection>
       )}
+      {selectedRecord.publication && (
+        <DetailSection label="Source">
+          <div className={styles.source}>{selectedRecord.publication}</div>
+        </DetailSection>
+      )}
     </DetailPanel>
   );
 
@@ -82,15 +92,25 @@ export function WizardStepBackground({ selected, onSelect }: WizardStepBackgroun
       detail={detailContent}
     >
       <div className={styles.grid}>
-        {filtered.map(b => (
-          <EntityCard
-            key={b.id}
-            name={b.name}
-            selected={selected?.id === b.id}
-            traits={b.trainedSkills}
-            onClick={() => selectBackground(b)}
-          />
-        ))}
+        {filtered.map(b => {
+          const isSelected = selected?.id === b.id;
+          return (
+            <EntityCard
+              key={b.id}
+              name={b.name}
+              selected={isSelected}
+              traits={b.trainedSkills}
+              onClick={() => selectBackground(b)}
+              onDoubleClick={() => {
+                selectBackground(b);
+                onConfirm?.();
+              }}
+              action={isSelected && onConfirm
+                ? { label: 'Select', onClick: () => onConfirm(), variant: 'primary' as const }
+                : undefined}
+            />
+          );
+        })}
       </div>
     </PickerLayout>
   );

@@ -160,6 +160,17 @@
   gap: 1px;
 }
 
+.settingsMenuItemSub {
+  padding-top: 4px;
+  padding-bottom: 6px;
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+.settingsMenuItemSub .settingsMenuIcon {
+  opacity: 0.75;
+}
+
 .settingsMenuSyncStatus {
   font-size: 0.7rem;
   color: var(--color-primary-text-muted);

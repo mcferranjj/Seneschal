@@ -57,6 +57,12 @@
 }
 
 .detailPanel {
-  width: 260px;
+  width: 100%;
   gap: 12px;
+}
+
+.source {
+  font-size: 0.78rem;
+  color: var(--color-text-mid);
+  font-style: italic;
 }

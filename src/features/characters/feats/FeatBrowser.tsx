@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { FeatSlotType, FeatRecord } from '../../../db/schema';
 import { useFeatData } from '../hooks/useFeatData';
+import { FoundryHtml } from '../wizard/shared/FoundryHtml';
 import styles from './FeatBrowser.module.css';
 
 interface FeatBrowserProps {
@@ -124,10 +125,7 @@ export function FeatBrowser({
               {selectedFeat.prerequisites.join(', ')}
             </div>
           )}
-          <div
-            className={styles.description}
-            dangerouslySetInnerHTML={{ __html: selectedFeat.description }}
-          />
+          <FoundryHtml html={selectedFeat.description} className={styles.description} />
         </div>
       )}
 

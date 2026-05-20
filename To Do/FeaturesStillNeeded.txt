@@ -13,6 +13,7 @@ Encounters:
         - move party manager from "Characters" tab to "Encounters" ("Characters" tab should be for player characters)
         - add support for multiple parties
         - add functionality to add a party to an encounter
+    - back button functionality - takes you to previous screen. This should be across the entire app
 
 Rules:
     - needs more exploratory and requirements written up

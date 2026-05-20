@@ -15,11 +15,23 @@ interface CharactersSectionProps {
 export function CharactersSection({ onRoll }: CharactersSectionProps) {
   const { characters, loading, selectedId, select, createCharacter, updateCharacter, deleteCharacter } = useCharacters();
   const [showWizard, setShowWizard] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const selectedCharacter = characters.find(c => c.id === selectedId) ?? null;
 
   const handleWizardComplete = async (record: CharacterRecord) => {
     await createCharacter(record);
     setShowWizard(false);
+  };
+
+  const handleSelect = (id: string) => {
+    select(id);
+    setSidebarCollapsed(true);
+  };
+
+  const handleNew = () => {
+    select(null);
+    setShowWizard(true);
+    setSidebarCollapsed(true);
   };
 
   return (
@@ -28,11 +40,24 @@ export function CharactersSection({ onRoll }: CharactersSectionProps) {
         characters={characters}
         loading={loading}
         activeId={selectedId}
-        onSelect={select}
-        onNew={() => { select(null); setShowWizard(true); }}
+        onSelect={handleSelect}
+        onNew={handleNew}
         dimmed={showWizard}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed(c => !c)}
       />
       <div className={styles.mainPanel}>
+        {sidebarCollapsed && (
+          <button
+            className={styles.expandSidebarBtn}
+            onClick={() => setSidebarCollapsed(false)}
+            title="Show characters"
+            aria-label="Show characters"
+            type="button"
+          >
+            ››
+          </button>
+        )}
         {showWizard ? (
           <CharacterWizard
             onComplete={handleWizardComplete}
@@ -47,7 +72,7 @@ export function CharactersSection({ onRoll }: CharactersSectionProps) {
             onRoll={onRoll}
           />
         ) : (
-          <EmptyCharacterState onNew={() => setShowWizard(true)} />
+          <EmptyCharacterState onNew={() => { setShowWizard(true); setSidebarCollapsed(true); }} />
         )}
       </div>
     </div>
