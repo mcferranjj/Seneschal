@@ -9,6 +9,7 @@ export interface PartyPickerMenuProps {
   activePartyId: string | null;
   anchorRef: React.RefObject<HTMLElement | null>;
   onCreate: () => void;
+  onUse: (p: PartyRecord) => void;
   onInsert: (p: PartyRecord) => void;
   onEdit: (p: PartyRecord) => void;
   onDetach: () => void;
@@ -20,6 +21,7 @@ export function PartyPickerMenu({
   activePartyId,
   anchorRef,
   onCreate,
+  onUse,
   onInsert,
   onEdit,
   onDetach,
@@ -84,8 +86,15 @@ export function PartyPickerMenu({
               <div className={styles.rowActions}>
                 <button
                   className={styles.actionBtn}
+                  onClick={() => onUse(p)}
+                  title="Set as active party (updates party size & level)"
+                >
+                  Use
+                </button>
+                <button
+                  className={styles.actionBtn}
                   onClick={() => onInsert(p)}
-                  title="Insert party into encounter"
+                  title="Add members as placeholder creatures in the encounter"
                 >
                   Insert
                 </button>

@@ -55,6 +55,7 @@ interface EncounterManagerProps {
   activeParty?: PartyRecord | null;
   activePartyId?: string | null;
   onApplyParty?: (p: PartyRecord) => void;
+  onInsertPartyAsCreatures?: (p: PartyRecord) => void;
   onSetActivePartyId?: (id: string | null) => void;
   onOpenPartyEditor?: (partyId: string | null) => void;
 }
@@ -117,6 +118,7 @@ export function EncounterManager({
   activeParty = null,
   activePartyId = null,
   onApplyParty,
+  onInsertPartyAsCreatures,
   onSetActivePartyId,
   onOpenPartyEditor,
 }: EncounterManagerProps) {
@@ -501,6 +503,7 @@ export function EncounterManager({
           <div className={styles.budget}>
             <div className={styles.budgetHeader}>
               <span className={styles.sectionLabel}>Budget</span>
+              <span className={styles.xpTotal}>{totalXP} XP</span>
               <span className={styles.diffLabel} style={{ color: diff.color }}>
                 {diff.label}
               </span>
@@ -544,11 +547,6 @@ export function EncounterManager({
                   </button>
                 </div>
               </div>
-              <span className={styles.xpTotal}>{totalXP} XP</span>
-            </div>
-
-            {/* Party picker row */}
-            <div className={styles.partyPickerRow}>
               <button
                 ref={pickerBtnRef}
                 className={styles.partyPickerBtn}
@@ -565,7 +563,8 @@ export function EncounterManager({
                   activePartyId={activePartyId}
                   anchorRef={pickerBtnRef}
                   onCreate={() => { setPickerOpen(false); onOpenPartyEditor?.(null); }}
-                  onInsert={(p) => { setPickerOpen(false); onApplyParty?.(p); }}
+                  onUse={(p) => { setPickerOpen(false); onApplyParty?.(p); }}
+                  onInsert={(p) => { setPickerOpen(false); onInsertPartyAsCreatures?.(p); }}
                   onEdit={(p) => { setPickerOpen(false); onOpenPartyEditor?.(p.id); }}
                   onDetach={() => { setPickerOpen(false); onSetActivePartyId?.(null); }}
                   onClose={() => setPickerOpen(false)}
@@ -683,6 +682,19 @@ export function EncounterManager({
                         {effWill != null ? (effWill >= 0 ? `+${effWill}` : effWill) : '—'}
                       </span>
                     </span>
+                    {(() => {
+                      const effPer = c.perception != null ? c.perception + ewMod : null;
+                      return (
+                        <span className={styles.combatDefStat} title={c.isHazard ? 'Stealth (initiative)' : 'Perception'}>
+                          <span className={styles.combatDefLabel}>{c.isHazard ? 'Ste' : 'Per'}</span>
+                          <span className={styles.combatDefVal} style={ewMod !== 0 && effPer != null ? ewValStyle : undefined}>
+                            {effPer != null ? (effPer >= 0 ? `+${effPer}` : effPer)
+                              : c.isHazard && c.stealthMod != null ? (c.stealthMod >= 0 ? `+${c.stealthMod}` : c.stealthMod)
+                              : '—'}
+                          </span>
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   {/* Bottom row: level/XP + Elite/Weak toggle buttons */}
@@ -862,6 +874,13 @@ export function EncounterManager({
                     const effFort = c.fort != null ? c.fort + pen.fort + combatEwMod : null;
                     const effRef  = c.ref  != null ? c.ref  + pen.ref  + combatEwMod : null;
                     const effWill = c.will != null ? c.will + pen.will + combatEwMod : null;
+                    // Hazards use stealthMod for initiative; creatures use perception.
+                    // Elite/weak applies to perception on creatures (not hazards).
+                    const effPer  = c.isHazard
+                      ? (c.stealthMod ?? null)
+                      : c.perception != null ? c.perception + combatEwMod : null;
+                    const perLabel = c.isHazard ? 'Ste' : 'Per';
+                    const perTitle = c.isHazard ? 'Stealth (initiative) · right-click to input' : 'Perception · right-click to input';
                     const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
                     const combatEwStyle = combatEwMod > 0
                       ? { color: '#8a6a18', fontWeight: 700 } as const
@@ -909,6 +928,17 @@ export function EncounterManager({
                           <span className={styles.combatDefLabel}>W</span>
                           <span className={styles.combatDefVal} style={pen.will !== 0 ? debuffStyle : combatEwMod !== 0 && effWill != null ? combatEwStyle : undefined}>
                             {effWill != null ? (effWill >= 0 ? `+${effWill}` : effWill) : '—'}
+                          </span>
+                        </span>
+                        <span
+                          className={styles.combatDefStat}
+                          title={perTitle}
+                          onClick={effPer != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effPer >= 0 ? `+${effPer}` : effPer}`, label: `${c.name} · ${c.isHazard ? 'Stealth' : 'Perception'}`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                          onContextMenu={effPer != null ? e => { e.preventDefault(); e.stopPropagation(); setManualRoll({ expr: `1d20${effPer >= 0 ? `+${effPer}` : effPer}`, label: `${c.name} · ${c.isHazard ? 'Stealth' : 'Perception'}`, x: e.clientX, y: e.clientY - 160 }); } : undefined}
+                        >
+                          <span className={styles.combatDefLabel}>{perLabel}</span>
+                          <span className={styles.combatDefVal} style={!c.isHazard && combatEwMod !== 0 && effPer != null ? combatEwStyle : undefined}>
+                            {effPer != null ? (effPer >= 0 ? `+${effPer}` : effPer) : '—'}
                           </span>
                         </span>
                       </div>

@@ -3,6 +3,7 @@ import { useNav } from './nav/NavContext';
 import { useBackable } from './nav/useBackable';
 import { useNavSetter } from './nav/useNavSetter';
 import type { CreatureRecord, PartyRecord } from './db/schema';
+import { partyMemberRepository } from './db/repositories/PartyMemberRepository';
 import { importCreatureAsCustom } from './utils/importCreature';
 import { useStatblockSelection } from './hooks/useStatblockSelection';
 import type { Section } from './types/encounter';
@@ -125,6 +126,7 @@ export default function App() {
     setActivePartyId,
     nullifyActivePartyId,
     applyParty,
+    insertPartyAsCreatures,
     addToEncounter,
     addEncounter,
     renameEncounter,
@@ -232,6 +234,16 @@ export default function App() {
 
   // Active party lookup
   const activeParty = parties.find(p => p.id === activePartyId) ?? null;
+
+  // Fetch party members from DB then hand resolved records to the sync hook action
+  const handleInsertPartyAsCreatures = useCallback(async (party: PartyRecord) => {
+    const members = await partyMemberRepository.getByIds(party.memberIds);
+    // Restore memberIds ordering (getByIds result order is not guaranteed)
+    const ordered = party.memberIds
+      .map(id => members.find(m => m.id === id))
+      .filter((m): m is NonNullable<typeof m> => m != null);
+    insertPartyAsCreatures(ordered, party.level);
+  }, [insertPartyAsCreatures]);
 
   // Right-column helpers
   const openPartyEditor = useCallback((partyId: string | null) => {
@@ -490,6 +502,7 @@ export default function App() {
                 activeParty={activeParty}
                 activePartyId={activePartyId}
                 onApplyParty={applyParty}
+                onInsertPartyAsCreatures={handleInsertPartyAsCreatures}
                 onSetActivePartyId={setActivePartyId}
                 onOpenPartyEditor={openPartyEditor}
               />

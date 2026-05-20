@@ -1,50 +1,42 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { CharacterRecord, PartyRecord } from '../../db/schema';
-import { characterRepository } from '../../db/repositories/CharacterRepository';
+import type { PartyMemberRecord, PartyRecord } from '../../db/schema';
 import { partyRepository } from '../../db/repositories/PartyRepository';
+import { partyMemberRepository } from '../../db/repositories/PartyMemberRepository';
 import {
-  blankForm,
-  formToRecord,
-  recordToForm,
-  PF2E_CLASSES,
-  ANCESTRIES,
-  type SimpleCharForm,
-} from './simpleCharForm';
-import { filterOrphanCharacters } from './partySelectors';
+  blankMemberForm,
+  memberFormToRecord,
+  type MemberForm,
+} from './memberForm';
+import { filterAvailableMembers, statSummaryFromRecord, statSummaryFromForm } from './partySelectors';
 import styles from './PartyEditor.module.css';
 
 export interface PartyEditorProps {
   partyId: string | null;
   onClose: () => void;
   onSaved: (party: PartyRecord, opts: { activate: boolean }) => void;
-  /**
-   * Called after a party is deleted from the editor. The host should remove
-   * any dangling references (e.g. encounters whose `activePartyId` pointed
-   * here) and refresh its party list.
-   */
   onDeleted?: (partyId: string) => void;
 }
 
 interface DraftMember {
-  /** If non-null, this is an existing CharacterRecord (either pre-loaded or freshly created). */
+  /** Non-null when this member already exists in partyMembers table. */
   existingId: string | null;
-  /** Used for display even when existingId is set (denormalized). */
   name: string;
-  sub: string;
-  /** If existingId is null, this draft form will create a new record on save. */
-  form: SimpleCharForm | null;
+  /** Cached stat summary for display. */
+  statSummary: string;
+  /** Only set when existingId is null — will be persisted on save. */
+  form: MemberForm | null;
 }
 
 export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEditorProps) {
   const [partyName, setPartyName] = useState('');
   const [partyLevel, setPartyLevel] = useState(1);
   const [members, setMembers] = useState<DraftMember[]>([]);
-  const [allChars, setAllChars] = useState<CharacterRecord[]>([]);
+  const [allSavedMembers, setAllSavedMembers] = useState<PartyMemberRecord[]>([]);
   const [loadedParty, setLoadedParty] = useState<PartyRecord | null>(null);
 
   // Inline "add new member" form
   const [showAddForm, setShowAddForm] = useState(false);
-  const [addForm, setAddForm] = useState<SimpleCharForm>(blankForm());
+  const [addForm, setAddForm] = useState<MemberForm>(blankMemberForm());
 
   // "Pick existing" dropdown
   const [showPickDropdown, setShowPickDropdown] = useState(false);
@@ -55,10 +47,9 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
 
   const isNew = partyId === null;
 
-  // Load all characters and (if editing) the party
   const loadData = useCallback(async () => {
-    const chars = await characterRepository.getAll();
-    setAllChars(chars);
+    const saved = await partyMemberRepository.getAll();
+    setAllSavedMembers(saved);
 
     if (partyId) {
       const party = await partyRepository.getById(partyId);
@@ -66,20 +57,19 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
         setLoadedParty(party);
         setPartyName(party.name);
         setPartyLevel(party.level);
-        const memberDrafts: DraftMember[] = party.memberIds.map(mid => {
-          const c = chars.find(x => x.id === mid);
-          if (c) {
-            const f = recordToForm(c);
+        const drafts: DraftMember[] = party.memberIds.map(mid => {
+          const r = saved.find(m => m.id === mid);
+          if (r) {
             return {
-              existingId: c.id,
-              name: c.name,
-              sub: `${c.ancestry?.name ?? f.ancestryName} ${c.class?.name ?? f.className} ${c.level}`,
+              existingId: r.id,
+              name: r.name,
+              statSummary: statSummaryFromRecord(r),
               form: null,
             };
           }
-          return { existingId: mid, name: `(missing ${mid})`, sub: '', form: null };
+          return { existingId: mid, name: `(missing ${mid})`, statSummary: '', form: null };
         });
-        setMembers(memberDrafts);
+        setMembers(drafts);
       }
     } else {
       setPartyName('');
@@ -103,13 +93,13 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
     return () => document.removeEventListener('mousedown', handler);
   }, [showPickDropdown]);
 
-  // Orphan characters: not already a member of this editor session
-  // (logic lives in partySelectors.ts so it can be unit-tested in isolation).
-  const currentMemberIds = new Set(members.map(m => m.existingId).filter(Boolean) as string[]);
-  const orphans = filterOrphanCharacters(allChars, currentMemberIds);
+  const currentMemberIds = new Set(
+    members.map(m => m.existingId).filter(Boolean) as string[],
+  );
+  const available = filterAvailableMembers(allSavedMembers, currentMemberIds);
 
-  function addFieldHandler(field: keyof SimpleCharForm) {
-    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  function fieldHandler(field: keyof MemberForm) {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
       const v = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
       setAddForm(prev => ({ ...prev, [field]: v }));
     };
@@ -117,26 +107,23 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
 
   function commitAddForm() {
     if (!addForm.name.trim()) return;
-    const draft: DraftMember = {
+    setMembers(prev => [...prev, {
       existingId: null,
       name: addForm.name.trim(),
-      sub: `${addForm.ancestryName} ${addForm.className} ${addForm.level}`,
+      statSummary: statSummaryFromForm(addForm),
       form: { ...addForm },
-    };
-    setMembers(prev => [...prev, draft]);
-    setAddForm(blankForm());
+    }]);
+    setAddForm(blankMemberForm());
     setShowAddForm(false);
   }
 
-  function pickExisting(c: CharacterRecord) {
-    const f = recordToForm(c);
-    const draft: DraftMember = {
-      existingId: c.id,
-      name: c.name,
-      sub: `${c.ancestry?.name ?? f.ancestryName} ${c.class?.name ?? f.className} ${c.level}`,
+  function pickExisting(r: PartyMemberRecord) {
+    setMembers(prev => [...prev, {
+      existingId: r.id,
+      name: r.name,
+      statSummary: statSummaryFromRecord(r),
       form: null,
-    };
-    setMembers(prev => [...prev, draft]);
+    }]);
     setShowPickDropdown(false);
   }
 
@@ -148,16 +135,14 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
     if (!partyName.trim()) return;
     const now = Date.now();
 
-    // Persist any new-member drafts
     const resolvedIds: string[] = [];
     for (const m of members) {
       if (m.existingId) {
         resolvedIds.push(m.existingId);
       } else if (m.form) {
-        const id = `pc-${now}-${Math.random().toString(36).slice(2)}`;
-        const rec = formToRecord(m.form, id, now);
-        await characterRepository.add(rec);
-        resolvedIds.push(id);
+        const rec = memberFormToRecord(m.form, undefined, now);
+        await partyMemberRepository.put(rec);
+        resolvedIds.push(rec.id);
       }
     }
 
@@ -176,8 +161,6 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
   async function doDelete() {
     if (!partyId) return;
     await partyRepository.delete(partyId);
-    // Notify the host so it can clear any encounter's dangling activePartyId
-    // and refresh its loaded parties list before we close.
     onDeleted?.(partyId);
     onClose();
   }
@@ -212,19 +195,9 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
         <div className={styles.fieldRow}>
           <span className={styles.fieldLabel}>Level</span>
           <div className={styles.levelGroup}>
-            <button
-              className={styles.stepBtn}
-              onClick={() => setPartyLevel(l => Math.max(1, l - 1))}
-            >
-              −
-            </button>
+            <button className={styles.stepBtn} onClick={() => setPartyLevel(l => Math.max(1, l - 1))}>−</button>
             <span className={styles.levelVal}>{partyLevel}</span>
-            <button
-              className={styles.stepBtn}
-              onClick={() => setPartyLevel(l => Math.min(20, l + 1))}
-            >
-              +
-            </button>
+            <button className={styles.stepBtn} onClick={() => setPartyLevel(l => Math.min(20, l + 1))}>+</button>
           </div>
         </div>
 
@@ -236,7 +209,7 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
               <div key={idx} className={styles.memberCard}>
                 <div className={styles.memberInfo}>
                   <div className={styles.memberName}>{m.name}</div>
-                  {m.sub && <div className={styles.memberSub}>{m.sub}</div>}
+                  {m.statSummary && <div className={styles.memberSub}>{m.statSummary}</div>}
                 </div>
                 <button
                   className={styles.removeBtn}
@@ -256,7 +229,7 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
             <div className={styles.addMemberActions}>
               <button
                 className={styles.btnSecondary}
-                onClick={() => { setShowAddForm(true); setAddForm(blankForm()); }}
+                onClick={() => { setShowAddForm(true); setAddForm(blankMemberForm()); }}
               >
                 + Add member
               </button>
@@ -269,24 +242,19 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
                 </button>
                 {showPickDropdown && (
                   <div className={styles.pickExistingDropdown}>
-                    {orphans.length === 0 ? (
-                      <div className={styles.pickExistingEmpty}>No available characters</div>
+                    {available.length === 0 ? (
+                      <div className={styles.pickExistingEmpty}>No saved members available</div>
                     ) : (
-                      orphans.map(c => {
-                        const f = recordToForm(c);
-                        return (
-                          <div
-                            key={c.id}
-                            className={styles.pickExistingItem}
-                            onClick={() => pickExisting(c)}
-                          >
-                            <span className={styles.pickExistingName}>{c.name}</span>
-                            <span className={styles.pickExistingSub}>
-                              {c.ancestry?.name ?? f.ancestryName} {c.class?.name ?? f.className} {c.level}
-                            </span>
-                          </div>
-                        );
-                      })
+                      available.map(r => (
+                        <div
+                          key={r.id}
+                          className={styles.pickExistingItem}
+                          onClick={() => pickExisting(r)}
+                        >
+                          <span className={styles.pickExistingName}>{r.name}</span>
+                          <span className={styles.pickExistingSub}>{statSummaryFromRecord(r)}</span>
+                        </div>
+                      ))
                     )}
                   </div>
                 )}
@@ -300,49 +268,9 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
                   <input
                     className={styles.addMemberInput}
                     value={addForm.name}
-                    onChange={addFieldHandler('name')}
-                    placeholder="Character name"
+                    onChange={fieldHandler('name')}
+                    placeholder="Member name"
                     autoFocus
-                  />
-                </div>
-                <div className={styles.addMemberField}>
-                  <span className={styles.addMemberFieldLabel}>Player</span>
-                  <input
-                    className={styles.addMemberInput}
-                    value={addForm.playerName}
-                    onChange={addFieldHandler('playerName')}
-                    placeholder="Player name"
-                  />
-                </div>
-                <div className={styles.addMemberField}>
-                  <span className={styles.addMemberFieldLabel}>Ancestry</span>
-                  <select
-                    className={styles.addMemberInput}
-                    value={addForm.ancestryName}
-                    onChange={addFieldHandler('ancestryName')}
-                  >
-                    {ANCESTRIES.map(a => <option key={a}>{a}</option>)}
-                  </select>
-                </div>
-                <div className={styles.addMemberField}>
-                  <span className={styles.addMemberFieldLabel}>Class</span>
-                  <select
-                    className={styles.addMemberInput}
-                    value={addForm.className}
-                    onChange={addFieldHandler('className')}
-                  >
-                    {PF2E_CLASSES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className={styles.addMemberField}>
-                  <span className={styles.addMemberFieldLabel}>Level</span>
-                  <input
-                    className={styles.addMemberInput}
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={addForm.level}
-                    onChange={addFieldHandler('level')}
                   />
                 </div>
                 <div className={styles.addMemberField}>
@@ -352,7 +280,7 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
                     type="number"
                     min={1}
                     value={addForm.maxHp}
-                    onChange={addFieldHandler('maxHp')}
+                    onChange={fieldHandler('maxHp')}
                   />
                 </div>
                 <div className={styles.addMemberField}>
@@ -362,7 +290,7 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
                     type="number"
                     min={1}
                     value={addForm.ac}
-                    onChange={addFieldHandler('ac')}
+                    onChange={fieldHandler('ac')}
                   />
                 </div>
                 <div className={styles.addMemberField}>
@@ -371,7 +299,7 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
                     className={styles.addMemberInput}
                     type="number"
                     value={addForm.perception}
-                    onChange={addFieldHandler('perception')}
+                    onChange={fieldHandler('perception')}
                   />
                 </div>
                 <div className={styles.addMemberField}>
@@ -380,7 +308,7 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
                     className={styles.addMemberInput}
                     type="number"
                     value={addForm.fort}
-                    onChange={addFieldHandler('fort')}
+                    onChange={fieldHandler('fort')}
                   />
                 </div>
                 <div className={styles.addMemberField}>
@@ -389,7 +317,7 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
                     className={styles.addMemberInput}
                     type="number"
                     value={addForm.ref}
-                    onChange={addFieldHandler('ref')}
+                    onChange={fieldHandler('ref')}
                   />
                 </div>
                 <div className={styles.addMemberField}>
@@ -398,7 +326,7 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
                     className={styles.addMemberInput}
                     type="number"
                     value={addForm.will}
-                    onChange={addFieldHandler('will')}
+                    onChange={fieldHandler('will')}
                   />
                 </div>
               </div>
@@ -450,10 +378,7 @@ export function PartyEditor({ partyId, onClose, onSaved, onDeleted }: PartyEdito
             {!isNew && (
               <>
                 <div className={styles.footerSpacer} />
-                <button
-                  className={styles.btnDanger}
-                  onClick={() => setConfirmDelete(true)}
-                >
+                <button className={styles.btnDanger} onClick={() => setConfirmDelete(true)}>
                   Delete party
                 </button>
               </>

@@ -10,7 +10,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbility } from '../types/encounter';
-import type { CreatureRecord, PartyRecord } from '../db/schema';
+import type { CreatureRecord, PartyMemberRecord, PartyRecord } from '../db/schema';
 import type { PF2ECreature } from '../types/pf2e';
 import { loadEncounterState, saveEncounterState } from '../db/db';
 import { creatureRepository } from '../db/repositories/CreatureRepository';
@@ -32,6 +32,7 @@ export interface UseEncounterReturn {
    */
   nullifyActivePartyId: (partyId: string) => void;
   applyParty: (party: PartyRecord) => void;
+  insertPartyAsCreatures: (members: PartyMemberRecord[], partyLevel: number) => void;
   addToEncounter: (c: CreatureRecord, scaledLevel?: number) => void;
   addEncounter: () => void;
   renameEncounter: (idx: number, name: string) => void;
@@ -131,6 +132,41 @@ export function useEncounter(): UseEncounterReturn {
     );
     setPartyLevel(party.level);
     setPartySize(party.memberIds.length);
+  }, [activeEnc]);
+
+  const insertPartyAsCreatures = useCallback((members: PartyMemberRecord[], partyLevel: number) => {
+    setEncounters(prev => {
+      const enc = prev[activeEnc];
+      if (!enc) return prev;
+      // Accumulate names as we go so duplicates within the batch also get suffixed
+      const running = [...enc.creatures];
+      const newCreatures = members.map(m => {
+        const name = uniqueName(m.name, running);
+        const entry: EncounterCreature = {
+          uid: `pmember-${m.id}-${Date.now()}-${Math.random()}`,
+          name,
+          level: partyLevel,
+          hp: m.maxHp,
+          maxHp: m.maxHp,
+          ac: m.ac,
+          fort: m.fort,
+          ref: m.ref,
+          will: m.will,
+          perception: m.perception,
+          init: 0,
+          conditions: [],
+          custom: true,
+          isEnemy: false,
+        };
+        running.push(entry);
+        return entry;
+      });
+      return prev.map((enc, i) =>
+        i === activeEnc
+          ? { ...enc, creatures: [...enc.creatures, ...newCreatures] }
+          : enc
+      );
+    });
   }, [activeEnc]);
 
   const addToEncounter = useCallback(
@@ -508,6 +544,7 @@ export function useEncounter(): UseEncounterReturn {
     setActivePartyId,
     nullifyActivePartyId,
     applyParty,
+    insertPartyAsCreatures,
     addToEncounter,
     addEncounter,
     renameEncounter,

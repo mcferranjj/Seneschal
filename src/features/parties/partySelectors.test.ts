@@ -1,35 +1,34 @@
 import { describe, it, expect } from 'vitest';
-import { filterOrphanCharacters, partyRowSubLabel } from './partySelectors';
-import type { CharacterRecord } from '../../db/schema';
+import { filterAvailableMembers, partyRowSubLabel } from './partySelectors';
+import type { PartyMemberRecord } from '../../db/schema';
 
-function makeChar(id: string): CharacterRecord {
-  // Minimal cast — the selector only reads `id`.
-  return { id } as unknown as CharacterRecord;
+function makeMember(id: string): PartyMemberRecord {
+  return { id } as unknown as PartyMemberRecord;
 }
 
-describe('filterOrphanCharacters', () => {
-  it('returns all characters when no current members', () => {
-    const all = [makeChar('a'), makeChar('b'), makeChar('c')];
-    const orphans = filterOrphanCharacters(all, new Set());
-    expect(orphans.map(c => c.id)).toEqual(['a', 'b', 'c']);
+describe('filterAvailableMembers', () => {
+  it('returns all members when no current members', () => {
+    const all = [makeMember('a'), makeMember('b'), makeMember('c')];
+    const available = filterAvailableMembers(all, new Set());
+    expect(available.map(m => m.id)).toEqual(['a', 'b', 'c']);
   });
 
-  it('excludes characters whose id is in the current-member set', () => {
-    const all = [makeChar('a'), makeChar('b'), makeChar('c')];
-    const orphans = filterOrphanCharacters(all, new Set(['b']));
-    expect(orphans.map(c => c.id)).toEqual(['a', 'c']);
+  it('excludes members whose id is in the current-member set', () => {
+    const all = [makeMember('a'), makeMember('b'), makeMember('c')];
+    const available = filterAvailableMembers(all, new Set(['b']));
+    expect(available.map(m => m.id)).toEqual(['a', 'c']);
   });
 
-  it('returns an empty array when every character is already a member', () => {
-    const all = [makeChar('a'), makeChar('b')];
-    const orphans = filterOrphanCharacters(all, new Set(['a', 'b']));
-    expect(orphans).toEqual([]);
+  it('returns an empty array when every member is already in the party', () => {
+    const all = [makeMember('a'), makeMember('b')];
+    const available = filterAvailableMembers(all, new Set(['a', 'b']));
+    expect(available).toEqual([]);
   });
 
   it('does not mutate the input array', () => {
-    const all = [makeChar('a'), makeChar('b')];
+    const all = [makeMember('a'), makeMember('b')];
     const snapshot = [...all];
-    filterOrphanCharacters(all, new Set(['a']));
+    filterAvailableMembers(all, new Set(['a']));
     expect(all).toEqual(snapshot);
   });
 });

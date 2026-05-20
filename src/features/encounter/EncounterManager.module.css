@@ -273,12 +273,6 @@
   color: var(--color-text-mid);
 }
 
-/* ── Party picker row ── */
-.partyPickerRow {
-  position: relative;
-  margin-top: 6px;
-}
-
 .partyPickerBtn {
   background: var(--color-surface);
   border: 1px solid var(--color-border);

@@ -3,6 +3,7 @@ import { resolvePublicationTitle } from '../sync/publicationRegistry';
 import type {
   CreatureRecord, MetaRecord, TraitDescriptionsRecord, CharacterRecord, EncounterStateRecord,
   AncestryRecord, HeritageRecord, BackgroundRecord, ClassRecord, FeatRecord, PartyRecord,
+  PartyMemberRecord,
 } from './schema';
 
 // Re-export so existing callers that import from db.ts continue to work
@@ -20,6 +21,7 @@ class SeneschalDatabase extends Dexie {
   classes!: Table<ClassRecord, string>;
   feats!: Table<FeatRecord, string>;
   parties!: Table<PartyRecord, string>;
+  partyMembers!: Table<PartyMemberRecord, string>;
 
   constructor() {
     super('SeneschalGMAssistant');
@@ -96,12 +98,6 @@ class SeneschalDatabase extends Dexie {
     });
     // Version 9: add the `parties` table for the new Party UX (PartyRecord
     // with its own canonical level + ordered memberIds → CharacterRecord.id).
-    //
-    // IMPORTANT: Dexie's `stores()` is declarative — every table must be
-    // listed on every version, otherwise tables omitted from a later version
-    // are dropped from the DB. We therefore repeat the full v8 store set
-    // verbatim and only ADD the `parties` line below. No upgrade callback is
-    // needed because we're not migrating any existing data.
     this.version(9).stores({
       creatures:         'id, entityType, nameLower, level, rarity, size, packSource, publication, *traits',
       meta:              'key',
@@ -114,6 +110,23 @@ class SeneschalDatabase extends Dexie {
       classes:           'id, nameLower, slug',
       feats:             'id, nameLower, level, category, *traits, rarity, [category+level]',
       parties:           'id, updatedAt',
+    });
+    // Version 10: add `partyMembers` — lightweight stat-only records for
+    // party members, decoupled from CharacterRecord. memberIds on PartyRecord
+    // now reference PartyMemberRecord.id instead of CharacterRecord.id.
+    this.version(10).stores({
+      creatures:         'id, entityType, nameLower, level, rarity, size, packSource, publication, *traits',
+      meta:              'key',
+      encounterState:    'key',
+      characters:        'id, nameLower, level',
+      traitDescriptions: 'key',
+      ancestries:        'id, nameLower, slug, *traits, rarity',
+      heritages:         'id, nameLower, ancestrySlug, isVersatile',
+      backgrounds:       'id, nameLower, rarity',
+      classes:           'id, nameLower, slug',
+      feats:             'id, nameLower, level, category, *traits, rarity, [category+level]',
+      parties:           'id, updatedAt',
+      partyMembers:      'id, updatedAt',
     });
   }
 }
