@@ -53,10 +53,10 @@ export function RulesSection() {
     const next = prev === name ? null : name;
     if (prev !== null && next !== null) {
       // Replacing one expanded entry with another — restore previous on back.
-      navPush({ undo: () => setExpanded(prev), label: `Collapse ${name}`, scope: 'rules' });
+      navPush({ undo: () => setExpanded(prev), redo: () => setExpanded(name), label: `Collapse ${name}`, scope: 'rules' });
     } else if (next !== null) {
       // Opening from a closed state — back closes it.
-      navPush({ undo: () => setExpanded(null), label: `Collapse ${name}`, scope: 'rules' });
+      navPush({ undo: () => setExpanded(null), redo: () => setExpanded(name), label: `Collapse ${name}`, scope: 'rules' });
     }
     // Closing (next === null) needs no undo — there's nothing interesting to restore.
     setExpanded(next);

@@ -26,7 +26,7 @@ export function CharactersSection({ onRoll }: CharactersSectionProps) {
     'Back to character list',
     { scope: 'characters' },
   );
-  useBackable(showWizard, () => setShowWizard(false), 'Cancel character builder', { scope: 'characters' });
+  useBackable(showWizard, () => setShowWizard(false), 'Cancel character builder', { scope: 'characters', redo: () => setShowWizard(true) });
 
   const handleWizardComplete = async (record: CharacterRecord) => {
     await createCharacter(record);

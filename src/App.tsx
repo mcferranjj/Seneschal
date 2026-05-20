@@ -290,7 +290,7 @@ export default function App() {
     wizardOpen,
     () => { setWizardOpen(false); setWizardEditCreature(undefined); },
     'Close custom creature wizard',
-    { escClosable: true, scope: 'gm' },
+    { escClosable: true, scope: 'gm', redo: () => setWizardOpen(true) },
   );
 
   const handleCopyCreature = useCallback((creature: CreatureRecord) => {

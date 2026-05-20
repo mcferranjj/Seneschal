@@ -43,6 +43,7 @@ export function useNavSetter<T>(
     if (skipNoOp && prev === next) return;
     navPush({
       undo: () => setterRef.current(prev),
+      redo: () => setterRef.current(next),
       label: label?.(prev, next),
       scope,
     });

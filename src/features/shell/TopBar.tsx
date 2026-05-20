@@ -6,6 +6,7 @@ import { HelpModal } from './HelpModal';
 import { ThemePicker } from './ThemePicker';
 import { useCharSyncMenu } from './useCharSyncMenu';
 import { BackButton } from '../../nav/BackButton';
+import { ForwardButton } from '../../nav/ForwardButton';
 
 interface TopBarProps {
   activeSection: Section;
@@ -93,6 +94,7 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
     <>
       <header className={styles.topBar}>
         <BackButton />
+        <ForwardButton />
         <div className={styles.brand}>
           <span className={styles.logoMark}>⚔</span>
           <span className={styles.appName}>Seneschal</span>

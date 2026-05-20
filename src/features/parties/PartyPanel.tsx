@@ -115,7 +115,7 @@ export function PartyPanel({ collapsed, onToggleCollapsed }: PartyPanelProps) {
     showForm,
     () => { setShowForm(false); setEditingId(null); },
     'Cancel character form',
-    { scope: 'gm' },
+    { scope: 'gm', redo: () => setShowForm(true) },
   );
   useBackable(!!selectedId, () => setSelectedId(null), 'Deselect character', { scope: 'gm' });
 
