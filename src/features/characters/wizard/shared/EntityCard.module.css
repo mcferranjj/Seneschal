@@ -4,6 +4,7 @@
   border-radius: 8px;
   padding: 10px 10px;
   cursor: pointer;
+  user-select: none;
   text-align: left;
   display: flex;
   flex-direction: column;
