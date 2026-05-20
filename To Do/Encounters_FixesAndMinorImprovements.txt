@@ -11,7 +11,6 @@ Backend Cleanup/Improvements:
     - consolidate custom creature and official creature storage formats, and consolidate their display
 
 Bug Fixes:
-    - fix cases where formatting text (markdown, etc.) is appearing in descriptions of abilities in copy-and-edit windows
     - look into why some descriptions are missing (e.g. Tooth Fairy)
 
 Unanswered Questions:

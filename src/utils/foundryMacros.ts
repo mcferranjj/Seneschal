@@ -26,6 +26,109 @@ function parseDamageType(group: string): string | null {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
+ * Convert raw Foundry description source into clean HTML suitable for re-editing
+ * in a contenteditable or textarea. Removes Foundry markup, converts markdown,
+ * decodes entities, whitelists tags, and collapses whitespace.
+ */
+export function toEditableText(raw: string): string {
+  if (!raw) return '';
+
+  // Step 1: Strip Foundry macros (preserves inline damage/check text)
+  let text = stripFoundryMacros(raw);
+
+  // Step 2: Convert markdown to HTML
+  // Bold: **text** and __text__ → <strong>text</strong>
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+  // Italic: *text* and _text_ → <em>text</em> (avoid matching inside words)
+  // Use negative lookbehind/lookahead for word boundaries
+  text = text.replace(/(?<!\w)\*([^\s*].+?[^\s*]|[^\s*])\*(?!\w)/g, '<em>$1</em>');
+  text = text.replace(/(?<!\w)_([^\s_].+?[^\s_]|[^\s_])_(?!\w)/g, '<em>$1</em>');
+
+  // Strikethrough: ~~text~~ → strip markers, keep text
+  text = text.replace(/~~(.+?)~~/g, '$1');
+
+  // Headers: strip leading # / ## / ### at line start
+  text = text.replace(/^#{1,3}\s+/gm, '');
+
+  // Step 3: Decode HTML entities (always use fallback for consistency)
+  // Common Foundry entities
+  text = text
+    .replace(/&hellip;/g, '…')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+
+  // Step 4: Remove stray empty paragraphs and orphan <hr/>
+  text = text.replace(/<p>\s*<\/p>/g, '');
+  text = text.replace(/<hr\s*\/?>/g, '');
+
+  // Step 5: Whitelist tags and strip attributes
+  // Allowed: p, br, strong, em, u, h3, h4, ul, ol, li
+  // Strip everything else (unwrap contents) and remove attributes
+  if (typeof DOMParser !== 'undefined') {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<wrapper>${text}</wrapper>`, 'text/html');
+    const allowedTags = new Set(['p', 'br', 'strong', 'em', 'u', 'h3', 'h4', 'ul', 'ol', 'li']);
+
+    // Walk and modify the DOM tree
+    const walk = (node: Node): void => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element;
+        const tagName = el.tagName.toLowerCase();
+
+        // Process children first (bottom-up)
+        const children = Array.from(el.childNodes);
+        children.forEach(walk);
+
+        if (!allowedTags.has(tagName)) {
+          // Disallowed tag: unwrap by moving children before the element
+          const parent = el.parentNode;
+          if (parent) {
+            while (el.firstChild) {
+              parent.insertBefore(el.firstChild, el);
+            }
+            parent.removeChild(el);
+          }
+        } else {
+          // Remove all attributes from allowed elements
+          while (el.attributes.length > 0) {
+            el.removeAttribute(el.attributes[0]!.name);
+          }
+        }
+      }
+    };
+
+    Array.from(doc.body.childNodes).forEach(walk);
+
+    // Get inner HTML from wrapper element
+    const wrapper = doc.body.querySelector('wrapper');
+    text = wrapper ? wrapper.innerHTML : doc.body.innerHTML;
+  } else {
+    // Fallback: regex-based tag unwrapping for non-browser environments
+    // Remove all attributes from tags
+    text = text.replace(/<(\/?(?:p|br|strong|em|u|h3|h4|ul|ol|li))\s[^>]*>/gi, '<$1>');
+    // Unwrap disallowed tags
+    text = text.replace(/<(?!\/?(?:p|br|strong|em|u|h3|h4|ul|ol|li)\b)[^>]*>/g, '');
+    text = text.replace(/<\/(?!(?:p|br|strong|em|u|h3|h4|ul|ol|li)\b)[^>]*>/g, '');
+  }
+
+  // Step 6: Collapse whitespace and trim
+  text = text
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return text;
+}
+
+/**
  * Strip Foundry inline macros to plain readable text.
  *
  * Handles:
