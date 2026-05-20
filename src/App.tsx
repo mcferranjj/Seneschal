@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useNav } from './nav/NavContext';
+import { useBackable } from './nav/useBackable';
+import { useNavSetter } from './nav/useNavSetter';
 import type { CreatureRecord } from './db/schema';
 import { importCreatureAsCustom } from './utils/importCreature';
 import { useStatblockSelection } from './hooks/useStatblockSelection';
@@ -21,6 +24,13 @@ import { PartiesSection } from './features/parties/PartiesSection';
 import { RollHistory } from './features/roll-history/RollHistory';
 import styles from './features/shell/App.module.css';
 
+const SECTION_LABELS: Record<Section, string> = {
+  gm: 'Encounters',
+  rules: 'Rules',
+  characters: 'Characters',
+  parties: 'Party',
+};
+
 export default function App() {
   // Theme — loads from localStorage, derives all tokens, applies to :root
   const { activeTheme, setTheme } = useTheme();
@@ -28,13 +38,31 @@ export default function App() {
   // Persisted UI preferences — loaded once from localStorage on mount
   const { loadedPrefs, persistPrefs } = useUIPrefs();
 
-  // Section navigation — seeded from persisted prefs
+  // Navigation context
+  const { flushOtherScopes } = useNav();
+
+  // Section navigation — seeded from persisted prefs.
+  // We wrap the raw setter with useNavSetter so switching sections pushes an
+  // undo entry; on top of that we flush any section-scoped entries from the
+  // section being left, so back navigation doesn't replay actions from a tab
+  // the user has moved away from.
   const [activeSection, setActiveSectionState] = useState<Section>(loadedPrefs.activeSection);
 
-  const setActiveSection = useCallback((section: Section) => {
+  const applySectionChange = useCallback((section: Section) => {
     setActiveSectionState(section);
     persistPrefs({ activeSection: section });
   }, [persistPrefs]);
+
+  const pushSectionToNav = useNavSetter(activeSection, applySectionChange, {
+    label: (prev) => `Back to ${SECTION_LABELS[prev]}`,
+  });
+
+  const setActiveSection = useCallback((section: Section) => {
+    if (section === activeSection) return;
+    // Drop entries scoped to other sections before pushing/switching.
+    flushOtherScopes(section);
+    pushSectionToNav(section);
+  }, [activeSection, flushOtherScopes, pushSectionToNav]);
 
   // Search + sync state — seeded with persisted filters
   const {
@@ -243,6 +271,17 @@ export default function App() {
     if (!loadedPrefs.resultsOpen) setResultsOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Back-button integration.
+  // NOTE: roll history's nav entry is registered inside <RollHistory> itself
+  // (it owns the close behavior + escClosable semantics). Don't duplicate it here.
+  useBackable(!!selected, () => clearSelection(), 'Close statblock', { scope: 'gm' });
+  useBackable(
+    wizardOpen,
+    () => { setWizardOpen(false); setWizardEditCreature(undefined); },
+    'Close custom creature wizard',
+    { escClosable: true, scope: 'gm' },
+  );
 
   const handleCopyCreature = useCallback((creature: CreatureRecord) => {
     const draft = importCreatureAsCustom(creature);

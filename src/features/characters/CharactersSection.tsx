@@ -6,6 +6,7 @@ import { CharacterSidebar } from './CharacterSidebar';
 import { EmptyCharacterState } from './EmptyCharacterState';
 import { CharacterWizard } from './wizard/CharacterWizard';
 import { CharacterSheet } from './sheet/CharacterSheet';
+import { useBackable } from '../../nav/useBackable';
 import styles from './CharactersSection.module.css';
 
 interface CharactersSectionProps {
@@ -17,6 +18,15 @@ export function CharactersSection({ onRoll }: CharactersSectionProps) {
   const [showWizard, setShowWizard] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const selectedCharacter = characters.find(c => c.id === selectedId) ?? null;
+
+  // Back-button integration
+  useBackable(
+    !!selectedCharacter && !showWizard,
+    () => select(null),
+    'Back to character list',
+    { scope: 'characters' },
+  );
+  useBackable(showWizard, () => setShowWizard(false), 'Cancel character builder', { scope: 'characters' });
 
   const handleWizardComplete = async (record: CharacterRecord) => {
     await createCharacter(record);

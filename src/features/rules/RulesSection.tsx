@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CONDITIONS } from '../../data/conditions';
+import { useNav } from '../../nav/NavContext';
+import { useNavSetter } from '../../nav/useNavSetter';
 import styles from './RulesSection.module.css';
 
 const BASIC_ACTIONS = [
@@ -22,10 +24,43 @@ const BASIC_ACTIONS = [
   { name: 'Take Cover', cost: '◆', desc: '+2 circumstance bonus to AC, Reflex, and Stealth against ranged attacks.' },
 ];
 
+type RulesTab = 'conditions' | 'actions';
+
+const TAB_LABELS: Record<RulesTab, string> = {
+  conditions: 'Conditions',
+  actions: 'Basic Actions',
+};
+
 export function RulesSection() {
+  const { push: navPush } = useNav();
   const [condSearch, setCondSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [tab, setTab] = useState<'conditions' | 'actions'>('conditions');
+  const [tab, setTab] = useState<RulesTab>('conditions');
+
+  // Tab change is a textbook setter-with-history use case.
+  const handleTabChange = useNavSetter(tab, setTab, {
+    label: (prev) => `Back to ${TAB_LABELS[prev]}`,
+    scope: 'rules',
+  });
+
+  // Expand needs custom logic: collapsing is a no-op for the back stack, but
+  // opening/replacing pushes an undo that closes (or restores the previous open).
+  const expandedRef = useRef(expanded);
+  expandedRef.current = expanded;
+
+  function handleExpand(name: string) {
+    const prev = expandedRef.current;
+    const next = prev === name ? null : name;
+    if (prev !== null && next !== null) {
+      // Replacing one expanded entry with another — restore previous on back.
+      navPush({ undo: () => setExpanded(prev), label: `Collapse ${name}`, scope: 'rules' });
+    } else if (next !== null) {
+      // Opening from a closed state — back closes it.
+      navPush({ undo: () => setExpanded(null), label: `Collapse ${name}`, scope: 'rules' });
+    }
+    // Closing (next === null) needs no undo — there's nothing interesting to restore.
+    setExpanded(next);
+  }
 
   const filteredConditions = CONDITIONS.filter(c =>
     c.name.toLowerCase().includes(condSearch.toLowerCase()) ||
@@ -37,10 +72,10 @@ export function RulesSection() {
       <div className={styles.header}>
         <h1 className={styles.title}>Rules Reference</h1>
         <div className={styles.tabs}>
-          <button className={`${styles.tab} ${tab === 'conditions' ? styles.tabActive : ''}`} onClick={() => setTab('conditions')}>
+          <button className={`${styles.tab} ${tab === 'conditions' ? styles.tabActive : ''}`} onClick={() => handleTabChange('conditions')}>
             Conditions
           </button>
-          <button className={`${styles.tab} ${tab === 'actions' ? styles.tabActive : ''}`} onClick={() => setTab('actions')}>
+          <button className={`${styles.tab} ${tab === 'actions' ? styles.tabActive : ''}`} onClick={() => handleTabChange('actions')}>
             Basic Actions
           </button>
         </div>
@@ -60,7 +95,7 @@ export function RulesSection() {
               <div key={c.name} className={styles.entry}>
                 <button
                   className={styles.entryHeader}
-                  onClick={() => setExpanded(prev => prev === c.name ? null : c.name)}
+                  onClick={() => handleExpand(c.name)}
                 >
                   <span className={styles.entryName}>
                     {c.name}
@@ -87,7 +122,7 @@ export function RulesSection() {
               <div key={a.name} className={styles.entry}>
                 <button
                   className={styles.entryHeader}
-                  onClick={() => setExpanded(prev => prev === a.name ? null : a.name)}
+                  onClick={() => handleExpand(a.name)}
                 >
                   <span className={styles.entryName}>
                     {a.name}

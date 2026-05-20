@@ -5,6 +5,7 @@ import styles from './TopBar.module.css';
 import { HelpModal } from './HelpModal';
 import { ThemePicker } from './ThemePicker';
 import { useCharSyncMenu } from './useCharSyncMenu';
+import { BackButton } from '../../nav/BackButton';
 
 interface TopBarProps {
   activeSection: Section;
@@ -91,6 +92,7 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
   return (
     <>
       <header className={styles.topBar}>
+        <BackButton />
         <div className={styles.brand}>
           <span className={styles.logoMark}>⚔</span>
           <span className={styles.appName}>Seneschal</span>

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import { formatTime } from '../../utils/formatters';
 import { useOutsideClick } from '../../hooks/useOutsideClick';
+import { useBackable } from '../../nav/useBackable';
 import styles from './RollHistory.module.css';
 
 interface RollHistoryProps {
@@ -14,6 +15,7 @@ export function RollHistory({ entries, onClear, onClose }: RollHistoryProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  useBackable(true, onClose, 'Close roll history', { escClosable: true });
   useOutsideClick(panelRef, onClose);
 
   // Scroll to top when new entry arrives

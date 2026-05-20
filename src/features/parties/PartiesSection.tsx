@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { CharacterRecord } from '../../db/schema';
 import { characterRepository } from '../../db/repositories/CharacterRepository';
+import { useBackable } from '../../nav/useBackable';
 import styles from './PartiesSection.module.css';
 
 const PF2E_CLASSES = [
@@ -16,10 +17,87 @@ const ANCESTRIES = [
   'Kobold','Lizardfolk','Ratfolk','Shisk','Shoony','Sprite','Strix','Tengu',
 ];
 
-function blankCharacter(): Omit<CharacterRecord, 'id'> {
+/** Flat form state used by the simple "add/edit" form in this section. */
+interface SimpleCharForm {
+  name: string;
+  playerName: string;
+  ancestryName: string;
+  className: string;
+  level: number;
+  maxHp: number;
+  ac: number;
+  perception: number;
+  fort: number;
+  ref: number;
+  will: number;
+}
+
+function blankForm(): SimpleCharForm {
   return {
-    name: '', playerName: '', ancestry: 'Human', class: 'Fighter',
-    level: 1, hp: 20, maxHp: 20, ac: 15, fort: 5, ref: 3, will: 3, perception: 3,
+    name: '', playerName: '', ancestryName: 'Human', className: 'Fighter',
+    level: 1, maxHp: 20, ac: 15, perception: 3, fort: 5, ref: 3, will: 3,
+  };
+}
+
+/** Build a minimal valid CharacterRecord from the simple form. */
+function formToRecord(id: string, f: SimpleCharForm, now: number): CharacterRecord {
+  return {
+    id,
+    name: f.name,
+    playerName: f.playerName,
+    createdAt: now,
+    updatedAt: now,
+    level: f.level,
+    ancestry: null,
+    heritage: null,
+    background: null,
+    class: null,
+    abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    boostChoices: {
+      ancestryBoosts: [],
+      backgroundBoost: null,
+      backgroundFreeBoost: null,
+      classKeyAbility: null,
+      level1FreeBoosts: [],
+      level5: [], level10: [], level15: [], level20: [],
+    },
+    skills: {
+      acrobatics: 0, arcana: 0, athletics: 0, crafting: 0, deception: 0,
+      diplomacy: 0, intimidation: 0, medicine: 0, nature: 0, occultism: 0,
+      performance: 0, religion: 0, society: 0, stealth: 0, survival: 0,
+      thievery: 0, loreSkills: {},
+    },
+    feats: [],
+    currentHp: f.maxHp,
+    tempHp: 0,
+    derivedStats: {
+      maxHp: f.maxHp,
+      ac: f.ac,
+      perception: f.perception,
+      fort: f.fort,
+      ref: f.ref,
+      will: f.will,
+      classDC: 10,
+    },
+    // Store ancestry/class names as plain strings in the name fields of the refs
+    // so the card display can show them.  These records are "simple" party members
+    // not built with the full wizard.
+  } as CharacterRecord & { _simpleAncestryName?: string; _simpleClassName?: string };
+}
+
+function recordToForm(c: CharacterRecord): SimpleCharForm {
+  return {
+    name: c.name,
+    playerName: c.playerName,
+    ancestryName: c.ancestry?.name ?? 'Human',
+    className: c.class?.name ?? 'Fighter',
+    level: c.level,
+    maxHp: c.derivedStats.maxHp,
+    ac: c.derivedStats.ac,
+    perception: c.derivedStats.perception,
+    fort: c.derivedStats.fort,
+    ref: c.derivedStats.ref,
+    will: c.derivedStats.will,
   };
 }
 
@@ -27,8 +105,17 @@ export function PartiesSection() {
   const [characters, setCharacters] = useState<CharacterRecord[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(blankCharacter());
+  const [form, setForm] = useState<SimpleCharForm>(blankForm());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Back-button integration
+  useBackable(
+    showForm,
+    () => { setShowForm(false); setEditingId(null); },
+    'Cancel character form',
+    { scope: 'parties' },
+  );
+  useBackable(!!selectedId, () => setSelectedId(null), 'Deselect character', { scope: 'parties' });
 
   const load = useCallback(async () => {
     const all = await characterRepository.getAll();
@@ -39,14 +126,19 @@ export function PartiesSection() {
 
   async function saveCharacter() {
     if (!form.name.trim()) return;
+    const now = Date.now();
     if (editingId) {
-      await characterRepository.put({ id: editingId, ...form });
+      const existing = characters.find(c => c.id === editingId);
+      const record = formToRecord(editingId, form, existing?.createdAt ?? now);
+      record.updatedAt = now;
+      await characterRepository.put(record);
     } else {
-      await characterRepository.add({ id: `pc-${Date.now()}`, ...form });
+      const record = formToRecord(`pc-${now}`, form, now);
+      await characterRepository.add(record);
     }
     setShowForm(false);
     setEditingId(null);
-    setForm(blankCharacter());
+    setForm(blankForm());
     load();
   }
 
@@ -58,20 +150,20 @@ export function PartiesSection() {
 
   function startEdit(c: CharacterRecord) {
     setEditingId(c.id);
-    setForm({ name: c.name, playerName: c.playerName, ancestry: c.ancestry, class: c.class,
-      level: c.level, hp: c.hp, maxHp: c.maxHp, ac: c.ac, fort: c.fort, ref: c.ref, will: c.will, perception: c.perception });
+    setForm(recordToForm(c));
     setShowForm(true);
   }
 
   async function adjustHp(id: string, delta: number) {
     const c = characters.find(x => x.id === id);
     if (!c) return;
-    const newHp = Math.max(0, Math.min(c.maxHp, c.hp + delta));
-    await characterRepository.update(id, { hp: newHp });
-    setCharacters(prev => prev.map(x => x.id === id ? { ...x, hp: newHp } : x));
+    const maxHp = c.derivedStats.maxHp;
+    const newHp = Math.max(0, Math.min(maxHp, c.currentHp + delta));
+    await characterRepository.update(id, { currentHp: newHp });
+    setCharacters(prev => prev.map(x => x.id === id ? { ...x, currentHp: newHp } : x));
   }
 
-  function f(val: keyof typeof form) {
+  function f(val: keyof SimpleCharForm) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const v = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
       setForm(prev => ({ ...prev, [val]: v }));
@@ -82,7 +174,7 @@ export function PartiesSection() {
     <div className={styles.page}>
       <div className={styles.header}>
         <h1 className={styles.title}>Party</h1>
-        <button className={styles.addBtn} onClick={() => { setEditingId(null); setForm(blankCharacter()); setShowForm(true); }}>
+        <button className={styles.addBtn} onClick={() => { setEditingId(null); setForm(blankForm()); setShowForm(true); }}>
           + Add Character
         </button>
       </div>
@@ -102,13 +194,13 @@ export function PartiesSection() {
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Ancestry</span>
-                <select className={styles.input} value={form.ancestry} onChange={f('ancestry')}>
+                <select className={styles.input} value={form.ancestryName} onChange={f('ancestryName')}>
                   {ANCESTRIES.map(a => <option key={a}>{a}</option>)}
                 </select>
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Class</span>
-                <select className={styles.input} value={form.class} onChange={f('class')}>
+                <select className={styles.input} value={form.className} onChange={f('className')}>
                   {PF2E_CLASSES.map(c => <option key={c}>{c}</option>)}
                 </select>
               </label>
@@ -118,7 +210,7 @@ export function PartiesSection() {
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Max HP</span>
-                <input className={styles.input} type="number" min={1} value={form.maxHp} onChange={e => setForm(p => ({ ...p, maxHp: Number(e.target.value), hp: Number(e.target.value) }))} />
+                <input className={styles.input} type="number" min={1} value={form.maxHp} onChange={e => setForm(p => ({ ...p, maxHp: Number(e.target.value) }))} />
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>AC</span>
@@ -158,14 +250,19 @@ export function PartiesSection() {
         )}
         <div className={styles.cards}>
           {characters.map(c => {
-            const hpPct = c.maxHp > 0 ? c.hp / c.maxHp : 0;
+            const maxHp = c.derivedStats.maxHp;
+            const hp = c.currentHp;
+            const hpPct = maxHp > 0 ? hp / maxHp : 0;
             const hpColor = hpPct > 0.5 ? '#3a7a3a' : hpPct > 0.25 ? '#8a6a18' : '#8a2a18';
+            const ancestryName = c.ancestry?.name ?? '—';
+            const className = c.class?.name ?? '—';
+            const { ac, fort, ref, will, perception } = c.derivedStats;
             return (
               <div key={c.id} className={`${styles.card} ${selectedId === c.id ? styles.cardSelected : ''}`} onClick={() => setSelectedId(prev => prev === c.id ? null : c.id)}>
                 <div className={styles.cardHeader}>
                   <div>
                     <div className={styles.cardName}>{c.name}</div>
-                    <div className={styles.cardSub}>{c.playerName && `${c.playerName} · `}{c.ancestry} {c.class} {c.level}</div>
+                    <div className={styles.cardSub}>{c.playerName && `${c.playerName} · `}{ancestryName} {className} {c.level}</div>
                   </div>
                   <div className={styles.cardActions}>
                     <button className={styles.editBtn} onClick={e => { e.stopPropagation(); startEdit(c); }}>✎</button>
@@ -173,14 +270,14 @@ export function PartiesSection() {
                   </div>
                 </div>
                 <div className={styles.cardStats}>
-                  <span><strong>AC</strong> {c.ac}</span>
-                  <span><strong>F</strong> {c.fort >= 0 ? `+${c.fort}` : c.fort}</span>
-                  <span><strong>R</strong> {c.ref >= 0 ? `+${c.ref}` : c.ref}</span>
-                  <span><strong>W</strong> {c.will >= 0 ? `+${c.will}` : c.will}</span>
-                  <span><strong>Perc</strong> {c.perception >= 0 ? `+${c.perception}` : c.perception}</span>
+                  <span><strong>AC</strong> {ac}</span>
+                  <span><strong>F</strong> {fort >= 0 ? `+${fort}` : fort}</span>
+                  <span><strong>R</strong> {ref >= 0 ? `+${ref}` : ref}</span>
+                  <span><strong>W</strong> {will >= 0 ? `+${will}` : will}</span>
+                  <span><strong>Perc</strong> {perception >= 0 ? `+${perception}` : perception}</span>
                 </div>
                 <div className={styles.hpRow}>
-                  <span className={styles.hpLabel} style={{ color: hpColor }}>{c.hp}/{c.maxHp} HP</span>
+                  <span className={styles.hpLabel} style={{ color: hpColor }}>{hp}/{maxHp} HP</span>
                   <div className={styles.hpBtns}>
                     {([-10, -5, -1, 1, 5, 10] as const).map(v => (
                       <button key={v} className={`${styles.hpBtn} ${v > 0 ? styles.hpHeal : styles.hpDmg}`}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { CharacterRecord } from '../../../db/schema';
 import { useCharacterWizard } from '../hooks/useCharacterWizard';
 import { useCharBuilderSync } from '../hooks/useCharBuilderSync';
@@ -12,6 +12,7 @@ import { WizardStepAbilities } from './steps/WizardStepAbilities';
 import { WizardStepSkills } from './steps/WizardStepSkills';
 import { WizardStepFeats } from './steps/WizardStepFeats';
 import { WizardStepReview } from './steps/WizardStepReview';
+import { useNav } from '../../../nav/NavContext';
 import styles from './CharacterWizard.module.css';
 
 interface CharacterWizardProps {
@@ -29,6 +30,39 @@ export function CharacterWizard({ onComplete, onCancel }: CharacterWizardProps) 
     updateDraft, setAncestry, setHeritage, setBackground, setClass,
     setBoostChoices, setSkills, setFeats, buildCharacter,
   } = wizard;
+
+  // Stable ref to activeStep so the undo closure below captures the step we
+  // were on at click-time, not whatever state was current when the wizard
+  // first rendered.
+  type WizardStep = Parameters<typeof jumpTo>[0];
+  const activeStepRef = useRef(activeStep);
+  activeStepRef.current = activeStep;
+
+  const { push: navPush } = useNav();
+
+  // Push an undo entry that restores the given prior step, then run `apply`.
+  // `goNext` and `jumpTo` differ (goNext respects validation rules, jumpTo
+  // only allows going backwards), so we can't collapse this to useNavSetter
+  // here — but the wrapping pattern is the same.
+  const pushStepUndo = useCallback((stepBefore: WizardStep) => {
+    navPush({
+      undo: () => jumpTo(stepBefore),
+      label: `Back to ${stepMeta.find(s => s.key === stepBefore)?.label ?? stepBefore}`,
+      scope: 'characters',
+    });
+  }, [navPush, jumpTo, stepMeta]);
+
+  function handleGoNext() {
+    pushStepUndo(activeStepRef.current);
+    goNext();
+  }
+
+  function handleJumpTo(step: WizardStep) {
+    const stepBefore = activeStepRef.current;
+    if (step === stepBefore) return;
+    pushStepUndo(stepBefore);
+    jumpTo(step);
+  }
 
   // Right-panel portal target — captured via callback ref so children can
   // portal into it on first render after mount.
@@ -53,7 +87,7 @@ export function CharacterWizard({ onComplete, onCancel }: CharacterWizardProps) 
       <WizardProgress
         stepMeta={stepMeta}
         activeStep={activeStep}
-        onJump={jumpTo}
+        onJump={handleJumpTo}
         actions={
           <>
             <button
@@ -84,7 +118,7 @@ export function CharacterWizard({ onComplete, onCancel }: CharacterWizardProps) 
             ) : (
               <button
                 className={styles.navNextBtn}
-                onClick={goNext}
+                onClick={handleGoNext}
                 disabled={!canNext || saving}
                 type="button"
               >
@@ -110,14 +144,14 @@ export function CharacterWizard({ onComplete, onCancel }: CharacterWizardProps) 
                 onChange={updateDraft}
                 onAncestrySelect={setAncestry}
                 onHeritageSelect={setHeritage}
-                onAdvance={goNext}
+                onAdvance={handleGoNext}
               />
             )}
             {activeStep === 'background' && (
               <WizardStepBackground
                 selected={draft.background}
                 onSelect={setBackground}
-                onConfirm={goNext}
+                onConfirm={handleGoNext}
               />
             )}
             {activeStep === 'class' && (
@@ -126,7 +160,7 @@ export function CharacterWizard({ onComplete, onCancel }: CharacterWizardProps) 
                 keyAbility={draft.boostChoices.classKeyAbility}
                 onSelect={setClass}
                 onKeyAbilityChange={(ka) => setBoostChoices({ ...draft.boostChoices, classKeyAbility: ka })}
-                onConfirm={goNext}
+                onConfirm={handleGoNext}
               />
             )}
             {activeStep === 'abilities' && (

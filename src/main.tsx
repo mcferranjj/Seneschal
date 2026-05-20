@@ -6,6 +6,7 @@ import './styles/global.css'
 import App from './App.tsx'
 import { applyTheme } from './utils/themeEngine'
 import { PRESET_THEMES } from './utils/themeEngine'
+import { NavProvider } from './nav/NavContext'
 
 // Apply saved theme before first render to avoid a flash of the default colours.
 // We duplicate the minimal load logic here rather than importing useTheme (which
@@ -25,6 +26,8 @@ try {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <NavProvider>
+      <App />
+    </NavProvider>
   </StrictMode>,
 )
