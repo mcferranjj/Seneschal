@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'rea
 import { useNav } from './nav/NavContext';
 import { useBackable } from './nav/useBackable';
 import { useNavSetter } from './nav/useNavSetter';
-import type { CreatureRecord } from './db/schema';
+import type { CreatureRecord, PartyRecord } from './db/schema';
 import { importCreatureAsCustom } from './utils/importCreature';
 import { useStatblockSelection } from './hooks/useStatblockSelection';
 import type { Section } from './types/encounter';
@@ -13,15 +13,33 @@ import { useSearch } from './hooks/useSearch';
 import type { SearchFilters } from './search/search';
 import { useUIPrefs } from './hooks/useUIPrefs';
 import { useTheme } from './hooks/useTheme';
+import { partyRepository } from './db/repositories/PartyRepository';
 import { TopBar } from './features/shell/TopBar';
 import { SearchPanel } from './features/creatures/SearchPanel/SearchPanel';
 import { ResultsList } from './features/creatures/ResultsList/ResultsList';
 import { StatblockDrawer } from './features/statblock/StatblockDrawer';
 import { EncounterManager } from './features/encounter/EncounterManager';
+import { PartyEditor } from './features/parties/PartyEditor';
 import { RulesSection } from './features/rules/RulesSection';
 import { CharactersSection } from './features/characters/CharactersSection';
 import { RollHistory } from './features/roll-history/RollHistory';
 import styles from './features/shell/App.module.css';
+
+/**
+ * Discriminated state for the shared right-hand column. Only ONE of these
+ * surfaces is ever mounted at a time — opening the party editor implicitly
+ * hides the statblock drawer, and vice versa. We model it as a tagged union
+ * (rather than two booleans) so it's impossible to accidentally render both.
+ *
+ * The "selected creature" state (in useStatblockSelection) is independent;
+ * we DO NOT auto-toggle the right column from the selection setter, because
+ * doing so via an effect risks an open/close cycle when the editor closes
+ * while a creature is still selected. Instead, callers that want to also
+ * surface the statblock use the *AndShowStatblock helpers below.
+ */
+type RightColumn =
+  | { kind: 'statblock' }
+  | { kind: 'party-editor'; partyId: string | null };
 
 const SECTION_LABELS: Record<Section, string> = {
   gm: 'Encounters',
@@ -39,17 +57,16 @@ export default function App() {
   // Navigation context
   const { flushOtherScopes } = useNav();
 
-  // PartyPanel collapse state. Lives here (rather than inside EncounterManager)
-  // so it can be seeded from `loadedPrefs` and persisted via `persistPrefs`,
-  // matching the pattern used for filtersOpen/resultsOpen above.
-  const [partyPanelCollapsed, setPartyPanelCollapsed] = useState(loadedPrefs.partyPanelCollapsed);
-  const togglePartyPanel = useCallback(() => {
-    setPartyPanelCollapsed(prev => {
-      const next = !prev;
-      persistPrefs({ partyPanelCollapsed: next });
-      return next;
-    });
-  }, [persistPrefs]);
+  // Right-column shared state — statblock drawer vs. party editor (mutually exclusive)
+  const [rightColumn, setRightColumn] = useState<RightColumn | null>(null);
+
+  // Parties list — loaded on mount and refreshed after saves
+  const [parties, setParties] = useState<PartyRecord[]>([]);
+  const loadParties = useCallback(async () => {
+    const all = await partyRepository.getAll();
+    setParties(all);
+  }, []);
+  useEffect(() => { loadParties(); }, [loadParties]);
 
   // Section navigation — seeded from persisted prefs.
   // We wrap the raw setter with useNavSetter so switching sections pushes an
@@ -101,9 +118,13 @@ export default function App() {
     activeEnc,
     partySize,
     partyLevel,
+    activePartyId,
     setActiveEnc,
     setPartySize,
     setPartyLevel,
+    setActivePartyId,
+    nullifyActivePartyId,
+    applyParty,
     addToEncounter,
     addEncounter,
     renameEncounter,
@@ -197,11 +218,46 @@ export default function App() {
     selectCreatureById,
     selectCreature,
     toggleResultsSelection,
-    clearSelection,
+    clearSelection: clearSelectionRaw,
   } = useStatblockSelection(
     loadedPrefs.selectedCreatureId,
     id => persistPrefs({ selectedCreatureId: id }),
   );
+
+  // Wrap clearSelection so it also clears the right column when on statblock
+  const clearSelection = useCallback(() => {
+    clearSelectionRaw();
+    setRightColumn(prev => (prev?.kind === 'statblock' ? null : prev));
+  }, [clearSelectionRaw]);
+
+  // Active party lookup
+  const activeParty = parties.find(p => p.id === activePartyId) ?? null;
+
+  // Right-column helpers
+  const openPartyEditor = useCallback((partyId: string | null) => {
+    clearSelectionRaw();
+    setRightColumn({ kind: 'party-editor', partyId });
+  }, [clearSelectionRaw]);
+
+  const closeRightColumn = useCallback(() => {
+    setRightColumn(null);
+  }, []);
+
+  // When a creature is selected, show the statblock column
+  const selectCreatureAndShowStatblock = useCallback((creature: Parameters<typeof selectCreature>[0]) => {
+    selectCreature(creature);
+    setRightColumn({ kind: 'statblock' });
+  }, [selectCreature]);
+
+  const selectCreatureByIdAndShowStatblock = useCallback((id: string, encounterUid: string) => {
+    selectCreatureById(id, encounterUid);
+    setRightColumn({ kind: 'statblock' });
+  }, [selectCreatureById]);
+
+  const toggleResultsSelectionAndShowStatblock = useCallback((creature: Parameters<typeof toggleResultsSelection>[0]) => {
+    toggleResultsSelection(creature);
+    setRightColumn({ kind: 'statblock' });
+  }, [toggleResultsSelection]);
 
   // Column widths (px) — React state is the source of truth at rest.
   // During a drag we write directly to the CSS custom property on the layout
@@ -285,7 +341,13 @@ export default function App() {
   // Back-button integration.
   // NOTE: roll history's nav entry is registered inside <RollHistory> itself
   // (it owns the close behavior + escClosable semantics). Don't duplicate it here.
-  useBackable(!!selected, () => clearSelection(), 'Close statblock', { scope: 'gm' });
+  useBackable(rightColumn?.kind === 'statblock' && !!selected, () => clearSelection(), 'Close statblock', { scope: 'gm' });
+  useBackable(
+    rightColumn?.kind === 'party-editor',
+    closeRightColumn,
+    'Close party editor',
+    { scope: 'gm', escClosable: true, redo: () => openPartyEditor(rightColumn?.kind === 'party-editor' ? rightColumn.partyId : null) },
+  );
   useBackable(
     wizardOpen,
     () => { setWizardOpen(false); setWizardEditCreature(undefined); },
@@ -315,9 +377,9 @@ export default function App() {
     await handleWizardSave(creature, saved => {
       setWizardOpen(false);
       setWizardEditCreature(undefined);
-      selectCreature(saved);
+      selectCreatureAndShowStatblock(saved);
     });
-  }, [handleWizardSave, selectCreature]);
+  }, [handleWizardSave, selectCreatureAndShowStatblock]);
 
   const onDeleteCreature = useCallback(async (id: string) => {
     await handleDeleteCreature(id, clearSelection);
@@ -366,7 +428,7 @@ export default function App() {
                 results={results}
                 totalCount={totalCount}
                 selectedId={selectionSource === 'results' ? (selected?.id ?? null) : null}
-                onSelect={toggleResultsSelection}
+                onSelect={toggleResultsSelectionAndShowStatblock}
                 onAddToEncounter={addToEncounter}
                 loading={searchLoading}
                 syncing={isSyncing}
@@ -407,7 +469,7 @@ export default function App() {
                 onUpdateHP={updateHP}
                 onSetHP={setHPDirect}
                 onAddCustomCreature={addCustomCreature}
-                onSelectCreature={selectCreatureById}
+                onSelectCreature={selectCreatureByIdAndShowStatblock}
                 onSelectEncounterCreature={() => {
                   // Custom creatures don't have a statblock in the DB — nothing to show.
                 }}
@@ -424,8 +486,12 @@ export default function App() {
                     setResultsOpen(true);
                   }
                 }}
-                partyPanelCollapsed={partyPanelCollapsed}
-                onTogglePartyPanel={togglePartyPanel}
+                parties={parties}
+                activeParty={activeParty}
+                activePartyId={activePartyId}
+                onApplyParty={applyParty}
+                onSetActivePartyId={setActivePartyId}
+                onOpenPartyEditor={openPartyEditor}
               />
             </div>
             <div
@@ -435,56 +501,77 @@ export default function App() {
               onPointerUp={onHandlePointerUp}
             />
             <div className={styles.statblockCol}>
-              <StatblockDrawer
-                creature={selected}
-                onClose={clearSelection}
-                onAddToEncounter={addToEncounter}
-                wizardOpen={wizardOpen}
-                wizardEditCreature={wizardEditCreature}
-                partyLevel={partyLevel}
-                onWizardSave={onWizardSave}
-                onWizardCancel={() => { setWizardOpen(false); setWizardEditCreature(undefined); }}
-                onDeleteCreature={onDeleteCreature}
-                onEditCreature={openEditWizard}
-                onRoll={addRollEntry}
-                onCopyAsCustom={handleCopyCreature}
-                encounterName={
-                  selected && selectedEncounterUid
-                    ? encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.name
-                    : undefined
-                }
-                activeConditions={
-                  selected && selectedEncounterUid
-                    ? (encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.conditions ?? [])
-                    : []
-                }
-                activeEliteWeak={
-                  selected && selectedEncounterUid
-                    ? encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.eliteWeak
-                    : undefined
-                }
-                activeScaledLevel={
-                  selected && selectedEncounterUid
-                    ? encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.scaledLevel
-                    : undefined
-                }
-                onSetScaledLevel={
-                  selectedEncounterUid
-                    ? (level) => setScaledLevel(selectedEncounterUid, level)
-                    : undefined
-                }
-                activeNotes={
-                  selected && selectedEncounterUid
-                    ? (encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.notes ?? '')
-                    : undefined
-                }
-                onSetNotes={
-                  selectedEncounterUid
-                    ? (notes) => setCreatureNotes(selectedEncounterUid, notes)
-                    : undefined
-                }
-                encounterUid={selectedEncounterUid ?? undefined}
-              />
+              {rightColumn?.kind === 'party-editor' ? (
+                <PartyEditor
+                  partyId={rightColumn.partyId}
+                  onClose={closeRightColumn}
+                  onSaved={async (party, { activate }) => {
+                    await loadParties();
+                    if (activate) {
+                      applyParty(party);
+                    }
+                    closeRightColumn();
+                  }}
+                  onDeleted={async (deletedId) => {
+                    // Sweep dangling references on any encounter that pointed
+                    // at this party, then refresh the parties list so the
+                    // picker no longer offers it.
+                    nullifyActivePartyId(deletedId);
+                    await loadParties();
+                  }}
+                />
+              ) : (
+                <StatblockDrawer
+                  creature={selected}
+                  onClose={clearSelection}
+                  onAddToEncounter={addToEncounter}
+                  wizardOpen={wizardOpen}
+                  wizardEditCreature={wizardEditCreature}
+                  partyLevel={partyLevel}
+                  onWizardSave={onWizardSave}
+                  onWizardCancel={() => { setWizardOpen(false); setWizardEditCreature(undefined); }}
+                  onDeleteCreature={onDeleteCreature}
+                  onEditCreature={openEditWizard}
+                  onRoll={addRollEntry}
+                  onCopyAsCustom={handleCopyCreature}
+                  encounterName={
+                    selected && selectedEncounterUid
+                      ? encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.name
+                      : undefined
+                  }
+                  activeConditions={
+                    selected && selectedEncounterUid
+                      ? (encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.conditions ?? [])
+                      : []
+                  }
+                  activeEliteWeak={
+                    selected && selectedEncounterUid
+                      ? encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.eliteWeak
+                      : undefined
+                  }
+                  activeScaledLevel={
+                    selected && selectedEncounterUid
+                      ? encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.scaledLevel
+                      : undefined
+                  }
+                  onSetScaledLevel={
+                    selectedEncounterUid
+                      ? (level) => setScaledLevel(selectedEncounterUid, level)
+                      : undefined
+                  }
+                  activeNotes={
+                    selected && selectedEncounterUid
+                      ? (encounters[activeEnc]?.creatures.find(c => c.uid === selectedEncounterUid)?.notes ?? '')
+                      : undefined
+                  }
+                  onSetNotes={
+                    selectedEncounterUid
+                      ? (notes) => setCreatureNotes(selectedEncounterUid, notes)
+                      : undefined
+                  }
+                  encounterUid={selectedEncounterUid ?? undefined}
+                />
+              )}
             </div>
           </div>
         )}

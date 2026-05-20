@@ -260,3 +260,12 @@ export interface FeatRecord {
   description: string;
   publication: string; remaster: boolean; blobSha: string;
 }
+
+export interface PartyRecord {
+  id: string;            // 'party-<timestamp>'
+  name: string;
+  level: number;         // 1..20
+  memberIds: string[];   // ordered list of CharacterRecord.id
+  createdAt: number;
+  updatedAt: number;
+}

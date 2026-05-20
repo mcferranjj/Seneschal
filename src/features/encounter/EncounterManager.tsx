@@ -10,7 +10,8 @@ import styles from './EncounterManager.module.css';
 import { eliteWeakLevel } from '../../utils/levelScaling';
 import { QuickCreatureForm } from './QuickCreatureForm';
 import { ConditionPicker } from './ConditionPicker';
-import { PartyPanel } from '../parties/PartyPanel';
+import { PartyPickerMenu } from '../parties';
+import type { PartyRecord } from '../../db/schema';
 
 
 // Only Frightened auto-reduces by 1 at end of each creature's turn per PF2e rules.
@@ -50,8 +51,12 @@ interface EncounterManagerProps {
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
   resultsOpen?: boolean;
   onToggleResults?: () => void;
-  partyPanelCollapsed?: boolean;
-  onTogglePartyPanel?: () => void;
+  parties?: PartyRecord[];
+  activeParty?: PartyRecord | null;
+  activePartyId?: string | null;
+  onApplyParty?: (p: PartyRecord) => void;
+  onSetActivePartyId?: (id: string | null) => void;
+  onOpenPartyEditor?: (partyId: string | null) => void;
 }
 
 function xpFor(monsterLevel: number, partyLevel: number): number {
@@ -108,9 +113,15 @@ export function EncounterManager({
   onRoll,
   resultsOpen = true,
   onToggleResults,
-  partyPanelCollapsed = false,
-  onTogglePartyPanel,
+  parties = [],
+  activeParty = null,
+  activePartyId = null,
+  onApplyParty,
+  onSetActivePartyId,
+  onOpenPartyEditor,
 }: EncounterManagerProps) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerBtnRef = useRef<HTMLButtonElement>(null);
   const [combatMode, setCombatMode] = useState(false);
   const [round, setRound] = useState(1);
   const [activeTurn, setActiveTurn] = useState(0);
@@ -403,12 +414,6 @@ export function EncounterManager({
 
   return (
     <div className={styles.manager}>
-      {/* Party panel */}
-      <PartyPanel
-        collapsed={partyPanelCollapsed}
-        onToggleCollapsed={onTogglePartyPanel ?? (() => {})}
-      />
-
       {/* Encounter tabs */}
       <div className={styles.tabs} ref={tabsRef}>
         <button
@@ -540,6 +545,32 @@ export function EncounterManager({
                 </div>
               </div>
               <span className={styles.xpTotal}>{totalXP} XP</span>
+            </div>
+
+            {/* Party picker row */}
+            <div className={styles.partyPickerRow}>
+              <button
+                ref={pickerBtnRef}
+                className={styles.partyPickerBtn}
+                onClick={() => setPickerOpen(o => !o)}
+                aria-haspopup="menu"
+                aria-expanded={pickerOpen}
+              >
+                {activeParty ? activeParty.name : 'Party…'}
+                <span className={styles.caret}>&#9660;</span>
+              </button>
+              {pickerOpen && (
+                <PartyPickerMenu
+                  parties={parties}
+                  activePartyId={activePartyId}
+                  anchorRef={pickerBtnRef}
+                  onCreate={() => { setPickerOpen(false); onOpenPartyEditor?.(null); }}
+                  onInsert={(p) => { setPickerOpen(false); onApplyParty?.(p); }}
+                  onEdit={(p) => { setPickerOpen(false); onOpenPartyEditor?.(p.id); }}
+                  onDetach={() => { setPickerOpen(false); onSetActivePartyId?.(null); }}
+                  onClose={() => setPickerOpen(false)}
+                />
+              )}
             </div>
           </div>
 

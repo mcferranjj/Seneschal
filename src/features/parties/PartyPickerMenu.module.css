@@ -1,0 +1,121 @@
+/* PartyPickerMenu — lightweight popover anchored to the picker button */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: transparent;
+}
+
+.menu {
+  position: absolute;
+  z-index: 301;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  min-width: 200px;
+  max-width: 280px;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.menuHeader {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.newBtn {
+  width: 100%;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 5px 8px;
+  font-weight: 500;
+  text-align: left;
+}
+.newBtn:hover { filter: brightness(1.12); }
+
+.detachBtn {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  margin-top: 5px;
+  text-align: left;
+}
+.detachBtn:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.partyList {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.emptyHint {
+  padding: 10px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.partyRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+.partyRow:last-child { border-bottom: none; }
+.partyRowActive {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.partyInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.partyName {
+  font-size: 0.83rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.partySub {
+  font-size: 0.73rem;
+  color: var(--color-text-muted);
+}
+
+.rowActions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.actionBtn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: 0.75rem;
+  padding: 2px 7px;
+}
+.actionBtn:hover {
+  background: var(--color-hover);
+}

@@ -10,7 +10,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbility } from '../types/encounter';
-import type { CreatureRecord } from '../db/schema';
+import type { CreatureRecord, PartyRecord } from '../db/schema';
 import type { PF2ECreature } from '../types/pf2e';
 import { loadEncounterState, saveEncounterState } from '../db/db';
 import { creatureRepository } from '../db/repositories/CreatureRepository';
@@ -21,9 +21,17 @@ export interface UseEncounterReturn {
   activeEnc: number;
   partySize: number;
   partyLevel: number;
+  activePartyId: string | null;
   setActiveEnc: (idx: number) => void;
   setPartySize: (size: number) => void;
   setPartyLevel: (level: number) => void;
+  setActivePartyId: (id: string | null) => void;
+  /**
+   * Clear `activePartyId` on every encounter where it equals the given id.
+   * Call this after deleting a PartyRecord so encounters don't hold dangling references.
+   */
+  nullifyActivePartyId: (partyId: string) => void;
+  applyParty: (party: PartyRecord) => void;
   addToEncounter: (c: CreatureRecord, scaledLevel?: number) => void;
   addEncounter: () => void;
   renameEncounter: (idx: number, name: string) => void;
@@ -92,6 +100,38 @@ export function useEncounter(): UseEncounterReturn {
     if (!encounterStateLoaded.current) return;
     saveEncounterState({ encounters, activeEnc, partySize, partyLevel }).catch(() => {});
   }, [encounters, activeEnc, partySize, partyLevel]);
+
+  // Derived: activePartyId from the active encounter
+  const activePartyId = encounters[activeEnc]?.activePartyId ?? null;
+
+  const setActivePartyId = useCallback((id: string | null) => {
+    setEncounters(prev =>
+      prev.map((enc, i) => i === activeEnc ? { ...enc, activePartyId: id } : enc)
+    );
+  }, [activeEnc]);
+
+  // When a PartyRecord is deleted we sweep every encounter that referenced it
+  // and clear its `activePartyId` so the UI doesn't show a stale active-party
+  // label or try to look up a missing record.
+  const nullifyActivePartyId = useCallback((partyId: string) => {
+    setEncounters(prev =>
+      prev.map(enc =>
+        enc.activePartyId === partyId ? { ...enc, activePartyId: null } : enc
+      )
+    );
+  }, []);
+
+  const applyParty = useCallback((party: PartyRecord) => {
+    setEncounters(prev =>
+      prev.map((enc, i) =>
+        i === activeEnc
+          ? { ...enc, activePartyId: party.id }
+          : enc
+      )
+    );
+    setPartyLevel(party.level);
+    setPartySize(party.memberIds.length);
+  }, [activeEnc]);
 
   const addToEncounter = useCallback(
     (c: CreatureRecord, scaledLevel?: number) => {
@@ -461,9 +501,13 @@ export function useEncounter(): UseEncounterReturn {
     activeEnc,
     partySize,
     partyLevel,
+    activePartyId,
     setActiveEnc,
     setPartySize,
     setPartyLevel,
+    setActivePartyId,
+    nullifyActivePartyId,
+    applyParty,
     addToEncounter,
     addEncounter,
     renameEncounter,

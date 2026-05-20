@@ -143,4 +143,5 @@ export interface Encounter {
   id: number;
   name: string;
   creatures: EncounterCreature[];
+  activePartyId?: string | null;
 }

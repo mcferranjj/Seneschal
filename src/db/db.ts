@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import { resolvePublicationTitle } from '../sync/publicationRegistry';
 import type {
   CreatureRecord, MetaRecord, TraitDescriptionsRecord, CharacterRecord, EncounterStateRecord,
-  AncestryRecord, HeritageRecord, BackgroundRecord, ClassRecord, FeatRecord,
+  AncestryRecord, HeritageRecord, BackgroundRecord, ClassRecord, FeatRecord, PartyRecord,
 } from './schema';
 
 // Re-export so existing callers that import from db.ts continue to work
@@ -19,6 +19,7 @@ class SeneschalDatabase extends Dexie {
   backgrounds!: Table<BackgroundRecord, string>;
   classes!: Table<ClassRecord, string>;
   feats!: Table<FeatRecord, string>;
+  parties!: Table<PartyRecord, string>;
 
   constructor() {
     super('SeneschalGMAssistant');
@@ -92,6 +93,27 @@ class SeneschalDatabase extends Dexie {
       // with nested refs, boost choices, and skills. The old shape is incompatible and
       // cannot be migrated automatically.
       return tx.table('characters').clear();
+    });
+    // Version 9: add the `parties` table for the new Party UX (PartyRecord
+    // with its own canonical level + ordered memberIds → CharacterRecord.id).
+    //
+    // IMPORTANT: Dexie's `stores()` is declarative — every table must be
+    // listed on every version, otherwise tables omitted from a later version
+    // are dropped from the DB. We therefore repeat the full v8 store set
+    // verbatim and only ADD the `parties` line below. No upgrade callback is
+    // needed because we're not migrating any existing data.
+    this.version(9).stores({
+      creatures:         'id, entityType, nameLower, level, rarity, size, packSource, publication, *traits',
+      meta:              'key',
+      encounterState:    'key',
+      characters:        'id, nameLower, level',
+      traitDescriptions: 'key',
+      ancestries:        'id, nameLower, slug, *traits, rarity',
+      heritages:         'id, nameLower, ancestrySlug, isVersatile',
+      backgrounds:       'id, nameLower, rarity',
+      classes:           'id, nameLower, slug',
+      feats:             'id, nameLower, level, category, *traits, rarity, [category+level]',
+      parties:           'id, updatedAt',
     });
   }
 }

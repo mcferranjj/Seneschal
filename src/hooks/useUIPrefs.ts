@@ -7,7 +7,6 @@
  *   - filters        (search panel state)
  *   - filtersOpen / resultsOpen  (sidebar collapse state)
  *   - column widths  (filtersWidth, resultsWidth, encounterWidth)
- *   - partyPanelCollapsed  (PartyPanel inside EncounterManager)
  *
  * The selected creature (statblock drawer) is intentionally NOT restored
  * because the creature may have changed or been deleted between sessions,
@@ -36,8 +35,6 @@ export interface UIPrefs {
   encounterWidth: number;
   /** ID of the last creature whose statblock was open, or null for none. */
   selectedCreatureId: string | null;
-  /** Whether the PartyPanel inside EncounterManager is collapsed. */
-  partyPanelCollapsed: boolean;
 }
 
 const DEFAULTS: UIPrefs = {
@@ -49,7 +46,6 @@ const DEFAULTS: UIPrefs = {
   resultsWidth: 260,
   encounterWidth: 280,
   selectedCreatureId: null,
-  partyPanelCollapsed: false,
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
