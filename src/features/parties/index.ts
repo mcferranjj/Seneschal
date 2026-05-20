@@ -1,1 +1,2 @@
-export { PartiesSection } from './PartiesSection';
+export { PartyPanel } from './PartyPanel';
+export type { PartyPanelProps } from './PartyPanel';

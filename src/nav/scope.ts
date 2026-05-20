@@ -6,4 +6,4 @@
  * Entries without a scope are "global" (e.g. modals like the help overlay)
  * and survive section changes.
  */
-export type NavScope = 'gm' | 'characters' | 'parties' | 'rules';
+export type NavScope = 'gm' | 'characters' | 'rules';

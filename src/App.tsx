@@ -20,7 +20,6 @@ import { StatblockDrawer } from './features/statblock/StatblockDrawer';
 import { EncounterManager } from './features/encounter/EncounterManager';
 import { RulesSection } from './features/rules/RulesSection';
 import { CharactersSection } from './features/characters/CharactersSection';
-import { PartiesSection } from './features/parties/PartiesSection';
 import { RollHistory } from './features/roll-history/RollHistory';
 import styles from './features/shell/App.module.css';
 
@@ -28,7 +27,6 @@ const SECTION_LABELS: Record<Section, string> = {
   gm: 'Encounters',
   rules: 'Rules',
   characters: 'Characters',
-  parties: 'Party',
 };
 
 export default function App() {
@@ -40,6 +38,18 @@ export default function App() {
 
   // Navigation context
   const { flushOtherScopes } = useNav();
+
+  // PartyPanel collapse state. Lives here (rather than inside EncounterManager)
+  // so it can be seeded from `loadedPrefs` and persisted via `persistPrefs`,
+  // matching the pattern used for filtersOpen/resultsOpen above.
+  const [partyPanelCollapsed, setPartyPanelCollapsed] = useState(loadedPrefs.partyPanelCollapsed);
+  const togglePartyPanel = useCallback(() => {
+    setPartyPanelCollapsed(prev => {
+      const next = !prev;
+      persistPrefs({ partyPanelCollapsed: next });
+      return next;
+    });
+  }, [persistPrefs]);
 
   // Section navigation — seeded from persisted prefs.
   // We wrap the raw setter with useNavSetter so switching sections pushes an
@@ -414,6 +424,8 @@ export default function App() {
                     setResultsOpen(true);
                   }
                 }}
+                partyPanelCollapsed={partyPanelCollapsed}
+                onTogglePartyPanel={togglePartyPanel}
               />
             </div>
             <div
@@ -478,7 +490,6 @@ export default function App() {
         )}
         {activeSection === 'rules' && <RulesSection />}
         {activeSection === 'characters' && <CharactersSection onRoll={addRollEntry} />}
-        {activeSection === 'parties' && <PartiesSection />}
       </div>
     </div>
   );

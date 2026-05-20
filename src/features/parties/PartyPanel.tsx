@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { CharacterRecord } from '../../db/schema';
 import { characterRepository } from '../../db/repositories/CharacterRepository';
 import { useBackable } from '../../nav/useBackable';
-import styles from './PartiesSection.module.css';
+import styles from './PartyPanel.module.css';
 
 const PF2E_CLASSES = [
   'Alchemist','Barbarian','Bard','Champion','Cleric','Druid','Fighter',
@@ -17,7 +17,7 @@ const ANCESTRIES = [
   'Kobold','Lizardfolk','Ratfolk','Shisk','Shoony','Sprite','Strix','Tengu',
 ];
 
-/** Flat form state used by the simple "add/edit" form in this section. */
+/** Flat form state used by the simple "add/edit" form. */
 interface SimpleCharForm {
   name: string;
   playerName: string;
@@ -79,10 +79,7 @@ function formToRecord(id: string, f: SimpleCharForm, now: number): CharacterReco
       will: f.will,
       classDC: 10,
     },
-    // Store ancestry/class names as plain strings in the name fields of the refs
-    // so the card display can show them.  These records are "simple" party members
-    // not built with the full wizard.
-  } as CharacterRecord & { _simpleAncestryName?: string; _simpleClassName?: string };
+  } as CharacterRecord;
 }
 
 function recordToForm(c: CharacterRecord): SimpleCharForm {
@@ -101,21 +98,26 @@ function recordToForm(c: CharacterRecord): SimpleCharForm {
   };
 }
 
-export function PartiesSection() {
+export interface PartyPanelProps {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}
+
+export function PartyPanel({ collapsed, onToggleCollapsed }: PartyPanelProps) {
   const [characters, setCharacters] = useState<CharacterRecord[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SimpleCharForm>(blankForm());
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Back-button integration
+  // Back-button integration (scoped to 'gm' since this panel lives inside EncounterManager)
   useBackable(
     showForm,
     () => { setShowForm(false); setEditingId(null); },
     'Cancel character form',
-    { scope: 'parties' },
+    { scope: 'gm' },
   );
-  useBackable(!!selectedId, () => setSelectedId(null), 'Deselect character', { scope: 'parties' });
+  useBackable(!!selectedId, () => setSelectedId(null), 'Deselect character', { scope: 'gm' });
 
   const load = useCallback(async () => {
     const all = await characterRepository.getAll();
@@ -163,22 +165,108 @@ export function PartiesSection() {
     setCharacters(prev => prev.map(x => x.id === id ? { ...x, currentHp: newHp } : x));
   }
 
-  function f(val: keyof SimpleCharForm) {
+  /** Build a controlled input change handler for a single form field.
+   *  Coerces numeric inputs to numbers automatically. */
+  function fieldHandler(field: keyof SimpleCharForm) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const v = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
-      setForm(prev => ({ ...prev, [val]: v }));
+      setForm(prev => ({ ...prev, [field]: v }));
     };
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>Party</h1>
-        <button className={styles.addBtn} onClick={() => { setEditingId(null); setForm(blankForm()); setShowForm(true); }}>
-          + Add Character
+    <>
+      {/* Panel header — always rendered */}
+      <div className={styles.panelHeader}>
+        <button
+          type="button"
+          className={styles.toggleBtn}
+          onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-controls="party-panel-body"
+          aria-label={collapsed ? 'Expand party panel' : 'Collapse party panel'}
+          title={collapsed ? 'Expand party panel' : 'Collapse party panel'}
+        >
+          <span className={`${styles.chevron} ${collapsed ? styles.chevronCollapsed : ''}`}>▾</span>
+          <span className={styles.panelTitle}>
+            Party{collapsed && characters.length > 0 ? ` (${characters.length})` : ''}
+          </span>
         </button>
+        {!collapsed && (
+          <button
+            className={styles.addBtn}
+            onClick={() => { setEditingId(null); setForm(blankForm()); setShowForm(true); }}
+          >
+            + Add
+          </button>
+        )}
       </div>
 
+      {/* Collapsible body */}
+      {!collapsed && (
+        <div id="party-panel-body" className={styles.body}>
+          {characters.length === 0 && (
+            <div className={styles.empty}>
+              <p className={styles.emptyText}>No characters yet.</p>
+            </div>
+          )}
+          <div className={styles.cards}>
+            {characters.map(c => {
+              const maxHp = c.derivedStats.maxHp;
+              const hp = c.currentHp;
+              const hpPct = maxHp > 0 ? hp / maxHp : 0;
+              const hpColor = hpPct > 0.5 ? '#3a7a3a' : hpPct > 0.25 ? '#8a6a18' : '#8a2a18';
+              const ancestryName = c.ancestry?.name ?? '—';
+              const className = c.class?.name ?? '—';
+              const { ac, fort, ref, will, perception } = c.derivedStats;
+              return (
+                <div
+                  key={c.id}
+                  className={`${styles.card} ${selectedId === c.id ? styles.cardSelected : ''}`}
+                  onClick={() => setSelectedId(prev => prev === c.id ? null : c.id)}
+                >
+                  <div className={styles.cardHeader}>
+                    <div>
+                      <div className={styles.cardName}>{c.name}</div>
+                      <div className={styles.cardSub}>{c.playerName && `${c.playerName} · `}{ancestryName} {className} {c.level}</div>
+                    </div>
+                    <div className={styles.cardActions}>
+                      <button className={styles.editBtn} onClick={e => { e.stopPropagation(); startEdit(c); }}>✎</button>
+                      <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteCharacter(c.id); }}>✕</button>
+                    </div>
+                  </div>
+                  <div className={styles.cardStats}>
+                    <span><strong>AC</strong> {ac}</span>
+                    <span><strong>F</strong> {fort >= 0 ? `+${fort}` : fort}</span>
+                    <span><strong>R</strong> {ref >= 0 ? `+${ref}` : ref}</span>
+                    <span><strong>W</strong> {will >= 0 ? `+${will}` : will}</span>
+                    <span><strong>Perc</strong> {perception >= 0 ? `+${perception}` : perception}</span>
+                  </div>
+                  <div className={styles.hpRow}>
+                    <span className={styles.hpLabel} style={{ color: hpColor }}>{hp}/{maxHp} HP</span>
+                    <div className={styles.hpBtns}>
+                      {([-10, -5, -1, 1, 5, 10] as const).map(v => (
+                        <button key={v} className={`${styles.hpBtn} ${v > 0 ? styles.hpHeal : styles.hpDmg}`}
+                          onClick={e => { e.stopPropagation(); adjustHp(c.id, v); }}>
+                          {v > 0 ? `+${v}` : v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={styles.hpBar}>
+                    <div className={styles.hpFill} style={{ width: `${hpPct * 100}%`, background: hpColor }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Form overlay (fixed-position modal).
+          Rendered as a sibling of the collapsible body — not nested inside it —
+          so that opening the add/edit form while the panel is collapsed still
+          displays the modal. The overlay also escapes the panel's max-height. */}
       {showForm && (
         <div className={styles.formOverlay}>
           <div className={styles.form}>
@@ -186,27 +274,27 @@ export function PartiesSection() {
             <div className={styles.formGrid}>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Name</span>
-                <input className={styles.input} value={form.name} onChange={f('name')} placeholder="Character name" autoFocus />
+                <input className={styles.input} value={form.name} onChange={fieldHandler('name')} placeholder="Character name" autoFocus />
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Player</span>
-                <input className={styles.input} value={form.playerName} onChange={f('playerName')} placeholder="Player name" />
+                <input className={styles.input} value={form.playerName} onChange={fieldHandler('playerName')} placeholder="Player name" />
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Ancestry</span>
-                <select className={styles.input} value={form.ancestryName} onChange={f('ancestryName')}>
+                <select className={styles.input} value={form.ancestryName} onChange={fieldHandler('ancestryName')}>
                   {ANCESTRIES.map(a => <option key={a}>{a}</option>)}
                 </select>
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Class</span>
-                <select className={styles.input} value={form.className} onChange={f('className')}>
+                <select className={styles.input} value={form.className} onChange={fieldHandler('className')}>
                   {PF2E_CLASSES.map(c => <option key={c}>{c}</option>)}
                 </select>
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Level</span>
-                <input className={styles.input} type="number" min={1} max={20} value={form.level} onChange={f('level')} />
+                <input className={styles.input} type="number" min={1} max={20} value={form.level} onChange={fieldHandler('level')} />
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Max HP</span>
@@ -214,23 +302,23 @@ export function PartiesSection() {
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>AC</span>
-                <input className={styles.input} type="number" min={1} value={form.ac} onChange={f('ac')} />
+                <input className={styles.input} type="number" min={1} value={form.ac} onChange={fieldHandler('ac')} />
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Perception</span>
-                <input className={styles.input} type="number" value={form.perception} onChange={f('perception')} />
+                <input className={styles.input} type="number" value={form.perception} onChange={fieldHandler('perception')} />
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Fort</span>
-                <input className={styles.input} type="number" value={form.fort} onChange={f('fort')} />
+                <input className={styles.input} type="number" value={form.fort} onChange={fieldHandler('fort')} />
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Ref</span>
-                <input className={styles.input} type="number" value={form.ref} onChange={f('ref')} />
+                <input className={styles.input} type="number" value={form.ref} onChange={fieldHandler('ref')} />
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Will</span>
-                <input className={styles.input} type="number" value={form.will} onChange={f('will')} />
+                <input className={styles.input} type="number" value={form.will} onChange={fieldHandler('will')} />
               </label>
             </div>
             <div className={styles.formActions}>
@@ -240,61 +328,6 @@ export function PartiesSection() {
           </div>
         </div>
       )}
-
-      <div className={styles.body}>
-        {characters.length === 0 && !showForm && (
-          <div className={styles.empty}>
-            <span className={styles.emptyIcon}>✦</span>
-            <p className={styles.emptyText}>No characters yet. Add your party members to track their stats.</p>
-          </div>
-        )}
-        <div className={styles.cards}>
-          {characters.map(c => {
-            const maxHp = c.derivedStats.maxHp;
-            const hp = c.currentHp;
-            const hpPct = maxHp > 0 ? hp / maxHp : 0;
-            const hpColor = hpPct > 0.5 ? '#3a7a3a' : hpPct > 0.25 ? '#8a6a18' : '#8a2a18';
-            const ancestryName = c.ancestry?.name ?? '—';
-            const className = c.class?.name ?? '—';
-            const { ac, fort, ref, will, perception } = c.derivedStats;
-            return (
-              <div key={c.id} className={`${styles.card} ${selectedId === c.id ? styles.cardSelected : ''}`} onClick={() => setSelectedId(prev => prev === c.id ? null : c.id)}>
-                <div className={styles.cardHeader}>
-                  <div>
-                    <div className={styles.cardName}>{c.name}</div>
-                    <div className={styles.cardSub}>{c.playerName && `${c.playerName} · `}{ancestryName} {className} {c.level}</div>
-                  </div>
-                  <div className={styles.cardActions}>
-                    <button className={styles.editBtn} onClick={e => { e.stopPropagation(); startEdit(c); }}>✎</button>
-                    <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteCharacter(c.id); }}>✕</button>
-                  </div>
-                </div>
-                <div className={styles.cardStats}>
-                  <span><strong>AC</strong> {ac}</span>
-                  <span><strong>F</strong> {fort >= 0 ? `+${fort}` : fort}</span>
-                  <span><strong>R</strong> {ref >= 0 ? `+${ref}` : ref}</span>
-                  <span><strong>W</strong> {will >= 0 ? `+${will}` : will}</span>
-                  <span><strong>Perc</strong> {perception >= 0 ? `+${perception}` : perception}</span>
-                </div>
-                <div className={styles.hpRow}>
-                  <span className={styles.hpLabel} style={{ color: hpColor }}>{hp}/{maxHp} HP</span>
-                  <div className={styles.hpBtns}>
-                    {([-10, -5, -1, 1, 5, 10] as const).map(v => (
-                      <button key={v} className={`${styles.hpBtn} ${v > 0 ? styles.hpHeal : styles.hpDmg}`}
-                        onClick={e => { e.stopPropagation(); adjustHp(c.id, v); }}>
-                        {v > 0 ? `+${v}` : v}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className={styles.hpBar}>
-                  <div className={styles.hpFill} style={{ width: `${hpPct * 100}%`, background: hpColor }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+    </>
   );
 }

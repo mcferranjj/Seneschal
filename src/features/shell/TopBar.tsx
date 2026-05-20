@@ -116,12 +116,6 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
           >
             ✦ Characters
           </button>
-          <button
-            className={`${styles.navPill} ${activeSection === 'parties' ? styles.navPillActive : ''}`}
-            onClick={() => onSectionChange('parties')}
-          >
-            ⚔ Party
-          </button>
         </nav>
         <div className={styles.rightButtons}>
           <button

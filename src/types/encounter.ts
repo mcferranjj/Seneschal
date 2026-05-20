@@ -1,4 +1,4 @@
-export type Section = 'gm' | 'rules' | 'parties' | 'characters';
+export type Section = 'gm' | 'rules' | 'characters';
 
 export interface Condition {
   name: string;

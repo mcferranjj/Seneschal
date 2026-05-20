@@ -10,6 +10,7 @@ import styles from './EncounterManager.module.css';
 import { eliteWeakLevel } from '../../utils/levelScaling';
 import { QuickCreatureForm } from './QuickCreatureForm';
 import { ConditionPicker } from './ConditionPicker';
+import { PartyPanel } from '../parties/PartyPanel';
 
 
 // Only Frightened auto-reduces by 1 at end of each creature's turn per PF2e rules.
@@ -49,6 +50,8 @@ interface EncounterManagerProps {
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
   resultsOpen?: boolean;
   onToggleResults?: () => void;
+  partyPanelCollapsed?: boolean;
+  onTogglePartyPanel?: () => void;
 }
 
 function xpFor(monsterLevel: number, partyLevel: number): number {
@@ -105,6 +108,8 @@ export function EncounterManager({
   onRoll,
   resultsOpen = true,
   onToggleResults,
+  partyPanelCollapsed = false,
+  onTogglePartyPanel,
 }: EncounterManagerProps) {
   const [combatMode, setCombatMode] = useState(false);
   const [round, setRound] = useState(1);
@@ -398,6 +403,12 @@ export function EncounterManager({
 
   return (
     <div className={styles.manager}>
+      {/* Party panel */}
+      <PartyPanel
+        collapsed={partyPanelCollapsed}
+        onToggleCollapsed={onTogglePartyPanel ?? (() => {})}
+      />
+
       {/* Encounter tabs */}
       <div className={styles.tabs} ref={tabsRef}>
         <button
