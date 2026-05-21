@@ -282,7 +282,7 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
   const hazardHasHealth: boolean = attrs.hasHealth !== false && (attrs.hp?.max ?? 1) > 0;
   const hazardHardness: number = attrs.hardness ?? 0;
   const hazardStealthDC: number = attrs.stealth?.dc ?? attrs.stealth?.value ?? 0;
-  const hazardStealthDetails: string = attrs.stealth?.details ?? '';
+  const hazardStealthDetails: string = toEditablePlainText(attrs.stealth?.details ?? '');
   // disable/reset/routine may be HTML strings or { value: string } objects
   function extractHtml(raw: unknown): string {
     if (typeof raw === 'string') return raw;
