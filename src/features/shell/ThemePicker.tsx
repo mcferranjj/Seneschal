@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Theme, ThemeTokens } from '../../utils/themeEngine';
 import { PRESET_THEMES, applyTheme, deriveTokens, applyTokens, snapshotCssVars } from '../../utils/themeEngine';
+import { useBackable } from '../../nav/useBackable';
 import styles from './ThemePicker.module.css';
 
 interface ThemePickerProps {
@@ -86,6 +87,7 @@ function buildInitialOverrides(): Record<string, string> {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function ThemePicker({ activeTheme, savedThemes, onApply, onSaveAs, onDeleteSaved, onClose }: ThemePickerProps) {
+  useBackable(true, onClose, 'Close theme picker', { escClosable: true });
   const [tab, setTab] = useState<Tab>('theme');
   const [customTokens, setCustomTokens] = useState<ThemeTokens>({ ...activeTheme.tokens });
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(activeTheme.id);

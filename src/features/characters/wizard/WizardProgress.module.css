@@ -1,16 +1,33 @@
 .bar {
   display: flex;
   align-items: center;
-  overflow-x: auto;
+  justify-content: space-between;
   padding: 0 16px;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
-  gap: 2px;
-  scrollbar-width: none;
+  gap: 12px;
 }
 
-.bar::-webkit-scrollbar { display: none; }
+.steps {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  gap: 2px;
+  scrollbar-width: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.steps::-webkit-scrollbar { display: none; }
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 6px 0;
+}
 
 .step {
   display: flex;

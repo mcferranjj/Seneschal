@@ -6,6 +6,7 @@ import { CharacterSidebar } from './CharacterSidebar';
 import { EmptyCharacterState } from './EmptyCharacterState';
 import { CharacterWizard } from './wizard/CharacterWizard';
 import { CharacterSheet } from './sheet/CharacterSheet';
+import { useBackable } from '../../nav/useBackable';
 import styles from './CharactersSection.module.css';
 
 interface CharactersSectionProps {
@@ -15,12 +16,45 @@ interface CharactersSectionProps {
 export function CharactersSection({ onRoll }: CharactersSectionProps) {
   const { characters, loading, selectedId, select, createCharacter, updateCharacter, deleteCharacter } = useCharacters();
   const [showWizard, setShowWizard] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const selectedCharacter = characters.find(c => c.id === selectedId) ?? null;
+
+  // Back-button integration
+  useBackable(
+    !!selectedCharacter && !showWizard,
+    () => select(null),
+    'Back to character list',
+    { scope: 'characters' },
+  );
+  useBackable(showWizard, () => setShowWizard(false), 'Cancel character builder', { scope: 'characters', redo: () => setShowWizard(true) });
 
   const handleWizardComplete = async (record: CharacterRecord) => {
     await createCharacter(record);
     setShowWizard(false);
   };
+
+  const handleSelect = (id: string) => {
+    select(id);
+    setSidebarCollapsed(true);
+  };
+
+  const handleNew = () => {
+    select(null);
+    setShowWizard(true);
+    setSidebarCollapsed(true);
+  };
+
+  const expandBtn = sidebarCollapsed ? (
+    <button
+      className={styles.expandSidebarBtn}
+      onClick={() => setSidebarCollapsed(false)}
+      title="Show characters"
+      aria-label="Show characters"
+      type="button"
+    >
+      ››
+    </button>
+  ) : undefined;
 
   return (
     <div className={styles.layout}>
@@ -28,26 +62,34 @@ export function CharactersSection({ onRoll }: CharactersSectionProps) {
         characters={characters}
         loading={loading}
         activeId={selectedId}
-        onSelect={select}
-        onNew={() => { select(null); setShowWizard(true); }}
+        onSelect={handleSelect}
+        onNew={handleNew}
         dimmed={showWizard}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed(c => !c)}
       />
       <div className={styles.mainPanel}>
         {showWizard ? (
           <CharacterWizard
             onComplete={handleWizardComplete}
             onCancel={() => setShowWizard(false)}
-          />
-        ) : selectedCharacter ? (
-          <CharacterSheet
-            key={selectedCharacter.id}
-            character={selectedCharacter}
-            onUpdate={(patch) => updateCharacter(selectedCharacter.id, patch)}
-            onDelete={() => deleteCharacter(selectedCharacter.id)}
-            onRoll={onRoll}
+            headerLeft={expandBtn}
           />
         ) : (
-          <EmptyCharacterState onNew={() => setShowWizard(true)} />
+          <>
+            {expandBtn}
+            {selectedCharacter ? (
+              <CharacterSheet
+                key={selectedCharacter.id}
+                character={selectedCharacter}
+                onUpdate={(patch) => updateCharacter(selectedCharacter.id, patch)}
+                onDelete={() => deleteCharacter(selectedCharacter.id)}
+                onRoll={onRoll}
+              />
+            ) : (
+              <EmptyCharacterState onNew={() => { setShowWizard(true); setSidebarCollapsed(true); }} />
+            )}
+          </>
         )}
       </div>
     </div>

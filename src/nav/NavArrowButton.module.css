@@ -1,0 +1,27 @@
+.backBtn {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--color-surface-on-primary);
+  color: var(--color-primary-text-dim);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+
+.backBtn:hover:not(:disabled) {
+  background: var(--color-surface-on-primary-3);
+  color: var(--color-primary-text);
+  border-color: var(--color-border-on-primary);
+}
+
+.backBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

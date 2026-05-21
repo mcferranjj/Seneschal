@@ -58,6 +58,7 @@
   border-radius: 6px;
   background: var(--color-bg);
   cursor: pointer;
+  user-select: none;
   transition: border-color 0.1s, background 0.1s;
 }
 
@@ -86,6 +87,12 @@
 .kaBtn.kaActive .kaLabel { color: var(--color-primary-text-muted); }
 
 .detailPanel {
-  width: 260px;
+  width: 100%;
   gap: 12px;
+}
+
+.source {
+  font-size: 0.78rem;
+  color: var(--color-text-mid);
+  font-style: italic;
 }

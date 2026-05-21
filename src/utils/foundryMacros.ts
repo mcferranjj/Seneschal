@@ -5,8 +5,9 @@
  * clickable spans. Pure string operations — no React, no DB.
  */
 
-import { loadTraitDescriptions } from '../sync/sync';
 import type { PF2EItem } from '../types/pf2e';
+import { ABILITY_GLOSSARY } from '../data/abilityGlossary';
+import { CONDITIONS } from '../data/conditions';
 import type { DamageGroupInput } from '../features/dice/DiceRoller';
 
 /** Alias so existing callers importing DamageGroup from here continue to work. */
@@ -24,6 +25,166 @@ function parseDamageType(group: string): string | null {
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
+
+/**
+ * Convert raw Foundry description source into clean HTML suitable for re-editing
+ * in a contenteditable or textarea. Removes Foundry markup, converts markdown,
+ * decodes entities, whitelists tags, and collapses whitespace.
+ */
+export function toEditableText(raw: string): string {
+  if (!raw) return '';
+
+  // Step 1: Strip Foundry macros (preserves inline damage/check text)
+  let text = stripFoundryMacros(raw);
+
+  // Step 2: Convert markdown to HTML
+  // Bold: **text** and __text__ → <strong>text</strong>
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+  // Italic: *text* and _text_ → <em>text</em> (avoid matching inside words)
+  // Use negative lookbehind/lookahead for word boundaries
+  text = text.replace(/(?<!\w)\*([^\s*].+?[^\s*]|[^\s*])\*(?!\w)/g, '<em>$1</em>');
+  text = text.replace(/(?<!\w)_([^\s_].+?[^\s_]|[^\s_])_(?!\w)/g, '<em>$1</em>');
+
+  // Strikethrough: ~~text~~ → strip markers, keep text
+  text = text.replace(/~~(.+?)~~/g, '$1');
+
+  // Headers: strip leading # / ## / ### at line start
+  text = text.replace(/^#{1,3}\s+/gm, '');
+
+  // Step 3: Decode HTML entities (always use fallback for consistency)
+  // Common Foundry entities
+  text = text
+    .replace(/&hellip;/g, '…')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+
+  // Step 4: Remove stray empty paragraphs and orphan <hr/>
+  text = text.replace(/<p>\s*<\/p>/g, '');
+  text = text.replace(/<hr\s*\/?>/g, '');
+
+  // Step 5: Whitelist tags and strip attributes
+  // Allowed: p, br, strong, em, u, h3, h4, ul, ol, li
+  // Strip everything else (unwrap contents) and remove attributes
+  if (typeof DOMParser !== 'undefined') {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<wrapper>${text}</wrapper>`, 'text/html');
+    const allowedTags = new Set(['p', 'br', 'strong', 'em', 'u', 'h3', 'h4', 'ul', 'ol', 'li']);
+
+    // Walk and modify the DOM tree
+    const walk = (node: Node): void => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element;
+        const tagName = el.tagName.toLowerCase();
+
+        // Process children first (bottom-up)
+        const children = Array.from(el.childNodes);
+        children.forEach(walk);
+
+        if (!allowedTags.has(tagName)) {
+          // Disallowed tag: unwrap by moving children before the element
+          const parent = el.parentNode;
+          if (parent) {
+            while (el.firstChild) {
+              parent.insertBefore(el.firstChild, el);
+            }
+            parent.removeChild(el);
+          }
+        } else {
+          // Remove all attributes from allowed elements
+          while (el.attributes.length > 0) {
+            el.removeAttribute(el.attributes[0]!.name);
+          }
+        }
+      }
+    };
+
+    Array.from(doc.body.childNodes).forEach(walk);
+
+    // Get inner HTML from wrapper element
+    const wrapper = doc.body.querySelector('wrapper');
+    text = wrapper ? wrapper.innerHTML : doc.body.innerHTML;
+  } else {
+    // Fallback: regex-based tag unwrapping for non-browser environments
+    // Remove all attributes from tags
+    text = text.replace(/<(\/?(?:p|br|strong|em|u|h3|h4|ul|ol|li))\s[^>]*>/gi, '<$1>');
+    // Unwrap disallowed tags
+    text = text.replace(/<(?!\/?(?:p|br|strong|em|u|h3|h4|ul|ol|li)\b)[^>]*>/g, '');
+    text = text.replace(/<\/(?!(?:p|br|strong|em|u|h3|h4|ul|ol|li)\b)[^>]*>/g, '');
+  }
+
+  // Step 6: Collapse whitespace and trim
+  text = text
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return text;
+}
+
+/**
+ * Convert Foundry source text to clean plain text (no HTML) suitable for a textarea.
+ *
+ * 1. Strips Foundry macros via `stripFoundryMacros`.
+ * 2. Converts block-level closing tags to newlines so paragraph breaks survive.
+ * 3. Strips all remaining HTML tags.
+ * 4. Decodes common HTML entities.
+ * 5. Collapses whitespace while preserving paragraph breaks (at most two
+ *    consecutive newlines).
+ * 6. Trims leading/trailing whitespace.
+ */
+export function toEditablePlainText(raw: string): string {
+  if (!raw) return '';
+
+  // Step 1: Strip Foundry macros
+  let text = stripFoundryMacros(raw);
+
+  // Step 2: Replace block-level boundaries with newlines before stripping tags
+  text = text
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/h[1-6]>/gi, '\n\n')
+    .replace(/<hr\s*\/?>/gi, '\n');
+
+  // Step 3: Strip all remaining HTML tags
+  if (typeof DOMParser !== 'undefined') {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'text/html');
+    text = doc.body.textContent ?? text.replace(/<[^>]*>/g, '');
+  } else {
+    // Regex fallback for non-browser environments
+    text = text.replace(/<[^>]*>/g, '');
+    // Decode common entities
+    text = text
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&hellip;/g, '…')
+      .replace(/&mdash;/g, '—')
+      .replace(/&ndash;/g, '–')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&');
+  }
+
+  // Step 4: Normalise whitespace — collapse runs of spaces/tabs on each line,
+  // but preserve paragraph breaks (at most two consecutive newlines).
+  text = text
+    .replace(/[ \t]+/g, ' ')           // collapse horizontal whitespace
+    .replace(/\n{3,}/g, '\n\n')        // at most two consecutive newlines
+    .replace(/[ \t]*\n[ \t]*/g, '\n'); // trim spaces around newlines
+
+  return text.trim();
+}
 
 /**
  * Strip Foundry inline macros to plain readable text.
@@ -233,10 +394,26 @@ export function extractDamageGroups(rawHtml: string): DamageGroup[] {
   return groups;
 }
 
-// ── Keyword linking (trait tooltip singleton) ─────────────────────────────────
+// ── Inline keyword linking (actions + conditions only) ───────────────────────
+//
+// In ability/strike description text, only action names (from ABILITY_GLOSSARY)
+// and condition names (from CONDITIONS) are linked with popups. Trait keywords
+// are intentionally excluded here — traits have their own popup path via
+// TraitChip / useContainerTraitTooltip on explicit trait lists.
 
-let _keywordMap: Record<string, string> = {};
-let _keywordRegex: RegExp | null = null;
+/** Build the keyword map used by linkKeywords() from static data. */
+function buildInlineKeywordMap(): Record<string, string> {
+  const map: Record<string, string> = {};
+  // Action names from the bestiary ability glossary
+  for (const [name, desc] of Object.entries(ABILITY_GLOSSARY)) {
+    map[name] = desc;
+  }
+  // Condition names
+  for (const condition of CONDITIONS) {
+    map[condition.name] = condition.desc;
+  }
+  return map;
+}
 
 function buildKeywordRegex(map: Record<string, string>): RegExp {
   return new RegExp(
@@ -250,44 +427,79 @@ function buildKeywordRegex(map: Record<string, string>): RegExp {
   );
 }
 
+const _inlineKeywordMap: Record<string, string> = buildInlineKeywordMap();
+const _inlineKeywordRegex: RegExp = buildKeywordRegex(_inlineKeywordMap);
+
 /**
- * Call once on app load (after sync). Loads Foundry trait descriptions from the DB
- * and builds the keyword map and regex used by linkKeywords().
+ * No-op kept for call-site compatibility. The inline keyword map is now built
+ * statically from ABILITY_GLOSSARY + CONDITIONS and requires no async init.
  */
 export async function initTraitDescriptions(): Promise<void> {
-  const fromDb = await loadTraitDescriptions();
-  if (Object.keys(fromDb).length === 0) return;
-  const map: Record<string, string> = {};
-  for (const [traitLower, desc] of Object.entries(fromDb)) {
-    const displayKey = traitLower.charAt(0).toUpperCase() + traitLower.slice(1);
-    map[displayKey] = desc;
-  }
-  _keywordMap = map;
-  _keywordRegex = buildKeywordRegex(map);
+  // intentional no-op — inline keyword map is built at module load time
 }
 
 /**
- * Wrap recognized trait/keyword mentions in tooltip spans.
- * Requires initTraitDescriptions() to have been called first.
+ * Wrap recognised action and condition mentions in tooltip spans.
+ * Only action names (ABILITY_GLOSSARY) and condition names (CONDITIONS) are
+ * linked — traits are excluded and rely on the TraitChip / explicit-list path.
  */
 export function linkKeywords(html: string): string {
-  if (!_keywordRegex) return html;
   return html.replace(/>([^<]+)</g, (_match, text) => {
-    const linked = text.replace(_keywordRegex!, (kw: string) => {
-      const key = Object.keys(_keywordMap).find(k => k.toLowerCase() === kw.toLowerCase()) ?? kw;
-      const tip = _keywordMap[key] ?? '';
+    const linked = text.replace(_inlineKeywordRegex, (kw: string) => {
+      const key = Object.keys(_inlineKeywordMap).find(k => k.toLowerCase() === kw.toLowerCase()) ?? kw;
+      const tip = _inlineKeywordMap[key] ?? '';
       return `<span class="pf2kw" data-tip="${tip.replace(/"/g, '&quot;')}">${kw}</span>`;
     });
     return `>${linked}<`;
   });
 }
 
+export interface ProcessFoundryHtmlOptions {
+  /**
+   * When true (default), action and condition names in the text are wrapped in
+   * `.pf2kw` tooltip spans so hover/click popups fire. Traits are never linked
+   * here — they rely on the TraitChip / explicit trait-list popup path.
+   *
+   * Pass false in contexts where no keyword popups should appear at all
+   * (e.g. flavour/description prose, encounter statblock descriptions).
+   */
+  interactive?: boolean;
+}
+
 /**
  * Apply the standard Foundry HTML processing pipeline:
  * strip macros → link keywords → link roll expressions.
+ *
+ * `interactive: true` (default) — action and condition names become hoverable
+ * `.pf2kw` spans. Trait keywords are excluded; they have their own popup path
+ * via TraitChip / useContainerTraitTooltip on explicit trait lists.
+ *
+ * `interactive: false` — skips keyword linking entirely; use for flavour text
+ * and any context where no keyword popups should appear.
  */
-export function processFoundryHtml(raw: string): string {
-  return linkRolls(linkKeywords(stripFoundryMacros(raw)));
+export function processFoundryHtml(raw: string, options: ProcessFoundryHtmlOptions = {}): string {
+  const { interactive = true } = options;
+  const stripped = stripFoundryMacros(raw);
+  return linkRolls(interactive ? linkKeywords(stripped) : stripped);
+}
+
+/**
+ * Drop the rules-summary "<Subject> Mechanics" section (and everything after
+ * it, including any subsequent heritage block) from a Foundry journal lore
+ * page. The structured detail panels in the UI already render HP, size,
+ * speed, ability boosts, languages, traits, etc., so the duplicate text
+ * block is just noise.
+ *
+ * Used for ancestry descriptions: PF2e ancestry data stores only a one-line
+ * flavor blurb in `system.description.value`, with the full prose linked via
+ * an `@UUID[...JournalEntryPage...]` macro that we inline during sync. That
+ * inlined HTML ends with a "<Ancestry> Mechanics" heading we want to strip.
+ */
+export function stripMechanicsSection(html: string): string {
+  if (!html) return html;
+  const match = html.match(/<h[1-6]\b[^>]*>[^<]*\bMechanics\b[^<]*<\/h[1-6]>/i);
+  if (!match || match.index === undefined) return html;
+  return html.slice(0, match.index).trimEnd();
 }
 
 /**

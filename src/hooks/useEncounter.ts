@@ -10,7 +10,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbility } from '../types/encounter';
-import type { CreatureRecord } from '../db/schema';
+import type { CreatureRecord, PartyMemberRecord, PartyRecord } from '../db/schema';
 import type { PF2ECreature } from '../types/pf2e';
 import { loadEncounterState, saveEncounterState } from '../db/db';
 import { creatureRepository } from '../db/repositories/CreatureRepository';
@@ -21,9 +21,18 @@ export interface UseEncounterReturn {
   activeEnc: number;
   partySize: number;
   partyLevel: number;
+  activePartyId: string | null;
   setActiveEnc: (idx: number) => void;
   setPartySize: (size: number) => void;
   setPartyLevel: (level: number) => void;
+  setActivePartyId: (id: string | null) => void;
+  /**
+   * Clear `activePartyId` on every encounter where it equals the given id.
+   * Call this after deleting a PartyRecord so encounters don't hold dangling references.
+   */
+  nullifyActivePartyId: (partyId: string) => void;
+  applyParty: (party: PartyRecord) => void;
+  insertPartyAsCreatures: (members: PartyMemberRecord[], partyLevel: number) => void;
   addToEncounter: (c: CreatureRecord, scaledLevel?: number) => void;
   addEncounter: () => void;
   renameEncounter: (idx: number, name: string) => void;
@@ -38,6 +47,7 @@ export interface UseEncounterReturn {
   setScaledLevel: (uid: string, level: number | undefined) => Promise<void>;
   setCreatureNotes: (uid: string, notes: string) => void;
   duplicateCreature: (uid: string) => void;
+  setCreatureInit: (uid: string, init: number) => void;
   addCustomCreature: (
     name: string,
     level: number,
@@ -92,6 +102,73 @@ export function useEncounter(): UseEncounterReturn {
     if (!encounterStateLoaded.current) return;
     saveEncounterState({ encounters, activeEnc, partySize, partyLevel }).catch(() => {});
   }, [encounters, activeEnc, partySize, partyLevel]);
+
+  // Derived: activePartyId from the active encounter
+  const activePartyId = encounters[activeEnc]?.activePartyId ?? null;
+
+  const setActivePartyId = useCallback((id: string | null) => {
+    setEncounters(prev =>
+      prev.map((enc, i) => i === activeEnc ? { ...enc, activePartyId: id } : enc)
+    );
+  }, [activeEnc]);
+
+  // When a PartyRecord is deleted we sweep every encounter that referenced it
+  // and clear its `activePartyId` so the UI doesn't show a stale active-party
+  // label or try to look up a missing record.
+  const nullifyActivePartyId = useCallback((partyId: string) => {
+    setEncounters(prev =>
+      prev.map(enc =>
+        enc.activePartyId === partyId ? { ...enc, activePartyId: null } : enc
+      )
+    );
+  }, []);
+
+  const applyParty = useCallback((party: PartyRecord) => {
+    setEncounters(prev =>
+      prev.map((enc, i) =>
+        i === activeEnc
+          ? { ...enc, activePartyId: party.id }
+          : enc
+      )
+    );
+    setPartyLevel(party.level);
+    setPartySize(party.memberIds.length);
+  }, [activeEnc]);
+
+  const insertPartyAsCreatures = useCallback((members: PartyMemberRecord[], partyLevel: number) => {
+    setEncounters(prev => {
+      const enc = prev[activeEnc];
+      if (!enc) return prev;
+      // Accumulate names as we go so duplicates within the batch also get suffixed
+      const running = [...enc.creatures];
+      const newCreatures = members.map(m => {
+        const name = uniqueName(m.name, running);
+        const entry: EncounterCreature = {
+          uid: `pmember-${m.id}-${Date.now()}-${Math.random()}`,
+          name,
+          level: partyLevel,
+          hp: m.maxHp,
+          maxHp: m.maxHp,
+          ac: m.ac,
+          fort: m.fort,
+          ref: m.ref,
+          will: m.will,
+          perception: m.perception,
+          init: 0,
+          conditions: [],
+          custom: true,
+          isEnemy: false,
+        };
+        running.push(entry);
+        return entry;
+      });
+      return prev.map((enc, i) =>
+        i === activeEnc
+          ? { ...enc, creatures: [...enc.creatures, ...newCreatures] }
+          : enc
+      );
+    });
+  }, [activeEnc]);
 
   const addToEncounter = useCallback(
     (c: CreatureRecord, scaledLevel?: number) => {
@@ -171,7 +248,9 @@ export function useEncounter(): UseEncounterReturn {
     setEncounters(prev => {
       const newIdx = prev.length;
       setActiveEnc(newIdx);
-      return [...prev, { id: newIdx + 1, name: `Encounter ${newIdx + 1}`, creatures: [] }];
+      // Use max existing id + 1 so IDs stay unique even after deletions or imports
+      const maxId = prev.length > 0 ? Math.max(...prev.map(e => e.id)) : 0;
+      return [...prev, { id: maxId + 1, name: `Encounter ${newIdx + 1}`, creatures: [] }];
     });
   }, []);
 
@@ -402,6 +481,19 @@ export function useEncounter(): UseEncounterReturn {
     [activeEnc]
   );
 
+  const setCreatureInit = useCallback(
+    (uid: string, init: number) => {
+      setEncounters(prev =>
+        prev.map((enc, i) =>
+          i === activeEnc
+            ? { ...enc, creatures: enc.creatures.map(c => c.uid === uid ? { ...c, init } : c) }
+            : enc
+        )
+      );
+    },
+    [activeEnc]
+  );
+
   const renameCreature = useCallback(
     (uid: string, name: string) => {
       setEncounters(prev =>
@@ -461,9 +553,14 @@ export function useEncounter(): UseEncounterReturn {
     activeEnc,
     partySize,
     partyLevel,
+    activePartyId,
     setActiveEnc,
     setPartySize,
     setPartyLevel,
+    setActivePartyId,
+    nullifyActivePartyId,
+    applyParty,
+    insertPartyAsCreatures,
     addToEncounter,
     addEncounter,
     renameEncounter,
@@ -477,6 +574,7 @@ export function useEncounter(): UseEncounterReturn {
     setEliteWeak,
     setScaledLevel,
     setCreatureNotes,
+    setCreatureInit,
     duplicateCreature,
     addCustomCreature,
   };

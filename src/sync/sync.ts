@@ -3,7 +3,7 @@ import type { CreatureRecord } from '../db/schema';
 import type { PF2ECreature } from '../types/pf2e';
 import { fetchLatestCommitSha, fetchPf2eTree, fetchCreatureRaw, fetchTraitDescriptions, GithubError } from './github';
 import { resolvePublicationTitle } from './publicationRegistry';
-import { getLevel, getSize } from '../utils/pf2eHelpers';
+import { getLevel, getSize, normalizeFamily } from '../utils/pf2eHelpers';
 import { runInBatches } from '../utils/async';
 import { creatureRepository } from '../db/repositories/CreatureRepository';
 
@@ -40,6 +40,11 @@ export function toRecord(creature: PF2ECreature, packSource: string, blobSha: st
   const isComplexHazard = creature.type === 'hazard' && creature.system?.details?.isComplex === true;
   const traits = isComplexHazard ? [...baseTraits, 'complex'] : baseTraits;
 
+  // Capture family for NPCs only
+  const family = creature.type === 'npc'
+    ? normalizeFamily(creature.system?.details?.creatureType)
+    : undefined;
+
   return {
     id: creature._id,
     entityType: creature.type ?? 'npc',
@@ -54,6 +59,7 @@ export function toRecord(creature: PF2ECreature, packSource: string, blobSha: st
     blobSha,
     data: creature,
     isComplex: isComplexHazard || undefined,
+    family,
   };
 }
 

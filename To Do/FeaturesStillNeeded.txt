@@ -2,17 +2,8 @@ Encounters:
     - flesh out settings
         - default preferences
 
-    - add ability to export/import monsters, full database, encounters, etc.
-
-    - name generator
-    - random monster quirk generator
-
     - in the custom creature wizard, add functionality to browse and add/scale abilities from all other monsters, filterable by creature type
     
-    - party tracker (currently the "characters" tab):
-        - move party manager from "Characters" tab to "Encounters" ("Characters" tab should be for player characters)
-        - add support for multiple parties
-        - add functionality to add a party to an encounter
 
 Rules:
     - needs more exploratory and requirements written up

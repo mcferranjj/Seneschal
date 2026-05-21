@@ -30,9 +30,17 @@ export interface UseContainerTraitTooltipReturn {
   closePin:     () => void;
 }
 
+export interface UseContainerTraitTooltipOptions {
+  /** When false, listeners are not attached and hover/pinned are forced to null. Defaults to true. */
+  enabled?: boolean;
+}
+
 const POPUP_OPTIONS = { popupWidth: 260, popupMaxHeight: 200, centerOnAnchor: true } as const;
 
-export function useContainerTraitTooltip(): UseContainerTraitTooltipReturn {
+export function useContainerTraitTooltip(
+  { enabled = true }: UseContainerTraitTooltipOptions = {},
+): UseContainerTraitTooltipReturn {
+
   const containerRef   = useRef<HTMLDivElement>(null);
   const popupRef       = useRef<HTMLDivElement>(null);
   const pinnedRef      = useRef<TraitTooltipState | null>(null);
@@ -44,10 +52,24 @@ export function useContainerTraitTooltip(): UseContainerTraitTooltipReturn {
 
   pinnedRef.current = pinned;
 
+  // Ref-copy of hover so the pointermove handler can read it without re-registering
+  const hoverRef = useRef<TraitTooltipState | null>(null);
+  hoverRef.current = hover;
+
   const closePin = useCallback(() => setPinned(null), []);
+
+  // ── Clear stale popup state when tooltips are disabled ───────────────────
+  useEffect(() => {
+    if (!enabled) {
+      setHover(null);
+      setPinned(null);
+    }
+  }, [enabled]);
 
   // ── DOM listeners for hover and click-to-pin ──────────────────────────────
   useEffect(() => {
+    if (!enabled) return;
+
     const container = containerRef.current;
     if (!container) return;
 
@@ -62,12 +84,6 @@ export function useContainerTraitTooltip(): UseContainerTraitTooltipReturn {
       const desc = kw.dataset.tip ?? '';
       if (!desc) return;
       setHover({ trait: kw.textContent ?? '', desc, pos: calcPopupPosition(kw, POPUP_OPTIONS) });
-    }
-
-    function onOut(e: MouseEvent) {
-      if (pinnedRef.current) return;
-      if (!getKw(e)) return;
-      setHover(null);
     }
 
     function onMouseDown(e: MouseEvent) {
@@ -86,14 +102,26 @@ export function useContainerTraitTooltip(): UseContainerTraitTooltipReturn {
     }
 
     container.addEventListener('mouseover',  onOver);
-    container.addEventListener('mouseout',   onOut);
     container.addEventListener('mousedown',  onMouseDown);
     return () => {
       container.removeEventListener('mouseover',  onOver);
-      container.removeEventListener('mouseout',   onOut);
       container.removeEventListener('mousedown',  onMouseDown);
     };
-  }, []);
+  }, [enabled]);
+
+  // ── Dismiss hover when pointer is no longer over a .pf2kw ────────────────
+  // pointermove on window lets us reliably detect when the cursor leaves a
+  // .pf2kw regardless of inline layout, portalled popups, or bubbling quirks.
+  useEffect(() => {
+    if (!hover) return;
+    function onPointerMove(e: PointerEvent) {
+      if (pinnedRef.current) return;
+      const kw = (e.target as HTMLElement).closest?.('.pf2kw');
+      if (!kw) setHover(null);
+    }
+    window.addEventListener('pointermove', onPointerMove);
+    return () => window.removeEventListener('pointermove', onPointerMove);
+  }, [hover]);
 
   // ── Dismiss hover on scroll; suppress re-trigger while scrolling ──────────
   useEffect(() => {
@@ -120,5 +148,5 @@ export function useContainerTraitTooltip(): UseContainerTraitTooltipReturn {
     return () => window.removeEventListener('pointerdown', onDown);
   }, [pinned]);
 
-  return { containerRef, popupRef, hover, pinned, closePin };
+  return { containerRef, popupRef, hover: enabled ? hover : null, pinned: enabled ? pinned : null, closePin };
 }

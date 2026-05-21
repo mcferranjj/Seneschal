@@ -64,13 +64,14 @@
   color: var(--color-primary);
 }
 
-.description {
-  font-size: 0.8rem;
+
+.source {
+  font-size: 0.78rem;
   color: var(--color-text-mid);
-  line-height: 1.5;
+  font-style: italic;
 }
 
 .detailPanel {
-  width: 260px;
+  width: 100%;
   gap: 12px;
 }

@@ -1,5 +1,6 @@
 import type { CreatureRecord } from '../../../db/schema';
 import { CreatureRow } from './CreatureRow';
+import { readDndPayload } from '../../../utils/dnd';
 import styles from './ResultsList.module.css';
 
 interface ResultsListProps {
@@ -18,6 +19,7 @@ interface ResultsListProps {
   filtersOpen: boolean;
   onToggleFilters: () => void;
   onOpenWizard: () => void;
+  onRemoveCombatant?: (uid: string) => void;
 }
 
 export function ResultsList({
@@ -36,6 +38,7 @@ export function ResultsList({
   filtersOpen,
   onToggleFilters,
   onOpenWizard,
+  onRemoveCombatant,
 }: ResultsListProps) {
   const toolbar = (
     <div className={styles.toolbar}>
@@ -130,10 +133,26 @@ export function ResultsList({
     );
   }
 
+  const handleListDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    const parsed = readDndPayload(e);
+    if (parsed?.kind === 'combatant') {
+      e.dataTransfer!.dropEffect = 'move';
+      e.preventDefault();
+    }
+  };
+
+  const handleListDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const parsed = readDndPayload(e);
+    if (parsed?.kind === 'combatant' && onRemoveCombatant) {
+      onRemoveCombatant(parsed.payload.uid);
+    }
+  };
+
   return (
     <>
       {toolbar}
-      <div className={styles.list} role="listbox" aria-label="Creature results">
+      <div className={styles.list} role="listbox" aria-label="Creature results" onDragOver={handleListDragOver} onDrop={handleListDrop}>
         <button className={styles.addCustomBtn} onClick={onOpenWizard}>
           ＋ Custom Creature
         </button>

@@ -6,12 +6,45 @@
   border-right: 1px solid var(--color-border);
   background: var(--color-surface);
   overflow: hidden;
-  transition: opacity 0.15s;
+  opacity: 1;
+  transition: width 0.25s ease, opacity 0.2s ease, border-right-width 0.25s ease;
 }
 
 .sidebar.dimmed {
-  opacity: 0.45;
+  opacity: 0.55;
+}
+
+.sidebar.dimmed .list {
   pointer-events: none;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  opacity: 0;
+  border-right-width: 0;
+  pointer-events: none;
+}
+
+.headerBtns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.collapseBtn {
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.collapseBtn:hover {
+  color: var(--color-text);
+  background: var(--color-border-light);
 }
 
 .header {

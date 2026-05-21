@@ -4,11 +4,41 @@
   border-radius: 8px;
   padding: 10px 10px;
   cursor: pointer;
+  user-select: none;
   text-align: left;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: border-color 0.1s;
+  overflow: hidden;
+  /* Smooth animation for the ancestry collapse/expand effect — all properties
+   * that change between the visible and collapsed states are listed here so
+   * the transition stays in sync when toggling `.cardCollapsed`. */
+  transition:
+    border-color 0.1s,
+    opacity 0.28s ease,
+    transform 0.28s ease,
+    max-height 0.32s ease,
+    max-width 0.32s ease,
+    padding 0.28s ease,
+    margin 0.28s ease,
+    border-width 0.28s ease;
+  max-height: 600px; /* generous upper bound; real height is content-driven */
+}
+
+.cardCollapsed {
+  opacity: 0;
+  transform: scale(0.94);
+  max-height: 0;
+  max-width: 0;
+  padding: 0;
+  margin: 0;
+  border-width: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: border-color 0.1s; }
+  .cardCollapsed { display: none; }
 }
 
 .card:hover {
@@ -49,4 +79,34 @@
   border-radius: 3px;
   background: var(--color-primary-tint);
   color: var(--color-primary);
+}
+
+.actionBtn {
+  margin-top: 6px;
+  align-self: stretch;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.12s;
+}
+
+.actionBtn:hover { opacity: 0.88; }
+
+.actionBtnPrimary {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.actionBtnSecondary {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-mid);
+}
+
+.actionBtnSecondary:hover {
+  background: var(--color-border-light);
+  opacity: 1;
 }

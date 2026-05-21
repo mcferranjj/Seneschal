@@ -1,0 +1,35 @@
+.root {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--color-text);
+}
+
+.root p { margin: 0 0 8px 0; }
+.root p:last-child { margin-bottom: 0; }
+
+.root a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.root h2,
+.root h3,
+.root h4 {
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 10px 0 4px 0;
+}
+
+.root h2 { font-size: 0.95rem; }
+.root h3 { font-size: 0.88rem; }
+.root h4 { font-size: 0.82rem; }
+
+.root ul,
+.root ol {
+  margin: 0 0 8px 0;
+  padding-left: 20px;
+}
+
+.root li { margin-bottom: 4px; }

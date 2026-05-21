@@ -1,6 +1,7 @@
 import type { CreatureRecord } from '../../../db/schema';
 import { SIZE_LABELS } from '../../../data/pf2eConstants';
 import { rarityColor, traitBg } from '../../../utils/traitColors';
+import { writeDndPayload } from '../../../utils/dnd';
 import styles from './ResultsList.module.css';
 
 interface CreatureRowProps {
@@ -15,6 +16,10 @@ export function CreatureRow({ creature, isSelected, onClick, onAddToEncounter }:
   const shownTraits = creature.traits.slice(0, 3);
   const sizeLabel = SIZE_LABELS[creature.size] ?? creature.size;
   const levelLabel = `Lv ${creature.level}`;
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    e.dataTransfer!.effectAllowed = 'copy';
+    writeDndPayload(e.dataTransfer!, { kind: 'creatureRecord', payload: { creatureId: creature.id } });
+  };
 
   return (
     <div
@@ -26,6 +31,8 @@ export function CreatureRow({ creature, isSelected, onClick, onAddToEncounter }:
         if (e.key === 'Enter' || e.key === ' ') onClick();
       }}
       aria-selected={isSelected}
+      draggable
+      onDragStart={handleDragStart}
     >
       <div className={styles.rowTop}>
         <div className={styles.nameRow}>

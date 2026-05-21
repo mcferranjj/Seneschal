@@ -92,18 +92,26 @@
 /* Header bar */
 .header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
   background: var(--color-primary);
   color: var(--color-primary-text);
   padding: 11px 14px 10px;
-  gap: 10px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
-.headerMain {
-  flex: 1;
+.headerRow1 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
   min-width: 0;
+}
+
+.headerRow2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .creatureName {
@@ -124,8 +132,6 @@
 .creatureLevel {
   font-size: 0.75rem;
   color: var(--color-primary-text-muted);
-  margin-top: 1px;
-  display: block;
 }
 
 .headerActions {

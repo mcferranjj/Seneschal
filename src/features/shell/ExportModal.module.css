@@ -1,0 +1,397 @@
+/* ── Overlay ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg-modal-scrim);
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* ── Modal shell ── */
+.modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 16px 56px rgba(0, 0, 0, 0.6);
+  width: min(720px, 100%);
+  height: min(560px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--color-text);
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  height: 46px;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.headerTitle {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  flex: 1;
+}
+
+.closeBtn {
+  background: var(--color-surface-on-primary);
+  border: 1px solid var(--color-border-on-primary);
+  border-radius: 5px;
+  color: var(--color-primary-text);
+  cursor: pointer;
+  font-size: 0.8rem;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s;
+  flex-shrink: 0;
+}
+
+.closeBtn:hover {
+  background: var(--color-surface-on-primary-3);
+}
+
+/* ── Body ── */
+.body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Category sidebar ── */
+.sidebar {
+  width: 180px;
+  flex-shrink: 0;
+  background: var(--color-bg);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  padding: 8px 6px;
+  gap: 2px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-mid);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.navItem:hover {
+  background: var(--color-bg-overlay-mid);
+  color: var(--color-text);
+}
+
+.navItemActive {
+  background: var(--color-primary) !important;
+  color: var(--color-primary-text) !important;
+  border-color: transparent !important;
+}
+
+.navIcon {
+  font-size: 13px;
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+
+.navLabel {
+  flex: 1;
+  line-height: 1.3;
+}
+
+.navBadge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.navBadgeAll {
+  background: var(--color-healing-bg, rgba(58, 122, 58, 0.25));
+  color: var(--color-healing);
+}
+
+.navBadgeSome {
+  background: var(--color-bg-overlay-mid);
+  color: var(--color-text-mid);
+}
+
+.navBadgeNone {
+  background: transparent;
+  color: var(--color-text-faint, var(--color-text-mid));
+  opacity: 0.55;
+}
+
+/* Active nav item badge — invert to remain visible on primary bg */
+.navItemActive .navBadge {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--color-primary-text);
+}
+
+/* ── List pane ── */
+.listPane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--color-border-light);
+  flex-shrink: 0;
+}
+
+.listTitle {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.toggleAllBtn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  color: var(--color-text-mid);
+  font-size: 0.75rem;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.toggleAllBtn:hover {
+  background: var(--color-bg-overlay-mid);
+  color: var(--color-text);
+}
+
+.itemList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px;
+}
+
+.emptyState {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--color-text-mid);
+  font-style: italic;
+}
+
+/* ── Item rows ── */
+.itemRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px 7px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.itemRow:hover {
+  background: var(--color-bg-overlay-mid);
+}
+
+.itemRow:hover .deleteBtn {
+  opacity: 1;
+}
+
+.itemRowChecked {
+  background: var(--color-bg-overlay-light);
+  border-color: var(--color-border-light);
+}
+
+/* The label wraps the checkbox + text and takes available space */
+.itemLabelWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.itemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.itemLabel {
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemSublabel {
+  font-size: 0.72rem;
+  color: var(--color-text-mid);
+}
+
+/* ── Per-item delete ── */
+.deleteBtn {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+  line-height: 1;
+}
+
+.deleteBtn:hover {
+  background: var(--color-bg-overlay-mid);
+}
+
+.deleteConfirm {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.deleteConfirmText {
+  font-size: 0.72rem;
+  color: var(--color-damage);
+  font-style: italic;
+}
+
+.deleteConfirmYes,
+.deleteConfirmNo {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.72rem;
+  padding: 1px 6px;
+  transition: background 0.1s;
+}
+
+.deleteConfirmYes {
+  color: var(--color-damage);
+  border-color: var(--color-damage);
+}
+
+.deleteConfirmYes:hover {
+  background: rgba(192, 57, 43, 0.15);
+}
+
+.deleteConfirmNo {
+  color: var(--color-text-mid);
+}
+
+.deleteConfirmNo:hover {
+  background: var(--color-bg-overlay-mid);
+}
+
+/* ── Footer ── */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+  flex-shrink: 0;
+}
+
+.selectionSummary {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--color-text-mid);
+}
+
+.errorMsg {
+  font-size: 0.78rem;
+  color: var(--color-damage);
+  flex: 1;
+}
+
+.cancelBtn {
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-mid);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.cancelBtn:hover:not(:disabled) {
+  background: var(--color-bg-overlay-mid);
+  color: var(--color-text);
+}
+
+.cancelBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.exportBtn {
+  padding: 7px 18px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, opacity 0.12s;
+}
+
+.exportBtn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.exportBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

@@ -4,6 +4,7 @@ import { extractDamageGroups, processFoundryHtml } from '../../utils/foundryMacr
 import type { DamageGroup } from '../../utils/foundryMacros';
 import { useGlossaryPopup } from '../../hooks/useGlossaryPopup';
 import { AbilityPopup } from './AbilityPopup';
+import { TraitChip } from './TraitChip';
 import styles from './StatblockDrawer.module.css';
 
 const ACTION_SYMBOLS: Record<string, string> = {
@@ -25,9 +26,11 @@ export interface CustomAbilityBlockProps {
   ewStyle?: React.CSSProperties;
   onRollDamage: (groups: DamageGroup[], name: string, traits: string[], e: React.MouseEvent) => void;
   onManualRollDamage?: (groups: DamageGroup[], name: string, e: React.MouseEvent) => void;
+  /** When false, skips keyword linking so no .pf2kw tooltip spans are injected. Defaults to true. */
+  interactive?: boolean;
 }
 
-export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDamage, onManualRollDamage }: CustomAbilityBlockProps) {
+export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDamage, onManualRollDamage, interactive = true }: CustomAbilityBlockProps) {
   // Glossary lookup — prefer genericAbilityName, then fall back to the ability name itself
   const glossaryKey = ab.genericAbilityName ?? ab.name;
   const glossaryDesc = ABILITY_GLOSSARY[glossaryKey];
@@ -50,6 +53,18 @@ export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDa
           {ab.name}
         </strong>
         {sym && <span className={styles.actionSymbol}>{sym}</span>}
+        {ab.traits && ab.traits.length > 0 && (
+          <span className={styles.itemTraits}>
+            {' ('}
+            {ab.traits.map((t, i) => (
+              <span key={t}>
+                <TraitChip trait={t} rarity="" variant="inline" />
+                {i < ab.traits!.length - 1 && ', '}
+              </span>
+            ))}
+            {')'}
+          </span>
+        )}
         {ab.trigger && <> <strong>Trigger</strong> {ab.trigger};</>}
         {ab.requirements && <> <strong>Requirements</strong> {ab.requirements};</>}
         {ab.frequency && <> <strong>Frequency</strong> {ab.frequency}</>}
@@ -57,7 +72,7 @@ export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDa
       {adjustedDesc && (
         <div
           className={styles.itemDesc}
-          dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc) }}
+          dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc, { interactive }) }}
         />
       )}
       {hasDamage && (

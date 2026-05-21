@@ -4,7 +4,9 @@ import type {
   CustomImmunity, CustomResistance, CustomSkill, AbilityActionType, SpeedType,
   CustomSpellcastingEntry, CustomSpell, SpellTradition, SpellcastingType, SpellFrequency,
 } from '../types/encounter';
-import { getDamageString, getAttacks, getActions, getPassives, stripFoundryMacros } from '../features/statblock/statblockHelpers';
+import { getDamageString, getAttacks, getActions, getPassives } from '../features/statblock/statblockHelpers';
+import { toEditableText, toEditablePlainText } from './foundryMacros';
+import { normalizeFamily } from './pf2eHelpers';
 
 function mapActionCost(raw: string | number | null | undefined): AbilityActionType | undefined {
   if (raw == null) return undefined;
@@ -82,7 +84,7 @@ export function importSpellcasting(creature: CreatureRecord): CustomSpellcasting
       const actionsRaw = (ssys['actions'] as { value?: string | number } | undefined)?.value;
       const actionCost = mapActionCost(timeRaw ?? actionsRaw);
       const traits = (ssys['traits'] as { value?: string[] } | undefined)?.value ?? [];
-      const description = (ssys['description'] as { value?: string } | undefined)?.value ?? '';
+      const description = toEditableText((ssys['description'] as { value?: string } | undefined)?.value ?? '');
 
       let frequency: SpellFrequency | undefined;
       if (type === 'innate') {
@@ -219,16 +221,27 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
     else if (cost != null) actionType = costMap[cost as number] ?? 'single';
     else if (at && actionTypeMap[at]) actionType = actionTypeMap[at];
 
-    const rawDesc = item.system?.description?.value ?? '';
+    // Extract Trigger / Requirements from the RAW source so the <hr/> boundary
+    // (which toEditableText strips) is still available for the regex. Then
+    // remove the matched blocks from the body before cleaning, so they don't
+    // appear duplicated in the rendered description.
+    const rawSource = item.system?.description?.value ?? '';
 
     let trigger: string | undefined;
     let requirements: string | undefined;
 
-    const triggerMatch = rawDesc.match(/<strong>Trigger<\/strong>\s*(.*?)(?:<\/p>|<hr\s*\/>)/is);
-    if (triggerMatch) trigger = stripFoundryMacros(triggerMatch[1]).replace(/<[^>]+>/g, '').trim() || undefined;
+    const triggerMatch = rawSource.match(/<strong>Trigger<\/strong>\s*(.*?)(?:<\/p>|<hr\s*\/>)/is);
+    // Trigger / Requirements are surfaced as plain-text fields in the UI, so
+    // strip any inline tags that survived toEditableText's whitelist.
+    if (triggerMatch) trigger = toEditableText(triggerMatch[1]).replace(/<[^>]+>/g, '').trim() || undefined;
 
-    const reqMatch = rawDesc.match(/<strong>Requirements?<\/strong>\s*(.*?)(?:<\/p>|<hr\s*\/>)/is);
-    if (reqMatch) requirements = stripFoundryMacros(reqMatch[1]).replace(/<[^>]+>/g, '').trim() || undefined;
+    const reqMatch = rawSource.match(/<strong>Requirements?<\/strong>\s*(.*?)(?:<\/p>|<hr\s*\/>)/is);
+    if (reqMatch) requirements = toEditableText(reqMatch[1]).replace(/<[^>]+>/g, '').trim() || undefined;
+
+    let cleanedSource = rawSource;
+    if (triggerMatch) cleanedSource = cleanedSource.replace(triggerMatch[0], '');
+    if (reqMatch) cleanedSource = cleanedSource.replace(reqMatch[0], '');
+    const rawDesc = toEditableText(cleanedSource);
 
     let frequency: string | undefined;
     const freq = item.system?.frequency;
@@ -239,6 +252,8 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
       frequency = perMap[freq.per ?? ''] ?? `${freq.value} per ${freq.per}`;
     }
 
+    const traitValues: string[] = item.system?.traits?.value ?? [];
+
     return {
       name: item.name,
       description: rawDesc,
@@ -246,6 +261,7 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
       trigger,
       requirements,
       frequency,
+      traits: traitValues.length ? traitValues : undefined,
     };
   });
 
@@ -253,7 +269,7 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
   const spellcasting = isHazard ? [] : importSpellcasting(source);
 
   // Flavor text
-  const flavorText = system?.details?.publicNotes ?? '';
+  const flavorText = toEditableText(system?.details?.publicNotes ?? '');
 
   // Size / rarity / traits from source record (already normalized)
   const size = isHazard ? 'med' : source.size;
@@ -269,16 +285,16 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
   const hazardHasHealth: boolean = attrs.hasHealth !== false && (attrs.hp?.max ?? 1) > 0;
   const hazardHardness: number = attrs.hardness ?? 0;
   const hazardStealthDC: number = attrs.stealth?.dc ?? attrs.stealth?.value ?? 0;
-  const hazardStealthDetails: string = attrs.stealth?.details ?? '';
+  const hazardStealthDetails: string = toEditablePlainText(attrs.stealth?.details ?? '');
   // disable/reset/routine may be HTML strings or { value: string } objects
   function extractHtml(raw: unknown): string {
     if (typeof raw === 'string') return raw;
     if (raw && typeof raw === 'object' && 'value' in (raw as object)) return String((raw as { value: unknown }).value ?? '');
     return '';
   }
-  const hazardDisable: string = extractHtml(system?.details?.disable);
-  const hazardReset: string = extractHtml(system?.details?.reset);
-  const hazardRoutine: string = extractHtml(system?.details?.routine);
+  const hazardDisable: string = toEditablePlainText(extractHtml(system?.details?.disable));
+  const hazardReset: string = toEditablePlainText(extractHtml(system?.details?.reset));
+  const hazardRoutine: string = toEditablePlainText(extractHtml(system?.details?.routine));
 
   if (isHazard) {
     return {
@@ -350,6 +366,9 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
   const pf2eWeaknesses = weaknesses.map(w => ({ type: w.type, value: w.value, exceptions: w.exceptions ? [w.exceptions] : undefined }));
   const pf2eSenses = senses.map(s => ({ type: s.name, range: s.range }));
 
+  // Capture family from source for NPCs (only reached in the non-hazard path)
+  const family = normalizeFamily(system?.details?.creatureType);
+
   return {
     id,
     entityType: source.entityType,
@@ -362,6 +381,7 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
     packSource: 'custom',
     publication: 'Custom',
     blobSha: '',
+    family,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: {
       _id: id,
