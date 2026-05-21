@@ -8,6 +8,13 @@ import { getDamageString, getDamageGroups, getAttacks, getActions, getPassives }
 import { toEditableText, toEditablePlainText } from './foundryMacros';
 import { normalizeFamily } from './pf2eHelpers';
 
+/** Extracts a plain string from a Foundry field that may be a raw string or a { value } object. */
+function extractHtml(raw: unknown): string {
+  if (typeof raw === 'string') return raw;
+  if (raw && typeof raw === 'object' && 'value' in (raw as object)) return String((raw as { value: unknown }).value ?? '');
+  return '';
+}
+
 function mapActionCost(raw: string | number | null | undefined): AbilityActionType | undefined {
   if (raw == null) return undefined;
   const s = String(raw).toLowerCase().trim();
@@ -196,9 +203,11 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
       (typeof item.system?.range?.value === 'number' ? item.system.range.value : undefined);
     // Build structured damageTypes from the raw damage rolls so multiple
     // damage components (e.g. "4d6 fire + 2d6 persistent fire") are preserved.
+    // The persistent flag is carried directly from getDamageGroups so
+    // StatblockCustomAttacks doesn't need to re-detect it from the label string.
     const damageGroups = getDamageGroups(damageRolls);
     const damageTypes = damageGroups.length > 0
-      ? damageGroups.map(g => ({ expr: g.expr, type: g.label }))
+      ? damageGroups.map(g => ({ expr: g.expr, type: g.label, ...(g.persistent ? { persistent: true } : {}) }))
       : undefined;
     return {
       name: item.name,
@@ -296,11 +305,6 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
   const hazardStealthDC: number = attrs.stealth?.dc ?? attrs.stealth?.value ?? 0;
   const hazardStealthDetails: string = toEditablePlainText(attrs.stealth?.details ?? '');
   // disable/reset/routine may be HTML strings or { value: string } objects
-  function extractHtml(raw: unknown): string {
-    if (typeof raw === 'string') return raw;
-    if (raw && typeof raw === 'object' && 'value' in (raw as object)) return String((raw as { value: unknown }).value ?? '');
-    return '';
-  }
   const hazardDisable: string = toEditablePlainText(extractHtml(system?.details?.disable));
   const hazardReset: string = toEditablePlainText(extractHtml(system?.details?.reset));
   const hazardRoutine: string = toEditablePlainText(extractHtml(system?.details?.routine));

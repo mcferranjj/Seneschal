@@ -68,20 +68,16 @@ export function StatblockCustomAttacks({
         if (atk.damageTypes && atk.damageTypes.length > 0) {
           const primary = atk.damageTypes[0];
           const primaryExprRaw = primary.expr.replace(/\s/g, '');
-          const primaryIsPersistent = primary.type.toLowerCase().startsWith('persistent');
           primaryExprForEwMod = ewMod !== 0
             ? `${primaryExprRaw}${ewMod >= 0 ? `+${ewMod}` : ewMod}`
             : primaryExprRaw;
           damageGroups = [
-            { expr: primaryExprForEwMod, label: primary.type || 'damage', ...(primaryIsPersistent ? { persistent: true } : {}) },
-            ...atk.damageTypes.slice(1).map(dt => {
-              const isPersistent = dt.type.toLowerCase().startsWith('persistent');
-              return {
-                expr: dt.expr.replace(/\s/g, ''),
-                label: dt.type || 'damage',
-                ...(isPersistent ? { persistent: true } : {}),
-              };
-            }),
+            { expr: primaryExprForEwMod, label: primary.type || 'damage', ...(primary.persistent ? { persistent: true } : {}) },
+            ...atk.damageTypes.slice(1).map(dt => ({
+              expr: dt.expr.replace(/\s/g, ''),
+              label: dt.type || 'damage',
+              ...(dt.persistent ? { persistent: true } : {}),
+            })),
           ];
         } else {
           const match = atk.damage?.match(/(\d+d\d+)\s*([+-]\s*\d+)?/);
