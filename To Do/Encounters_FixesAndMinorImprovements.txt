@@ -1,8 +1,6 @@
 Minor Improvements:
     - pictures?
         - not implemented
-    - make ability damage scaler use dice more rather than applying the flat damage difference right in the damage description (e.g. magma dragon breath)
-    
 Backend Cleanup/Improvements:
     - consolidate custom creature and official creature storage formats, and consolidate their display
 
