@@ -66,6 +66,18 @@ interface EncounterManagerProps {
   onOpenPartyEditor?: (partyId: string | null) => void;
 }
 
+/**
+ * Compute whether a drag-over/drop event lands above or below the target card,
+ * based on cursor Y vs. the card's vertical midpoint. Module-scope and pure so
+ * `handleDragOver` and `handleDrop` share one implementation and `handleDrop`
+ * never reads stale midpoint state.
+ */
+function getDropPosition(e: React.DragEvent<HTMLElement>): 'above' | 'below' {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const midpoint = rect.top + rect.height / 2;
+  return e.clientY < midpoint ? 'above' : 'below';
+}
+
 function xpFor(monsterLevel: number, partyLevel: number): number {
   const d = monsterLevel - partyLevel;
   if (d >= 4) return 160;
@@ -862,14 +874,12 @@ export function EncounterManager({
                 if (!readDndPayload(e)) return;
                 e.preventDefault();
 
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                const midpoint = rect.top + rect.height / 2;
-                const position = e.clientY < midpoint ? 'above' : 'below';
-
+                const position = getDropPosition(e);
                 setDragOver({ uid: c.uid, position });
               };
 
-              const handleDragLeave = () => {
+              const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+                if ((e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) return;
                 setDragOver(null);
               };
 
@@ -879,7 +889,7 @@ export function EncounterManager({
                 if (!parsed) { setDragOver(null); return; }
 
                 const targetIdx = liveCombatCreatures.findIndex(cr => cr.uid === c.uid);
-                const position = dragOver?.position ?? 'below';
+                const position = getDropPosition(e);
                 const insertIdx = position === 'above' ? targetIdx : targetIdx + 1;
 
                 if (parsed.kind === 'combatant' && parsed.payload.uid !== c.uid) {
