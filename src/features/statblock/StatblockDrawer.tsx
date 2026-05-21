@@ -182,15 +182,19 @@ function StatblockContent({
   // Notes panel open/closed state — owned here so the header button can toggle it
   const [notesOpen, setNotesOpen] = useState(() => !!(activeNotes));
 
-  // Trait popups inside creature description text are never wanted — the
-  // dedicated trait chip row already exposes that information, and inline
-  // popups in the description distract from reading the prose.
-  const traitPopupsEnabled = false;
+  // Trait popups inside flavour / description prose are distracting — the
+  // dedicated trait chip row already exposes that information. Ability and
+  // item descriptions, however, keep popups so condition/skill keywords
+  // remain explorable (e.g. clicking "frightened" shows the condition text).
+  const descriptionPopupsEnabled = false;
+  const abilityPopupsEnabled = true;
 
-  // Wrapper that skips keyword linking in encounter context so .pf2kw spans are
-  // never injected into the DOM at all — bulletproof regardless of listeners.
-  const foundryHtml = (raw: string) =>
-    processFoundryHtml(raw, { interactive: traitPopupsEnabled });
+  // Wrappers for the two contexts. Description text strips .pf2kw spans
+  // entirely; ability text keeps them so the listener can pop tooltips.
+  const descriptionHtml = (raw: string) =>
+    processFoundryHtml(raw, { interactive: descriptionPopupsEnabled });
+  const abilityHtml = (raw: string) =>
+    processFoundryHtml(raw, { interactive: abilityPopupsEnabled });
 
   const {
     containerRef: pf2kwRef,
@@ -198,7 +202,7 @@ function StatblockContent({
     hover:        pf2kwHover,
     pinned:       pf2kwPinned,
     closePin:     pf2kwClosePin,
-  } = useContainerTraitTooltip({ enabled: traitPopupsEnabled });
+  } = useContainerTraitTooltip({ enabled: abilityPopupsEnabled });
 
   const {
     diceRoll, multiDamageRoll, manualRoll,
@@ -398,7 +402,7 @@ function StatblockContent({
     : `https://raw.githubusercontent.com/foundryvtt/pf2e/v14-dev/static/${imgPath.replace('systems/pf2e/', '')}`;
 
   return (
-    <div className={`${styles.content}${traitPopupsEnabled ? ' pf2kwInteractive' : ''}`} ref={pf2kwRef} onClick={handleBodyClick} onContextMenu={handleBodyContextMenu}>
+    <div className={`${styles.content}${abilityPopupsEnabled ? ' pf2kwInteractive' : ''}`} ref={pf2kwRef} onClick={handleBodyClick} onContextMenu={handleBodyContextMenu}>
       {pf2kwHover && !pf2kwPinned && <TraitHoverPopup {...pf2kwHover} />}
       {pf2kwPinned && <TraitPinnedPopup {...pf2kwPinned} popupRef={pf2kwPopupRef} onClose={pf2kwClosePin} />}
       {/* Header */}
@@ -601,7 +605,7 @@ function StatblockContent({
           <div
             className={styles.itemDesc}
             style={{ marginBottom: 6 }}
-            dangerouslySetInnerHTML={{ __html: foundryHtml(hazard!.description) }}
+            dangerouslySetInnerHTML={{ __html: descriptionHtml(hazard!.description) }}
           />
         )}
 
@@ -630,7 +634,7 @@ function StatblockContent({
                   </span>
                 ) : '—'}
                 {hazard!.stealth!.details
-                  ? <> <span dangerouslySetInnerHTML={{ __html: foundryHtml(hazard!.stealth!.details) }} /></>
+                  ? <> <span dangerouslySetInnerHTML={{ __html: abilityHtml(hazard!.stealth!.details) }} /></>
                   : null}
               </p>
             );
@@ -823,10 +827,10 @@ function StatblockContent({
         )}
 
         {passives.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel ?? scaledHazardStats?.targetLevel} interactive={traitPopupsEnabled} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel ?? scaledHazardStats?.targetLevel} interactive={abilityPopupsEnabled} />
         ))}
         {reactions.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel ?? scaledHazardStats?.targetLevel} interactive={traitPopupsEnabled} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel ?? scaledHazardStats?.targetLevel} interactive={abilityPopupsEnabled} />
         ))}
 
         <hr className={styles.divider} />
@@ -839,7 +843,7 @@ function StatblockContent({
             </p>
             <div
               className={styles.itemDesc}
-              dangerouslySetInnerHTML={{ __html: foundryHtml(
+              dangerouslySetInnerHTML={{ __html: abilityHtml(
                 scaledHazardStats ? scaleHazardHtml(hazard!.disable, level, scaledHazardStats.targetLevel) : hazard!.disable
               ) }}
             />
@@ -1005,7 +1009,7 @@ function StatblockContent({
         ))}
 
         {offenseActions.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel ?? scaledHazardStats?.targetLevel} interactive={traitPopupsEnabled} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel ?? scaledHazardStats?.targetLevel} interactive={abilityPopupsEnabled} />
         ))}
 
         {/* Routine — complex hazards only */}
@@ -1016,7 +1020,7 @@ function StatblockContent({
             </p>
             <div
               className={styles.itemDesc}
-              dangerouslySetInnerHTML={{ __html: foundryHtml(
+              dangerouslySetInnerHTML={{ __html: abilityHtml(
                 scaledHazardStats ? scaleHazardHtml(hazard!.routine, level, scaledHazardStats.targetLevel) : hazard!.routine
               ) }}
             />
@@ -1031,7 +1035,7 @@ function StatblockContent({
             </p>
             <div
               className={styles.itemDesc}
-              dangerouslySetInnerHTML={{ __html: foundryHtml(
+              dangerouslySetInnerHTML={{ __html: abilityHtml(
                 scaledHazardStats ? scaleHazardHtml(hazard!.reset, level, scaledHazardStats.targetLevel) : hazard!.reset
               ) }}
             />
@@ -1070,7 +1074,7 @@ function StatblockContent({
               ewStyle={ewStyle}
               onRollDamage={rollDamage}
               onManualRollDamage={manualRollDamage}
-              interactive={traitPopupsEnabled}
+              interactive={abilityPopupsEnabled}
             />
           );
         })}
@@ -1081,7 +1085,7 @@ function StatblockContent({
             <div className={styles.flavorBox}>
               <div
                 className={styles.publicNotes}
-                dangerouslySetInnerHTML={{ __html: foundryHtml(publicNotes) }}
+                dangerouslySetInnerHTML={{ __html: descriptionHtml(publicNotes) }}
               />
             </div>
           </>
