@@ -182,9 +182,10 @@ function StatblockContent({
   // Notes panel open/closed state — owned here so the header button can toggle it
   const [notesOpen, setNotesOpen] = useState(() => !!(activeNotes));
 
-  // Disable trait popups when viewing an encounter instance — the encounter's own
-  // trait tooltip handler owns interactions in that context.
-  const traitPopupsEnabled = encounterUid == null;
+  // Trait popups inside creature description text are never wanted — the
+  // dedicated trait chip row already exposes that information, and inline
+  // popups in the description distract from reading the prose.
+  const traitPopupsEnabled = false;
 
   // Wrapper that skips keyword linking in encounter context so .pf2kw spans are
   // never injected into the DOM at all — bulletproof regardless of listeners.
