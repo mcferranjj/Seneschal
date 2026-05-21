@@ -1,15 +1,15 @@
-import { createPortal } from 'react-dom';
-import { ABILITY_GLOSSARY } from '../../data/abilityGlossary';
-import { extractDamageGroups, processFoundryHtml } from '../../utils/foundryMacros';
+/**
+ * CustomAbilityBlock
+ *
+ * Renders a single custom-creature ability using the same layout as ItemBlock.
+ * Custom abilities live in `creature.customData.abilities[]` and use a flat
+ * data shape rather than the full PF2EItem structure, so this adapter bridges
+ * the two — constructing a minimal PF2EItem-compatible object and forwarding
+ * to ItemBlock.
+ */
+import { ItemBlock } from './ItemBlock';
 import type { DamageGroup } from '../../utils/foundryMacros';
-import { useGlossaryPopup } from '../../hooks/useGlossaryPopup';
-import { AbilityPopup } from './AbilityPopup';
-import { TraitChip } from './TraitChip';
-import styles from './StatblockDrawer.module.css';
-
-const ACTION_SYMBOLS: Record<string, string> = {
-  single: ' ◆', two: ' ◆◆', three: ' ◆◆◆', reaction: ' ↺', free: ' ◇', passive: '',
-};
+import type { PF2EItem } from '../../types/pf2e';
 
 export interface CustomAbilityBlockProps {
   ab: {
@@ -20,6 +20,7 @@ export interface CustomAbilityBlockProps {
     requirements?: string;
     frequency?: string;
     genericAbilityName?: string;
+    traits?: string[];
   };
   adjustedDesc: string;
   dmgMod: number;
@@ -30,73 +31,53 @@ export interface CustomAbilityBlockProps {
   interactive?: boolean;
 }
 
-export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDamage, onManualRollDamage, interactive = true }: CustomAbilityBlockProps) {
-  // Glossary lookup — prefer genericAbilityName, then fall back to the ability name itself
-  const glossaryKey = ab.genericAbilityName ?? ab.name;
-  const glossaryDesc = ABILITY_GLOSSARY[glossaryKey];
+export function CustomAbilityBlock({
+  ab,
+  adjustedDesc,
+  dmgMod,
+  ewStyle,
+  onRollDamage,
+  onManualRollDamage,
+  interactive = true,
+}: CustomAbilityBlockProps) {
+  // Build a minimal PF2EItem so ItemBlock can render without modification.
+  // Map custom actionType strings to the PF2EItemSystem's strict union.
+  // 'single'/'two'/'three' are custom-creature conventions; the PF2E schema
+  // uses 'action' for all action-cost abilities (cost is conveyed via actions.value).
+  const actionTypeMap: Record<string, 'action' | 'reaction' | 'free' | 'passive'> = {
+    single: 'action', two: 'action', three: 'action',
+    reaction: 'reaction', free: 'free', passive: 'passive',
+  };
+  const actionCostMap: Record<string, number> = { single: 1, two: 2, three: 3 };
 
-  const { popupOpen, togglePopup, closePopup, nameRef, popupRef, pos } = useGlossaryPopup();
-
-  const sym = ab.actionType ? (ACTION_SYMBOLS[ab.actionType] ?? '') : '';
-  const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];
-  const hasDamage = damageGroups.length > 0;
+  const syntheticItem: PF2EItem = {
+    _id: ab.name,
+    name: ab.name,
+    type: 'action',
+    system: {
+      description: { value: adjustedDesc },
+      actionType: { value: ab.actionType ? (actionTypeMap[ab.actionType] ?? 'action') : 'passive' },
+      actions: { value: ab.actionType ? (actionCostMap[ab.actionType] ?? null) : null },
+      trigger: { value: ab.trigger ?? '' },
+      traits: { value: ab.traits ?? [] },
+    },
+  };
 
   return (
-    <div className={styles.itemBlock}>
-      <p className={styles.itemHeader}>
-        <strong
-          ref={nameRef}
-          className={`${styles.itemName} ${glossaryDesc ? styles.abilityNameClickable : ''}`}
-          onClick={glossaryDesc ? togglePopup : undefined}
-          title={glossaryDesc ? 'Click for rules summary' : undefined}
-        >
-          {ab.name}
-        </strong>
-        {sym && <span className={styles.actionSymbol}>{sym}</span>}
-        {ab.traits && ab.traits.length > 0 && (
-          <span className={styles.itemTraits}>
-            {' ('}
-            {ab.traits.map((t, i) => (
-              <span key={t}>
-                <TraitChip trait={t} rarity="" variant="inline" />
-                {i < ab.traits!.length - 1 && ', '}
-              </span>
-            ))}
-            {')'}
-          </span>
-        )}
-        {ab.trigger && <> <strong>Trigger</strong> {ab.trigger};</>}
-        {ab.requirements && <> <strong>Requirements</strong> {ab.requirements};</>}
-        {ab.frequency && <> <strong>Frequency</strong> {ab.frequency}</>}
-      </p>
-      {adjustedDesc && (
-        <div
-          className={styles.itemDesc}
-          dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc, { interactive }) }}
-        />
-      )}
-      {hasDamage && (
-        <button
-          className={styles.rollAllDmgBtn}
-          style={dmgMod !== 0 ? { borderColor: ewStyle?.color, color: ewStyle?.color } : undefined}
-          title="Roll damage · right-click to input"
-          onClick={e => onRollDamage(damageGroups, ab.name, [], e)}
-          onContextMenu={onManualRollDamage ? e => { e.preventDefault(); onManualRollDamage(damageGroups, ab.name, e); } : undefined}
-        >
-          🎲 Roll damage {dmgMod !== 0 && <span className={styles.rollAllDmgMod}>({dmgMod > 0 ? `+${dmgMod}` : dmgMod})</span>}
-        </button>
-      )}
-
-      {popupOpen && glossaryDesc && pos && createPortal(
-        <AbilityPopup
-          name={glossaryKey}
-          desc={glossaryDesc}
-          pos={pos}
-          popupRef={popupRef}
-          onClose={closePopup}
-        />,
-        document.body,
-      )}
-    </div>
+    <ItemBlock
+      item={syntheticItem}
+      // dmgMod is pre-computed by the caller; pass ewMod=0 so ItemBlock doesn't
+      // double-apply elite/weak scaling (the caller already baked it into adjustedDesc).
+      ewMod={0}
+      ewStyle={dmgMod !== 0 ? ewStyle : undefined}
+      onRollAll={onRollDamage}
+      onManualRollDamage={onManualRollDamage}
+      interactive={interactive}
+      overrides={{
+        glossaryKey: ab.genericAbilityName ?? ab.name,
+        requirements: ab.requirements,
+        frequency: ab.frequency,
+      }}
+    />
   );
 }
