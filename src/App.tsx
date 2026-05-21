@@ -50,7 +50,7 @@ const SECTION_LABELS: Record<Section, string> = {
 
 export default function App() {
   // Theme — loads from localStorage, derives all tokens, applies to :root
-  const { activeTheme, setTheme } = useTheme();
+  const { activeTheme, setTheme, savedThemes, saveThemeAs, deleteSavedTheme } = useTheme();
 
   // Persisted UI preferences — loaded once from localStorage on mount
   const { loadedPrefs, persistPrefs } = useUIPrefs();
@@ -408,7 +408,10 @@ export default function App() {
         onToggleHistory={() => setHistoryOpen(o => !o)}
         onResetDatabase={handleResetDatabase}
         activeTheme={activeTheme}
+        savedThemes={savedThemes}
         onApplyTheme={setTheme}
+        onSaveThemeAs={saveThemeAs}
+        onDeleteSavedTheme={deleteSavedTheme}
       />
       {historyOpen && (
         <RollHistory

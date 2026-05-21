@@ -5,42 +5,25 @@
  * StatblockDrawer.tsx (traitColor + rarity colors) and CreatureRow.tsx
  * (RARITY_COLORS + TRAIT_COLORS). Pure data + one pure function — no React, no DB.
  *
- * Colors are read from CSS custom properties at call time so they respond to
- * theme changes without a page reload.
+ * Colors are returned as CSS `var(--color-trait-*)` references so that the browser
+ * resolves them at paint time. This means trait badge colors update instantly
+ * whenever the theme CSS variables change — no React re-render required.
  */
 
-/** Read a CSS custom property from :root. Falls back to the provided default. */
-function cssVar(name: string, fallback: string): string {
-  if (typeof document === 'undefined') return fallback;
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
-}
-
-/** Rarity-specific badge colors, read live from the theme. */
+/** Rarity-specific badge colors as CSS var references. */
 export function rarityColor(rarity: string): string | undefined {
   switch (rarity.toLowerCase()) {
-    case 'uncommon': return cssVar('--color-trait-uncommon', '#8a6a18');
-    case 'rare':     return cssVar('--color-trait-rare',     '#2a4a8a');
-    case 'unique':   return cssVar('--color-trait-unique',   '#6a2a8a');
+    case 'uncommon': return 'var(--color-trait-uncommon)';
+    case 'rare':     return 'var(--color-trait-rare)';
+    case 'unique':   return 'var(--color-trait-unique)';
     default:         return undefined;
   }
 }
 
-/** Default trait chip color (all non-rarity traits). */
+/** Default trait chip color as a CSS var reference. */
 export function defaultTraitColor(): string {
-  return cssVar('--color-trait-default', '#522e2c');
+  return 'var(--color-trait-default)';
 }
-
-// ── Legacy named exports kept for backwards compat ────────────────────────────
-
-/** @deprecated use rarityColor() instead */
-export const RARITY_COLORS: Record<string, string> = {
-  uncommon: '#8a6a18',
-  rare:     '#2a4a8a',
-  unique:   '#6a2a8a',
-};
-
-/** Alignment / creature-type trait badge colors (all default to the theme color). */
-export const TRAIT_COLORS: Record<string, string> = {};
 
 /**
  * Returns the background color for a trait badge.

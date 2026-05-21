@@ -410,7 +410,7 @@
   box-sizing: border-box;
   resize: none;
   overflow-y: auto;
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--color-surface);
   border: 1px solid var(--color-accent-tooltip-2);
   border-radius: 4px;
   padding: 5px 8px;
@@ -425,7 +425,7 @@
 .notesTextarea:focus {
   outline: none;
   border-color: var(--color-accent-dark);
-  background: rgba(255, 255, 255, 0.75);
+  background: var(--color-bg);
 }
 
 .notesTextarea::placeholder {
@@ -496,8 +496,8 @@
   width: 260px;
   max-height: 200px;
   overflow-y: auto;
-  background: #2a1a0a;
-  border: 1px solid rgba(255,255,255,0.15);
+  background: var(--color-bg-popup);
+  border: 1px solid var(--color-border-on-primary);
   border-radius: 5px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.45);
   padding: 7px 10px;
@@ -505,7 +505,7 @@
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
-  color: #e8d8b8;
+  color: var(--color-primary-text);
   line-height: 1.5;
   white-space: normal;
   transition: opacity 0.1s;
@@ -514,7 +514,7 @@
 .traitTooltipName {
   font-weight: 700;
   font-size: 0.8rem;
-  color: #f0e0c0;
+  color: var(--color-primary-text);
   display: block;
   margin-bottom: 3px;
   text-transform: uppercase;
@@ -527,8 +527,8 @@
   width: 260px;
   max-height: 320px;
   overflow-y: auto;
-  background: #2a1a0a;
-  border: 1px solid rgba(255,255,255,0.25);
+  background: var(--color-bg-popup);
+  border: 1px solid var(--color-border-on-primary);
   border-radius: 5px;
   box-shadow: 0 6px 22px rgba(0,0,0,0.55);
   padding: 0;
@@ -536,7 +536,7 @@
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
-  color: #e8d8b8;
+  color: var(--color-primary-text);
   line-height: 1.5;
   white-space: normal;
 }
@@ -547,16 +547,16 @@
   justify-content: space-between;
   gap: 6px;
   padding: 6px 8px 5px;
-  border-bottom: 1px solid rgba(255,255,255,0.12);
+  border-bottom: 1px solid var(--color-border-on-primary);
   position: sticky;
   top: 0;
-  background: #2a1a0a;
+  background: var(--color-bg-popup);
 }
 
 .traitPinnedPopupName {
   font-weight: 700;
   font-size: 0.8rem;
-  color: #f0e0c0;
+  color: var(--color-primary-text);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -564,7 +564,7 @@
 .traitPinnedPopupClose {
   background: none;
   border: none;
-  color: rgba(255,255,255,0.45);
+  color: var(--color-primary-text-muted);
   cursor: pointer;
   font-size: 0.72rem;
   line-height: 1;
@@ -575,8 +575,8 @@
 }
 
 .traitPinnedPopupClose:hover {
-  background: rgba(255,255,255,0.12);
-  color: #fff;
+  background: var(--color-surface-on-primary);
+  color: var(--color-primary-text);
 }
 
 .traitPinnedPopupDesc {
