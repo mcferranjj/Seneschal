@@ -7,6 +7,7 @@
  */
 
 import type { PF2ECreature } from '../types/pf2e';
+import { CREATURE_TYPES } from '../data/pf2eConstants';
 
 /**
  * Normalizes a raw `system.details.creatureType` value into a family string.
@@ -48,6 +49,26 @@ const SIZE_DISPLAY_MAP: Record<string, string> = {
 export function getSizeLabel(c: PF2ECreature): string {
   const raw = getSize(c);
   return SIZE_DISPLAY_MAP[raw] ?? raw;
+}
+
+// Lowercase set built once at module level — used by sortTraits.
+const CREATURE_TYPES_LOWER = new Set(CREATURE_TYPES.map(t => t.toLowerCase()));
+
+/**
+ * Sorts a raw trait array into canonical display order:
+ *   creature types (A–Z) → "complex" (if injected) → all other traits (A–Z).
+ *
+ * Rarity and size are NOT included here — callers prepend those separately.
+ * The `injectComplex` flag handles hazards whose "complex" trait is stored on
+ * the hazard record rather than in the traits array.
+ */
+export function sortTraits(traits: string[], injectComplex = false): string[] {
+  const complexAlreadyPresent = traits.some(t => t.toLowerCase() === 'complex');
+  return [
+    ...traits.filter(t => CREATURE_TYPES_LOWER.has(t.toLowerCase())).sort((a, b) => a.localeCompare(b)),
+    ...(injectComplex && !complexAlreadyPresent ? ['complex'] : []),
+    ...traits.filter(t => !CREATURE_TYPES_LOWER.has(t.toLowerCase()) && t.toLowerCase() !== 'complex').sort((a, b) => a.localeCompare(b)),
+  ];
 }
 
 /**

@@ -72,10 +72,11 @@ export function StatblockCustomAttacks({
             ? `${primaryExprRaw}${ewMod >= 0 ? `+${ewMod}` : ewMod}`
             : primaryExprRaw;
           damageGroups = [
-            { expr: primaryExprForEwMod, label: primary.type || 'damage' },
+            { expr: primaryExprForEwMod, label: primary.type || 'damage', ...(primary.persistent ? { persistent: true } : {}) },
             ...atk.damageTypes.slice(1).map(dt => ({
               expr: dt.expr.replace(/\s/g, ''),
               label: dt.type || 'damage',
+              ...(dt.persistent ? { persistent: true } : {}),
             })),
           ];
         } else {

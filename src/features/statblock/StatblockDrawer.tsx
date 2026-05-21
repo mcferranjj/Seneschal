@@ -44,6 +44,7 @@ import { NotesPanel } from './NotesPanel';
 import { useContainerTraitTooltip } from '../../hooks/useContainerTraitTooltip';
 import { TraitHoverPopup, TraitPinnedPopup } from './TraitPopup';
 import { getAonUrl } from '../../utils/aonSearch';
+import { sortTraits } from '../../utils/pf2eHelpers';
 import { StatblockHeader } from './StatblockHeader';
 import { StatblockDefenses } from './StatblockDefenses';
 import { StatblockSkillsAbilities } from './StatblockSkillsAbilities';
@@ -263,11 +264,12 @@ function StatblockContent({
     isHazard && effectiveScaledLevel != null ? buildScaledHazard(creature, effectiveScaledLevel) : null;
   const scaledStats = scaledCreatureStats;
 
+  // Build display trait list: rarity → size → sorted creature traits.
+  // sortTraits handles: creature types (A–Z) → complex → other traits (A–Z).
   const allTraits = [
     ...(rarity !== 'common' ? [rarity] : []),
     ...(!isHazard ? [size] : []),
-    ...traits,
-    ...(hazard?.isComplex && !traits.includes('complex') ? ['complex'] : []),
+    ...sortTraits(traits, hazard?.isComplex ?? false),
   ];
 
   const [aonURL, setAonURL] = useState<string | null>(null);
@@ -354,6 +356,41 @@ function StatblockContent({
   const imageUrl = isDefaultIcon
     ? null
     : `https://raw.githubusercontent.com/foundryvtt/pf2e/v14-dev/static/${imgPath.replace('systems/pf2e/', '')}`;
+
+  // Renders a filtered subset of a custom creature's abilities as CustomAbilityBlocks.
+  // Extracted to avoid duplicating the dmgMod/dcMod/scaling pipeline at each call site.
+  function renderCustomAbilities(
+    filter: (ab: import('../../types/encounter').CustomAbility) => boolean,
+    keyPrefix: string,
+  ) {
+    if (creature.publication !== 'Custom') return null;
+    return (creature.customData?.abilities ?? []).filter(filter).map((ab, i) => {
+      const limited = ab.frequency != null && ab.frequency !== '';
+      const dmgMod  = ewMod !== 0 ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2)) : 0;
+      const dcMod   = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
+      const rawDesc = ab.description ?? '';
+      const scaledDesc = scaledStats
+        ? scaleAbilityHtml(rawDesc, level, scaledStats.targetLevel)
+        : scaledHazardStats
+          ? scaleHazardHtml(rawDesc, level, scaledHazardStats.targetLevel)
+          : rawDesc;
+      const adjustedDesc = (dmgMod !== 0 || dcMod !== 0)
+        ? applyEliteWeakToHtml(scaledDesc, dmgMod, dcMod)
+        : scaledDesc;
+      return (
+        <CustomAbilityBlock
+          key={`${keyPrefix}-${i}`}
+          ab={ab}
+          adjustedDesc={adjustedDesc}
+          dmgMod={dmgMod}
+          ewStyle={ewStyle}
+          onRollDamage={rollDamage}
+          onManualRollDamage={manualRollDamage}
+          interactive={abilityPopupsEnabled}
+        />
+      );
+    });
+  }
 
   // Shared ItemBlock props to avoid repeating them on every call site
   const itemBlockProps = {
@@ -547,6 +584,11 @@ function StatblockContent({
         {reactions.map(item => (
           <ItemBlock key={item._id} item={item} {...itemBlockProps} />
         ))}
+        {/* Custom creature passives and reactions — shown here to match official ordering */}
+        {renderCustomAbilities(
+          ab => ab.actionType === 'passive' || ab.actionType === 'reaction' || ab.actionType == null,
+          'pre',
+        )}
 
         <hr className={styles.divider} />
 
@@ -685,33 +727,11 @@ function StatblockContent({
           </p>
         )}
 
-        {/* Custom creature abilities */}
-        {creature.publication === 'Custom' && (creature.customData?.abilities ?? []).map((ab, i) => {
-          const limited = ab.frequency != null && ab.frequency !== '';
-          const dmgMod  = ewMod !== 0 ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2)) : 0;
-          const dcMod   = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
-          const rawDesc = ab.description ?? '';
-          const scaledDesc = scaledStats
-            ? scaleAbilityHtml(rawDesc, level, scaledStats.targetLevel)
-            : scaledHazardStats
-              ? scaleHazardHtml(rawDesc, level, scaledHazardStats.targetLevel)
-              : rawDesc;
-          const adjustedDesc = (dmgMod !== 0 || dcMod !== 0)
-            ? applyEliteWeakToHtml(scaledDesc, dmgMod, dcMod)
-            : scaledDesc;
-          return (
-            <CustomAbilityBlock
-              key={i}
-              ab={ab}
-              adjustedDesc={adjustedDesc}
-              dmgMod={dmgMod}
-              ewStyle={ewStyle}
-              onRollDamage={rollDamage}
-              onManualRollDamage={manualRollDamage}
-              interactive={abilityPopupsEnabled}
-            />
-          );
-        })}
+        {/* Custom creature active abilities (actions, free actions) — passives and reactions rendered above */}
+        {renderCustomAbilities(
+          ab => ab.actionType === 'single' || ab.actionType === 'two' || ab.actionType === 'three' || ab.actionType === 'free',
+          'post',
+        )}
 
         {!isHazard && publicNotes && (
           <>

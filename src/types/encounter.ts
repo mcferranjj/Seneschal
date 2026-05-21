@@ -10,6 +10,8 @@ export interface CustomAttackDamageType {
   expr: string;
   /** Damage type, e.g. "slashing", "fire", "persistent fire" */
   type: string;
+  /** True when this is persistent damage — never rolled, shown as a static expression. */
+  persistent?: boolean;
 }
 
 export interface CustomAttack {
