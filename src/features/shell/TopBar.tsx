@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Section } from '../../types/encounter';
-import type { Theme } from '../../utils/themeEngine';
+import type { Theme, ThemeTokens } from '../../utils/themeEngine';
 import styles from './TopBar.module.css';
 import { HelpModal } from './HelpModal';
 import { ThemePicker } from './ThemePicker';
@@ -14,10 +14,13 @@ interface TopBarProps {
   onToggleHistory: () => void;
   onResetDatabase: () => Promise<void>;
   activeTheme: Theme;
+  savedThemes: Theme[];
   onApplyTheme: (theme: Theme) => void;
+  onSaveThemeAs: (tokens: ThemeTokens, name: string) => void;
+  onDeleteSavedTheme: (id: string) => void;
 }
 
-export function TopBar({ activeSection, onSectionChange, historyCount, historyOpen, onToggleHistory, onResetDatabase, activeTheme, onApplyTheme }: TopBarProps) {
+export function TopBar({ activeSection, onSectionChange, historyCount, historyOpen, onToggleHistory, onResetDatabase, activeTheme, savedThemes, onApplyTheme, onSaveThemeAs, onDeleteSavedTheme }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -162,7 +165,10 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
       {themePickerOpen && (
         <ThemePicker
           activeTheme={activeTheme}
+          savedThemes={savedThemes}
           onApply={onApplyTheme}
+          onSaveAs={onSaveThemeAs}
+          onDeleteSaved={onDeleteSavedTheme}
           onClose={() => setThemePickerOpen(false)}
         />
       )}

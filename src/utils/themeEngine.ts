@@ -67,7 +67,7 @@ export const PRESET_THEMES: Theme[] = [
     tokens: {
       bg:        '#1a1a2e',
       surface:   '#16213e',
-      primary:   '#e94560',
+      primary:   '#2e4a7a',
       accent:    '#e2b96f',
       text:      '#e0e0f0',
       healing:   '#4caf7d',
@@ -313,6 +313,27 @@ export function deriveTokens(t: ThemeTokens): Record<string, string> {
     '--color-trait-rare':     t.traitRare,
     '--color-trait-unique':   t.traitUnique,
   };
+}
+
+/**
+ * Read the current computed value of a CSS custom property from :root.
+ * Returns an empty string if the property is not set.
+ */
+export function readCssVar(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+/**
+ * Snapshot the current :root values for every CSS var listed in the provided
+ * meta array. Used by ThemePicker to seed the Advanced overrides panel.
+ */
+export function snapshotCssVars(cssVarNames: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const name of cssVarNames) {
+    const v = readCssVar(name);
+    if (v) out[name] = v;
+  }
+  return out;
 }
 
 /**

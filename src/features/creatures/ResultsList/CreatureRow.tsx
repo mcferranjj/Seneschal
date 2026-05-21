@@ -1,6 +1,6 @@
 import type { CreatureRecord } from '../../../db/schema';
 import { SIZE_LABELS } from '../../../data/pf2eConstants';
-import { RARITY_COLORS, traitBg } from '../../../utils/traitColors';
+import { rarityColor, traitBg } from '../../../utils/traitColors';
 import styles from './ResultsList.module.css';
 
 interface CreatureRowProps {
@@ -11,7 +11,7 @@ interface CreatureRowProps {
 }
 
 export function CreatureRow({ creature, isSelected, onClick, onAddToEncounter }: CreatureRowProps) {
-  const rarityColor = RARITY_COLORS[creature.rarity] ?? null;
+  const chipColor = rarityColor(creature.rarity);
   const shownTraits = creature.traits.slice(0, 3);
   const sizeLabel = SIZE_LABELS[creature.size] ?? creature.size;
   const levelLabel = `Lv ${creature.level}`;
@@ -30,8 +30,8 @@ export function CreatureRow({ creature, isSelected, onClick, onAddToEncounter }:
       <div className={styles.rowTop}>
         <div className={styles.nameRow}>
           <span className={styles.name}>{creature.name}</span>
-          {creature.rarity !== 'common' && rarityColor && (
-            <span className={styles.rarityChip} style={{ background: rarityColor }}>
+          {creature.rarity !== 'common' && chipColor && (
+            <span className={styles.rarityChip} style={{ background: chipColor }}>
               {creature.rarity}
             </span>
           )}

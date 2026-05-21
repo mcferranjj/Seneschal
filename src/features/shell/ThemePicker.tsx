@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Theme, ThemeTokens } from '../../utils/themeEngine';
-import { PRESET_THEMES, ADVANCED_TOKEN_DEFAULTS, applyTheme, deriveTokens, applyTokens } from '../../utils/themeEngine';
+import { PRESET_THEMES, applyTheme, deriveTokens, applyTokens, snapshotCssVars } from '../../utils/themeEngine';
 import styles from './ThemePicker.module.css';
 
 interface ThemePickerProps {
   activeTheme: Theme;
+  savedThemes: Theme[];
   onApply: (theme: Theme) => void;
+  onSaveAs: (tokens: ThemeTokens, name: string) => void;
+  onDeleteSaved: (id: string) => void;
   onClose: () => void;
 }
 
@@ -26,13 +29,12 @@ const BASE_TOKEN_META: { key: keyof ThemeTokens; label: string; desc: string }[]
 ];
 
 // ── Advanced token descriptors ────────────────────────────────────────────────
-// Each entry is a directly-settable CSS var (not derived) with a label + group.
 
 interface AdvancedMeta {
   cssVar: string;
   label: string;
   group: string;
-  tokenKey?: keyof ThemeTokens; // if this maps directly to a ThemeTokens field
+  tokenKey?: keyof ThemeTokens;
 }
 
 const ADVANCED_META: AdvancedMeta[] = [
@@ -76,32 +78,60 @@ const ADVANCED_GROUPS = Array.from(new Set(ADVANCED_META.map(m => m.group)));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Read the current computed value of a CSS var on :root. */
-function readCssVar(cssVar: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();
-}
-
-/** Build the initial advanced overrides map from current :root values. */
+/** Snapshot current :root values for all advanced CSS vars. */
 function buildInitialOverrides(): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const { cssVar } of ADVANCED_META) {
-    const v = readCssVar(cssVar);
-    if (v) out[cssVar] = v;
-  }
-  return out;
+  return snapshotCssVars(ADVANCED_META.map(m => m.cssVar));
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function ThemePicker({ activeTheme, onApply, onClose }: ThemePickerProps) {
+export function ThemePicker({ activeTheme, savedThemes, onApply, onSaveAs, onDeleteSaved, onClose }: ThemePickerProps) {
   const [tab, setTab] = useState<Tab>('theme');
   const [customTokens, setCustomTokens] = useState<ThemeTokens>({ ...activeTheme.tokens });
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(activeTheme.id);
-  // Advanced overrides: cssVar → hex string.  Populated from :root on first advanced tab open.
   const [advOverrides, setAdvOverrides] = useState<Record<string, string>>({});
   const [advInitialised, setAdvInitialised] = useState(false);
 
-  // Lazily read current :root values the first time the Advanced tab opens
+  // "Save as…" inline prompt state
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const [saveAsName, setSaveAsName] = useState('');
+  const saveAsInputRef = useRef<HTMLInputElement>(null);
+
+  // Whether the user has diverged from any named preset/saved theme
+  const isDirty = selectedPresetId === null;
+
+  // Debounce timer refs
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingPreviewRef = useRef<(() => void) | null>(null);
+
+  const schedulePreview = useCallback((fn: () => void) => {
+    pendingPreviewRef.current = fn;
+    if (previewTimerRef.current) return;
+    previewTimerRef.current = setTimeout(() => {
+      previewTimerRef.current = null;
+      pendingPreviewRef.current?.();
+      pendingPreviewRef.current = null;
+    }, 32);
+  }, []);
+
+  // Cancel pending preview on unmount
+  useEffect(() => {
+    return () => {
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+        pendingPreviewRef.current = null;
+      }
+    };
+  }, []);
+
+  // Focus the name input when Save As panel opens
+  useEffect(() => {
+    if (saveAsOpen) saveAsInputRef.current?.focus();
+  }, [saveAsOpen]);
+
+  // ── Advanced tab init ─────────────────────────────────────────────────────
+
   function ensureAdvInit() {
     if (!advInitialised) {
       setAdvOverrides(buildInitialOverrides());
@@ -109,67 +139,114 @@ export function ThemePicker({ activeTheme, onApply, onClose }: ThemePickerProps)
     }
   }
 
-  // ── Preset / base color handlers ──────────────────────────────────────────
+  // ── Preset / saved-theme selection ────────────────────────────────────────
 
   function handlePresetClick(preset: Theme) {
     setSelectedPresetId(preset.id);
     setCustomTokens({ ...preset.tokens });
+    setSaveAsOpen(false);
     applyTheme(preset.tokens);
-    // Reset advanced overrides so they re-derive from the new preset
     setAdvOverrides(buildInitialOverrides());
   }
+
+  // ── Base colour pickers ───────────────────────────────────────────────────
 
   function handleBaseTokenChange(key: keyof ThemeTokens, value: string) {
     const next = { ...customTokens, [key]: value };
     setCustomTokens(next);
     setSelectedPresetId(null);
-    applyTheme(next);
-    // Refresh advanced overrides to reflect re-derived values
-    if (advInitialised) setAdvOverrides(buildInitialOverrides());
+    setSaveAsOpen(false);
+    schedulePreview(() => {
+      applyTheme(next);
+      if (advInitialised) setAdvOverrides(buildInitialOverrides());
+    });
   }
 
-  // ── Advanced handlers ─────────────────────────────────────────────────────
+  // ── Advanced overrides ────────────────────────────────────────────────────
 
   function handleAdvChange(meta: AdvancedMeta, value: string) {
     const next = { ...advOverrides, [meta.cssVar]: value };
     setAdvOverrides(next);
     setSelectedPresetId(null);
+    setSaveAsOpen(false);
 
-    // If this var maps to a ThemeTokens field, keep customTokens in sync
     if (meta.tokenKey) {
       const nextTokens = { ...customTokens, [meta.tokenKey]: value };
       setCustomTokens(nextTokens);
-      // Re-derive everything from updated base tokens, then overlay the manual overrides
-      const derived = deriveTokens(nextTokens);
-      applyTokens({ ...derived, ...next });
+      schedulePreview(() => {
+        const derived = deriveTokens(nextTokens);
+        applyTokens({ ...derived, ...next });
+      });
     } else {
-      // Just set the single CSS var directly
-      document.documentElement.style.setProperty(meta.cssVar, value);
+      schedulePreview(() => {
+        document.documentElement.style.setProperty(meta.cssVar, value);
+      });
     }
   }
 
-  // ── Apply / Reset ─────────────────────────────────────────────────────────
+  // ── Apply (activate without saving to library) ────────────────────────────
+
+  function flushPendingPreview() {
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+      pendingPreviewRef.current = null;
+    }
+  }
 
   function handleApply() {
-    const isPreset = selectedPresetId !== null;
-    const preset = isPreset ? PRESET_THEMES.find(p => p.id === selectedPresetId) ?? null : null;
+    flushPendingPreview();
+    // If a preset is selected, apply it directly; otherwise build a nameless custom theme
+    const preset = selectedPresetId
+      ? PRESET_THEMES.find(p => p.id === selectedPresetId) ??
+        savedThemes.find(t => t.id === selectedPresetId) ?? null
+      : null;
     const theme: Theme = preset ?? { id: 'custom', name: 'Custom', tokens: customTokens };
-    // Persist any advanced overrides as inline style so they survive a re-apply
-    // (applyTheme re-derives, so we need to re-apply overrides on top)
     onApply(theme);
-    // Re-apply advanced overrides on top of what onApply just set
     for (const [k, v] of Object.entries(advOverrides)) {
       document.documentElement.style.setProperty(k, v);
     }
     onClose();
   }
 
+  // ── Save As (persist to library + activate) ───────────────────────────────
+
+  function handleSaveAsSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    flushPendingPreview();
+    const name = saveAsName.trim();
+    if (!name) return;
+    onSaveAs(customTokens, name);
+    // Re-apply any advanced overrides on top
+    for (const [k, v] of Object.entries(advOverrides)) {
+      document.documentElement.style.setProperty(k, v);
+    }
+    onClose();
+  }
+
+  function handleOpenSaveAs() {
+    setSaveAsName('');
+    setSaveAsOpen(true);
+  }
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
+
   function handleReset() {
     const def = PRESET_THEMES[0];
     setSelectedPresetId(def.id);
     setCustomTokens({ ...def.tokens });
+    setSaveAsOpen(false);
     applyTheme(def.tokens);
     if (advInitialised) setAdvOverrides(buildInitialOverrides());
+  }
+
+  // ── Delete saved theme ────────────────────────────────────────────────────
+
+  function handleDeleteSaved(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
+    onDeleteSaved(id);
+    // If the deleted theme was selected, deselect
+    if (selectedPresetId === id) setSelectedPresetId(null);
   }
 
   return (
@@ -181,13 +258,20 @@ export function ThemePicker({ activeTheme, onApply, onClose }: ThemePickerProps)
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close">✕</button>
         </div>
 
+        {/* Active theme indicator */}
+        <div className={styles.savedBanner}>
+          <span className={styles.savedLabel}>Active:</span>
+          <span className={styles.savedName}>{activeTheme.name}</span>
+          <span className={styles.savedHint}>(unsaved changes are lost on close without applying)</span>
+        </div>
+
         {/* Tabs */}
         <div className={styles.tabs}>
           <button
             className={`${styles.tab} ${tab === 'theme' ? styles.tabActive : ''}`}
             onClick={() => setTab('theme')}
           >
-            Presets & Colors
+            Presets &amp; Colors
           </button>
           <button
             className={`${styles.tab} ${tab === 'advanced' ? styles.tabActive : ''}`}
@@ -200,7 +284,39 @@ export function ThemePicker({ activeTheme, onApply, onClose }: ThemePickerProps)
         <div className={styles.body}>
           {tab === 'theme' && (
             <>
-              {/* Preset cards */}
+              {/* User-saved custom themes */}
+              {savedThemes.length > 0 && (
+                <div>
+                  <div className={styles.sectionLabel}>My themes</div>
+                  <div className={styles.presetGrid}>
+                    {savedThemes.map(theme => (
+                      <div key={theme.id} className={styles.presetCardWrap}>
+                        <button
+                          className={`${styles.presetCard} ${selectedPresetId === theme.id ? styles.presetCardActive : ''}`}
+                          onClick={() => handlePresetClick(theme)}
+                          title={theme.name}
+                        >
+                          <SwatchStrip tokens={theme.tokens} />
+                          <div className={styles.presetLabel}>
+                            <span className={styles.presetLabelName}>{theme.name}</span>
+                            {selectedPresetId === theme.id && <span className={styles.activeCheck}>✓</span>}
+                          </div>
+                        </button>
+                        <button
+                          className={styles.presetDeleteBtn}
+                          onClick={e => handleDeleteSaved(e, theme.id)}
+                          title={`Delete "${theme.name}"`}
+                          aria-label={`Delete ${theme.name}`}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Built-in preset themes */}
               <div>
                 <div className={styles.sectionLabel}>Presets</div>
                 <div className={styles.presetGrid}>
@@ -268,9 +384,47 @@ export function ThemePicker({ activeTheme, onApply, onClose }: ThemePickerProps)
             <button className={styles.resetBtn} onClick={handleReset}>
               Reset to default
             </button>
-            <button className={styles.applyBtn} onClick={handleApply}>
-              Apply theme
-            </button>
+
+            {/* Save As inline prompt — only shown when user has made custom changes */}
+            {saveAsOpen && isDirty ? (
+              <form className={styles.saveAsForm} onSubmit={handleSaveAsSubmit}>
+                <input
+                  ref={saveAsInputRef}
+                  className={styles.saveAsInput}
+                  type="text"
+                  value={saveAsName}
+                  onChange={e => setSaveAsName(e.target.value)}
+                  placeholder="Theme name…"
+                  maxLength={40}
+                  aria-label="Theme name"
+                />
+                <button
+                  type="submit"
+                  className={styles.applyBtn}
+                  disabled={!saveAsName.trim()}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className={styles.resetBtn}
+                  onClick={() => setSaveAsOpen(false)}
+                >
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <>
+                {isDirty && (
+                  <button className={styles.saveAsBtn} onClick={handleOpenSaveAs}>
+                    Save as…
+                  </button>
+                )}
+                <button className={styles.applyBtn} onClick={handleApply}>
+                  Apply
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -285,8 +439,6 @@ function ColorRow({
 }: {
   label: string; desc: string; value: string; onChange: (v: string) => void;
 }) {
-  // Normalise value: CSS vars that are rgba(...) can't be put in <input type="color">,
-  // so we show a best-effort hex by stripping alpha.  Changes always come back as hex.
   const displayHex = value.startsWith('#') ? value : '#888888';
 
   return (
@@ -319,6 +471,3 @@ function SwatchStrip({ tokens }: { tokens: ThemeTokens }) {
     </div>
   );
 }
-
-// Keep legacy export name working
-export { ADVANCED_TOKEN_DEFAULTS };
