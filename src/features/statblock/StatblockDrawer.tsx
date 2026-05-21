@@ -392,7 +392,7 @@ function StatblockContent({
     : `https://raw.githubusercontent.com/foundryvtt/pf2e/v14-dev/static/${imgPath.replace('systems/pf2e/', '')}`;
 
   return (
-    <div className={styles.content} ref={pf2kwRef} onClick={handleBodyClick} onContextMenu={handleBodyContextMenu}>
+    <div className={`${styles.content}${traitPopupsEnabled ? ' pf2kwInteractive' : ''}`} ref={pf2kwRef} onClick={handleBodyClick} onContextMenu={handleBodyContextMenu}>
       {pf2kwHover && !pf2kwPinned && <TraitHoverPopup {...pf2kwHover} />}
       {pf2kwPinned && <TraitPinnedPopup {...pf2kwPinned} popupRef={pf2kwPopupRef} onClose={pf2kwClosePin} />}
       {/* Header */}

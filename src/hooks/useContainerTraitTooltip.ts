@@ -58,6 +58,14 @@ export function useContainerTraitTooltip(
 
   const closePin = useCallback(() => setPinned(null), []);
 
+  // ── Clear stale popup state when tooltips are disabled ───────────────────
+  useEffect(() => {
+    if (!enabled) {
+      setHover(null);
+      setPinned(null);
+    }
+  }, [enabled]);
+
   // ── DOM listeners for hover and click-to-pin ──────────────────────────────
   useEffect(() => {
     if (!enabled) return;
