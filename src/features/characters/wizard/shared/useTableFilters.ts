@@ -70,11 +70,15 @@ export function useTableFilters<ColKey extends string>(
   }
 
   function setTextFilter(col: ColKey, value: string) {
-    setTextFilters(prev =>
-      value === ''
-        ? (({ [col]: _, ...rest }) => rest)(prev)
-        : { ...prev, [col]: value },
-    );
+    setTextFilters(prev => {
+      const next = { ...prev };
+      if (value === '') {
+        delete next[col];
+      } else {
+        next[col] = value;
+      }
+      return next;
+    });
   }
 
   function clearColumnFilter(col: ColKey) {

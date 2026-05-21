@@ -14,15 +14,21 @@ import { AbilityPopup } from './AbilityPopup';
 import { TraitChip } from './TraitChip';
 import styles from './StatblockDrawer.module.css';
 
+/**
+ * Shared lookup table for action-cost symbols.
+ * Used by ItemBlock (official items) and CustomAbilityBlock (custom abilities).
+ */
+export const ACTION_SYMBOLS: Record<string, string> = {
+  single: ' ◆', two: ' ◆◆', three: ' ◆◆◆', reaction: ' ↺', free: ' ◇', passive: '',
+};
+
 function actionSymbol(item: PF2EItem): string {
   const at = item.system?.actionType?.value;
+  if (at && at in ACTION_SYMBOLS) return ACTION_SYMBOLS[at];
   const cost = item.system?.actions?.value;
-  if (at === 'reaction') return ' ↺';
-  if (at === 'free') return ' ◇';
-  if (at === 'passive') return '';
-  if (cost === 1) return ' ◆';
-  if (cost === 2) return ' ◆◆';
-  if (cost === 3) return ' ◆◆◆';
+  if (cost === 1) return ACTION_SYMBOLS.single;
+  if (cost === 2) return ACTION_SYMBOLS.two;
+  if (cost === 3) return ACTION_SYMBOLS.three;
   return '';
 }
 
@@ -36,9 +42,20 @@ interface ItemBlockProps {
   targetLevel?: number;
   /** When false, skips keyword linking so no .pf2kw tooltip spans are injected. Defaults to true. */
   interactive?: boolean;
+  /**
+   * Optional overrides for custom-creature abilities that share this layout
+   * but store data outside the PF2EItem structure.
+   */
+  overrides?: {
+    /** Displayed name (overrides item.name for glossary key lookup). */
+    glossaryKey?: string;
+    /** Extra metadata lines rendered in the item header. */
+    requirements?: string;
+    frequency?: string;
+  };
 }
 
-export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewStyle, baseLevel, targetLevel, interactive = true }: ItemBlockProps) {
+export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewStyle, baseLevel, targetLevel, interactive = true, overrides }: ItemBlockProps) {
   const symbol = actionSymbol(item);
   const rawDesc = item.system?.description?.value ?? '';
   const traits = item.system?.traits?.value ?? [];
@@ -61,8 +78,9 @@ export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewSt
   const damageGroups = adjustedDesc ? extractDamageGroups(adjustedDesc) : [];
   const hasDamage = damageGroups.length > 0 && onRollAll != null;
 
-  // Ability glossary popup
-  const glossaryDesc = ABILITY_GLOSSARY[item.name];
+  // Ability glossary popup — prefer overrides.glossaryKey, then item.name
+  const glossaryKey = overrides?.glossaryKey ?? item.name;
+  const glossaryDesc = ABILITY_GLOSSARY[glossaryKey];
   const { popupOpen, togglePopup, closePopup, nameRef, popupRef, pos } = useGlossaryPopup();
 
   return (
@@ -95,6 +113,8 @@ export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewSt
             <strong>Trigger</strong> {trigger};
           </>
         )}
+        {overrides?.requirements && <> <strong>Requirements</strong> {overrides.requirements};</>}
+        {overrides?.frequency && <> <strong>Frequency</strong> {overrides.frequency}</>}
       </p>
       {adjustedDesc && (
         <div
@@ -116,7 +136,7 @@ export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewSt
 
       {popupOpen && glossaryDesc && pos && createPortal(
         <AbilityPopup
-          name={item.name}
+          name={glossaryKey}
           desc={glossaryDesc}
           pos={pos}
           popupRef={popupRef}

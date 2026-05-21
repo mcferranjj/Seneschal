@@ -56,15 +56,20 @@ export function useSearch(initialFilters: SearchFilters = DEFAULT_FILTERS): UseS
     syncProgress.phase === 'fetching' ||
     syncProgress.phase === 'saving';
 
+  /** Run a search for the given filters and commit results to state. */
+  const applySearch = useCallback(async (f: SearchFilters) => {
+    const { results: r, totalCount: tc } = await searchCreatures(f);
+    setResults(r);
+    setTotalCount(tc);
+  }, []);
+
   // Debounced search when filters change
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     setSearchLoading(true);
     searchTimerRef.current = setTimeout(async () => {
       try {
-        const { results: r, totalCount: tc } = await searchCreatures(filters);
-        setResults(r);
-        setTotalCount(tc);
+        await applySearch(filters);
       } catch {
         setResults([]);
         setTotalCount(0);
@@ -75,7 +80,7 @@ export function useSearch(initialFilters: SearchFilters = DEFAULT_FILTERS): UseS
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
-  }, [filters]);
+  }, [filters, applySearch]);
 
   const refreshCount = useCallback(async () => {
     const [count, synced] = await Promise.all([getCreatureCount(), getLastSynced()]);
@@ -84,10 +89,8 @@ export function useSearch(initialFilters: SearchFilters = DEFAULT_FILTERS): UseS
   }, []);
 
   const refreshSearch = useCallback(async () => {
-    const { results: r, totalCount: tc } = await searchCreatures(filtersRef.current);
-    setResults(r);
-    setTotalCount(tc);
-  }, []);
+    await applySearch(filtersRef.current);
+  }, [applySearch]);
 
   const triggerSync = useCallback(async () => {
     if (syncingRef.current) return;
@@ -100,13 +103,11 @@ export function useSearch(initialFilters: SearchFilters = DEFAULT_FILTERS): UseS
         }
       });
       await refreshCount();
-      const { results: r, totalCount: tc } = await searchCreatures(filtersRef.current);
-      setResults(r);
-      setTotalCount(tc);
+      await applySearch(filtersRef.current);
     } catch {
       syncingRef.current = false;
     }
-  }, [refreshCount]);
+  }, [refreshCount, applySearch]);
 
   // On mount: load counts and trigger initial sync
   useEffect(() => {
@@ -129,19 +130,15 @@ export function useSearch(initialFilters: SearchFilters = DEFAULT_FILTERS): UseS
   const handleDeleteCreature = useCallback(async (id: string, onDeleted: () => void) => {
     await creatureRepository.delete(id);
     onDeleted();
-    const { results: r, totalCount: tc } = await searchCreatures(filtersRef.current);
-    setResults(r);
-    setTotalCount(tc);
+    await applySearch(filtersRef.current);
     await refreshCount();
-  }, [refreshCount]);
+  }, [applySearch, refreshCount]);
 
   const handleWizardSave = useCallback(async (creature: CreatureRecord, onSaved: (creature: CreatureRecord) => void) => {
     onSaved(creature);
-    const { results: r, totalCount: tc } = await searchCreatures(filtersRef.current);
-    setResults(r);
-    setTotalCount(tc);
+    await applySearch(filtersRef.current);
     await refreshCount();
-  }, [refreshCount]);
+  }, [applySearch, refreshCount]);
 
   return {
     filters,
