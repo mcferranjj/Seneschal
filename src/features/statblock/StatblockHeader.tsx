@@ -31,6 +31,8 @@ interface StatblockHeaderProps {
   onSetScaledLevel?: (level: number | undefined) => void;
   onSetPreviewScaledLevel: (level: number | undefined) => void;
   onToggleNotes: () => void;
+  /** Whether to show the GM Notes toggle button (only for creatures in the encounter tracker) */
+  showNotesButton?: boolean;
 }
 
 export function StatblockHeader({
@@ -53,6 +55,7 @@ export function StatblockHeader({
   onSetScaledLevel,
   onSetPreviewScaledLevel,
   onToggleNotes,
+  showNotesButton = false,
 }: StatblockHeaderProps) {
   const [scaleDropdownOpen, setScaleDropdownOpen] = useState(false);
 
@@ -164,14 +167,16 @@ export function StatblockHeader({
             <span className={styles.creatureOriginalName}> · {c.name}</span>
           )}
         </span>
-        {/* Notes toggle — only shown when the caller provides the onSetNotes callback */}
-        <button
-          className={`${styles.notesBtn} ${notesOpen ? styles.notesBtnActive : ''} ${activeNotes ? styles.notesBtnHasContent : ''}`}
-          title={notesOpen ? 'Hide notes' : 'Add GM notes'}
-          onClick={onToggleNotes}
-        >
-          📝
-        </button>
+        {/* Notes toggle — only shown for creatures currently in the encounter tracker */}
+        {showNotesButton && (
+          <button
+            className={`${styles.notesBtn} ${notesOpen ? styles.notesBtnActive : ''} ${activeNotes ? styles.notesBtnHasContent : ''}`}
+            title={notesOpen ? 'Hide notes' : 'Add GM notes'}
+            onClick={onToggleNotes}
+          >
+            📝
+          </button>
+        )}
       </div>
     </div>
   );

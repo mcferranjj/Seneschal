@@ -433,6 +433,7 @@ function StatblockContent({
         onSetScaledLevel={onSetScaledLevel}
         onSetPreviewScaledLevel={setPreviewScaledLevel}
         onToggleNotes={() => setNotesOpen(o => !o)}
+        showNotesButton={!!onSetNotes}
       />
 
       {/* Traits */}
