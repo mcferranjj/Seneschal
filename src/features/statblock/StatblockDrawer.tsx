@@ -186,6 +186,11 @@ function StatblockContent({
   // trait tooltip handler owns interactions in that context.
   const traitPopupsEnabled = encounterUid == null;
 
+  // Wrapper that skips keyword linking in encounter context so .pf2kw spans are
+  // never injected into the DOM at all — bulletproof regardless of listeners.
+  const foundryHtml = (raw: string) =>
+    processFoundryHtml(raw, { interactive: traitPopupsEnabled });
+
   const {
     containerRef: pf2kwRef,
     popupRef:     pf2kwPopupRef,
@@ -595,7 +600,7 @@ function StatblockContent({
           <div
             className={styles.itemDesc}
             style={{ marginBottom: 6 }}
-            dangerouslySetInnerHTML={{ __html: processFoundryHtml(hazard!.description) }}
+            dangerouslySetInnerHTML={{ __html: foundryHtml(hazard!.description) }}
           />
         )}
 
@@ -624,7 +629,7 @@ function StatblockContent({
                   </span>
                 ) : '—'}
                 {hazard!.stealth!.details
-                  ? <> <span dangerouslySetInnerHTML={{ __html: processFoundryHtml(hazard!.stealth!.details) }} /></>
+                  ? <> <span dangerouslySetInnerHTML={{ __html: foundryHtml(hazard!.stealth!.details) }} /></>
                   : null}
               </p>
             );
@@ -817,10 +822,10 @@ function StatblockContent({
         )}
 
         {passives.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel ?? scaledHazardStats?.targetLevel} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel ?? scaledHazardStats?.targetLevel} interactive={traitPopupsEnabled} />
         ))}
         {reactions.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel ?? scaledHazardStats?.targetLevel} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel ?? scaledHazardStats?.targetLevel} interactive={traitPopupsEnabled} />
         ))}
 
         <hr className={styles.divider} />
@@ -833,7 +838,7 @@ function StatblockContent({
             </p>
             <div
               className={styles.itemDesc}
-              dangerouslySetInnerHTML={{ __html: processFoundryHtml(
+              dangerouslySetInnerHTML={{ __html: foundryHtml(
                 scaledHazardStats ? scaleHazardHtml(hazard!.disable, level, scaledHazardStats.targetLevel) : hazard!.disable
               ) }}
             />
@@ -999,7 +1004,7 @@ function StatblockContent({
         ))}
 
         {offenseActions.map(item => (
-          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel ?? scaledHazardStats?.targetLevel} />
+          <ItemBlock key={item._id} item={item} onRollAll={rollDamage} onManualRollDamage={manualRollDamage} ewMod={ewMod} ewStyle={ewStyle} baseLevel={level} targetLevel={scaledStats?.targetLevel ?? scaledHazardStats?.targetLevel} interactive={traitPopupsEnabled} />
         ))}
 
         {/* Routine — complex hazards only */}
@@ -1010,7 +1015,7 @@ function StatblockContent({
             </p>
             <div
               className={styles.itemDesc}
-              dangerouslySetInnerHTML={{ __html: processFoundryHtml(
+              dangerouslySetInnerHTML={{ __html: foundryHtml(
                 scaledHazardStats ? scaleHazardHtml(hazard!.routine, level, scaledHazardStats.targetLevel) : hazard!.routine
               ) }}
             />
@@ -1025,7 +1030,7 @@ function StatblockContent({
             </p>
             <div
               className={styles.itemDesc}
-              dangerouslySetInnerHTML={{ __html: processFoundryHtml(
+              dangerouslySetInnerHTML={{ __html: foundryHtml(
                 scaledHazardStats ? scaleHazardHtml(hazard!.reset, level, scaledHazardStats.targetLevel) : hazard!.reset
               ) }}
             />
@@ -1064,6 +1069,7 @@ function StatblockContent({
               ewStyle={ewStyle}
               onRollDamage={rollDamage}
               onManualRollDamage={manualRollDamage}
+              interactive={traitPopupsEnabled}
             />
           );
         })}
@@ -1074,7 +1080,7 @@ function StatblockContent({
             <div className={styles.flavorBox}>
               <div
                 className={styles.publicNotes}
-                dangerouslySetInnerHTML={{ __html: processFoundryHtml(publicNotes) }}
+                dangerouslySetInnerHTML={{ __html: foundryHtml(publicNotes) }}
               />
             </div>
           </>

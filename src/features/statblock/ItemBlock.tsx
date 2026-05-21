@@ -33,9 +33,11 @@ interface ItemBlockProps {
   ewStyle?: React.CSSProperties;
   baseLevel?: number;
   targetLevel?: number;
+  /** When false, skips keyword linking so no .pf2kw tooltip spans are injected. Defaults to true. */
+  interactive?: boolean;
 }
 
-export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewStyle, baseLevel, targetLevel }: ItemBlockProps) {
+export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewStyle, baseLevel, targetLevel, interactive = true }: ItemBlockProps) {
   const symbol = actionSymbol(item);
   const rawDesc = item.system?.description?.value ?? '';
   const traits = item.system?.traits?.value ?? [];
@@ -86,7 +88,7 @@ export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewSt
       {adjustedDesc && (
         <div
           className={styles.itemDesc}
-          dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc) }}
+          dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc, { interactive }) }}
         />
       )}
       {hasDamage && (

@@ -25,9 +25,11 @@ export interface CustomAbilityBlockProps {
   ewStyle?: React.CSSProperties;
   onRollDamage: (groups: DamageGroup[], name: string, traits: string[], e: React.MouseEvent) => void;
   onManualRollDamage?: (groups: DamageGroup[], name: string, e: React.MouseEvent) => void;
+  /** When false, skips keyword linking so no .pf2kw tooltip spans are injected. Defaults to true. */
+  interactive?: boolean;
 }
 
-export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDamage, onManualRollDamage }: CustomAbilityBlockProps) {
+export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDamage, onManualRollDamage, interactive = true }: CustomAbilityBlockProps) {
   // Glossary lookup — prefer genericAbilityName, then fall back to the ability name itself
   const glossaryKey = ab.genericAbilityName ?? ab.name;
   const glossaryDesc = ABILITY_GLOSSARY[glossaryKey];
@@ -57,7 +59,7 @@ export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDa
       {adjustedDesc && (
         <div
           className={styles.itemDesc}
-          dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc) }}
+          dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc, { interactive }) }}
         />
       )}
       {hasDamage && (

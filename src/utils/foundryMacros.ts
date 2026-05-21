@@ -442,12 +442,27 @@ export function linkKeywords(html: string): string {
   });
 }
 
+export interface ProcessFoundryHtmlOptions {
+  /**
+   * When false, skip `linkKeywords` so no `.pf2kw` tooltip spans are injected
+   * into the output.  Use this in contexts where keyword popups must not fire
+   * (e.g. encounter statblock descriptions).  Defaults to true.
+   */
+  interactive?: boolean;
+}
+
 /**
  * Apply the standard Foundry HTML processing pipeline:
  * strip macros → link keywords → link roll expressions.
+ *
+ * Pass `{ interactive: false }` to skip keyword linking and keep the output
+ * free of `.pf2kw` spans — guaranteeing no tooltip popup can appear regardless
+ * of which listeners may be active on ancestor elements.
  */
-export function processFoundryHtml(raw: string): string {
-  return linkRolls(linkKeywords(stripFoundryMacros(raw)));
+export function processFoundryHtml(raw: string, options: ProcessFoundryHtmlOptions = {}): string {
+  const { interactive = true } = options;
+  const stripped = stripFoundryMacros(raw);
+  return linkRolls(interactive ? linkKeywords(stripped) : stripped);
 }
 
 /**
