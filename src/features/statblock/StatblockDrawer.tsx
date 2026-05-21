@@ -44,6 +44,7 @@ import { NotesPanel } from './NotesPanel';
 import { useContainerTraitTooltip } from '../../hooks/useContainerTraitTooltip';
 import { TraitHoverPopup, TraitPinnedPopup } from './TraitPopup';
 import { getAonUrl } from '../../utils/aonSearch';
+import { CREATURE_TYPES } from '../../data/pf2eConstants';
 import { StatblockHeader } from './StatblockHeader';
 import { StatblockDefenses } from './StatblockDefenses';
 import { StatblockSkillsAbilities } from './StatblockSkillsAbilities';
@@ -263,11 +264,18 @@ function StatblockContent({
     isHazard && effectiveScaledLevel != null ? buildScaledHazard(creature, effectiveScaledLevel) : null;
   const scaledStats = scaledCreatureStats;
 
+  // Sort traits: rarity → size → creature types (A–Z) → complex → other traits (A–Z).
+  const creatureTypesLower = new Set(CREATURE_TYPES.map(t => t.toLowerCase()));
+  const sortedTraits = [
+    ...traits.filter(t => creatureTypesLower.has(t.toLowerCase())).sort((a, b) => a.localeCompare(b)),
+    ...(hazard?.isComplex && !traits.includes('complex') ? ['complex'] : []),
+    ...traits.filter(t => !creatureTypesLower.has(t.toLowerCase()) && t.toLowerCase() !== 'complex').sort((a, b) => a.localeCompare(b)),
+  ];
+
   const allTraits = [
     ...(rarity !== 'common' ? [rarity] : []),
     ...(!isHazard ? [size] : []),
-    ...traits,
-    ...(hazard?.isComplex && !traits.includes('complex') ? ['complex'] : []),
+    ...sortedTraits,
   ];
 
   const [aonURL, setAonURL] = useState<string | null>(null);
@@ -547,6 +555,36 @@ function StatblockContent({
         {reactions.map(item => (
           <ItemBlock key={item._id} item={item} {...itemBlockProps} />
         ))}
+        {/* Custom creature passives and reactions — shown here to match official ordering */}
+        {creature.publication === 'Custom' && (creature.customData?.abilities ?? [])
+          .filter(ab => ab.actionType === 'passive' || ab.actionType === 'reaction' || ab.actionType == null)
+          .map((ab, i) => {
+            const limited = ab.frequency != null && ab.frequency !== '';
+            const dmgMod  = ewMod !== 0 ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2)) : 0;
+            const dcMod   = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
+            const rawDesc = ab.description ?? '';
+            const scaledDesc = scaledStats
+              ? scaleAbilityHtml(rawDesc, level, scaledStats.targetLevel)
+              : scaledHazardStats
+                ? scaleHazardHtml(rawDesc, level, scaledHazardStats.targetLevel)
+                : rawDesc;
+            const adjustedDesc = (dmgMod !== 0 || dcMod !== 0)
+              ? applyEliteWeakToHtml(scaledDesc, dmgMod, dcMod)
+              : scaledDesc;
+            return (
+              <CustomAbilityBlock
+                key={`pre-${i}`}
+                ab={ab}
+                adjustedDesc={adjustedDesc}
+                dmgMod={dmgMod}
+                ewStyle={ewStyle}
+                onRollDamage={rollDamage}
+                onManualRollDamage={manualRollDamage}
+                interactive={abilityPopupsEnabled}
+              />
+            );
+          })
+        }
 
         <hr className={styles.divider} />
 
@@ -685,33 +723,36 @@ function StatblockContent({
           </p>
         )}
 
-        {/* Custom creature abilities */}
-        {creature.publication === 'Custom' && (creature.customData?.abilities ?? []).map((ab, i) => {
-          const limited = ab.frequency != null && ab.frequency !== '';
-          const dmgMod  = ewMod !== 0 ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2)) : 0;
-          const dcMod   = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
-          const rawDesc = ab.description ?? '';
-          const scaledDesc = scaledStats
-            ? scaleAbilityHtml(rawDesc, level, scaledStats.targetLevel)
-            : scaledHazardStats
-              ? scaleHazardHtml(rawDesc, level, scaledHazardStats.targetLevel)
-              : rawDesc;
-          const adjustedDesc = (dmgMod !== 0 || dcMod !== 0)
-            ? applyEliteWeakToHtml(scaledDesc, dmgMod, dcMod)
-            : scaledDesc;
-          return (
-            <CustomAbilityBlock
-              key={i}
-              ab={ab}
-              adjustedDesc={adjustedDesc}
-              dmgMod={dmgMod}
-              ewStyle={ewStyle}
-              onRollDamage={rollDamage}
-              onManualRollDamage={manualRollDamage}
-              interactive={abilityPopupsEnabled}
-            />
-          );
-        })}
+        {/* Custom creature active abilities (actions, free actions) — passives and reactions are rendered above with official equivalents */}
+        {creature.publication === 'Custom' && (creature.customData?.abilities ?? [])
+          .filter(ab => ab.actionType === 'single' || ab.actionType === 'two' || ab.actionType === 'three' || ab.actionType === 'free')
+          .map((ab, i) => {
+            const limited = ab.frequency != null && ab.frequency !== '';
+            const dmgMod  = ewMod !== 0 ? (limited ? (ewMod > 0 ? 4 : -4) : (ewMod > 0 ? 2 : -2)) : 0;
+            const dcMod   = ewMod !== 0 ? (ewMod > 0 ? 2 : -2) : 0;
+            const rawDesc = ab.description ?? '';
+            const scaledDesc = scaledStats
+              ? scaleAbilityHtml(rawDesc, level, scaledStats.targetLevel)
+              : scaledHazardStats
+                ? scaleHazardHtml(rawDesc, level, scaledHazardStats.targetLevel)
+                : rawDesc;
+            const adjustedDesc = (dmgMod !== 0 || dcMod !== 0)
+              ? applyEliteWeakToHtml(scaledDesc, dmgMod, dcMod)
+              : scaledDesc;
+            return (
+              <CustomAbilityBlock
+                key={`post-${i}`}
+                ab={ab}
+                adjustedDesc={adjustedDesc}
+                dmgMod={dmgMod}
+                ewStyle={ewStyle}
+                onRollDamage={rollDamage}
+                onManualRollDamage={manualRollDamage}
+                interactive={abilityPopupsEnabled}
+              />
+            );
+          })
+        }
 
         {!isHazard && publicNotes && (
           <>

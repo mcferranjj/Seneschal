@@ -4,7 +4,7 @@ import type {
   CustomImmunity, CustomResistance, CustomSkill, AbilityActionType, SpeedType,
   CustomSpellcastingEntry, CustomSpell, SpellTradition, SpellcastingType, SpellFrequency,
 } from '../types/encounter';
-import { getDamageString, getAttacks, getActions, getPassives } from '../features/statblock/statblockHelpers';
+import { getDamageString, getDamageGroups, getAttacks, getActions, getPassives } from '../features/statblock/statblockHelpers';
 import { toEditableText, toEditablePlainText } from './foundryMacros';
 import { normalizeFamily } from './pf2eHelpers';
 
@@ -194,6 +194,12 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
     const isRanged = item.type === 'ranged' || item.system?.range?.increment != null;
     const rangeVal = item.system?.range?.increment ??
       (typeof item.system?.range?.value === 'number' ? item.system.range.value : undefined);
+    // Build structured damageTypes from the raw damage rolls so multiple
+    // damage components (e.g. "4d6 fire + 2d6 persistent fire") are preserved.
+    const damageGroups = getDamageGroups(damageRolls);
+    const damageTypes = damageGroups.length > 0
+      ? damageGroups.map(g => ({ expr: g.expr, type: g.label }))
+      : undefined;
     return {
       name: item.name,
       type: isRanged ? 'ranged' : 'melee',
@@ -201,6 +207,8 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
       damage: fullDamage,
       range: isRanged ? (rangeVal ?? 30) : undefined,
       traits: item.system?.traits?.value ?? [],
+      damageTypes,
+      strikeAbilities: effects.length ? effects : undefined,
     };
   });
 
@@ -268,8 +276,9 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
   // Spellcasting (creatures only)
   const spellcasting = isHazard ? [] : importSpellcasting(source);
 
-  // Flavor text
-  const flavorText = toEditableText(system?.details?.publicNotes ?? '');
+  // Flavor text — strip HTML tags so it stores as plain text and displays
+  // correctly in the custom creature statblock (which renders it verbatim).
+  const flavorText = toEditablePlainText(system?.details?.publicNotes ?? '');
 
   // Size / rarity / traits from source record (already normalized)
   const size = isHazard ? 'med' : source.size;
