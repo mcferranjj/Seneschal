@@ -5,8 +5,9 @@
  * clickable spans. Pure string operations — no React, no DB.
  */
 
-import { loadTraitDescriptions } from '../sync/sync';
 import type { PF2EItem } from '../types/pf2e';
+import { ABILITY_GLOSSARY } from '../data/abilityGlossary';
+import { CONDITIONS } from '../data/conditions';
 import type { DamageGroupInput } from '../features/dice/DiceRoller';
 
 /** Alias so existing callers importing DamageGroup from here continue to work. */
@@ -393,10 +394,26 @@ export function extractDamageGroups(rawHtml: string): DamageGroup[] {
   return groups;
 }
 
-// ── Keyword linking (trait tooltip singleton) ─────────────────────────────────
+// ── Inline keyword linking (actions + conditions only) ───────────────────────
+//
+// In ability/strike description text, only action names (from ABILITY_GLOSSARY)
+// and condition names (from CONDITIONS) are linked with popups. Trait keywords
+// are intentionally excluded here — traits have their own popup path via
+// TraitChip / useContainerTraitTooltip on explicit trait lists.
 
-let _keywordMap: Record<string, string> = {};
-let _keywordRegex: RegExp | null = null;
+/** Build the keyword map used by linkKeywords() from static data. */
+function buildInlineKeywordMap(): Record<string, string> {
+  const map: Record<string, string> = {};
+  // Action names from the bestiary ability glossary
+  for (const [name, desc] of Object.entries(ABILITY_GLOSSARY)) {
+    map[name] = desc;
+  }
+  // Condition names
+  for (const condition of CONDITIONS) {
+    map[condition.name] = condition.desc;
+  }
+  return map;
+}
 
 function buildKeywordRegex(map: Record<string, string>): RegExp {
   return new RegExp(
@@ -410,32 +427,27 @@ function buildKeywordRegex(map: Record<string, string>): RegExp {
   );
 }
 
+const _inlineKeywordMap: Record<string, string> = buildInlineKeywordMap();
+const _inlineKeywordRegex: RegExp = buildKeywordRegex(_inlineKeywordMap);
+
 /**
- * Call once on app load (after sync). Loads Foundry trait descriptions from the DB
- * and builds the keyword map and regex used by linkKeywords().
+ * No-op kept for call-site compatibility. The inline keyword map is now built
+ * statically from ABILITY_GLOSSARY + CONDITIONS and requires no async init.
  */
 export async function initTraitDescriptions(): Promise<void> {
-  const fromDb = await loadTraitDescriptions();
-  if (Object.keys(fromDb).length === 0) return;
-  const map: Record<string, string> = {};
-  for (const [traitLower, desc] of Object.entries(fromDb)) {
-    const displayKey = traitLower.charAt(0).toUpperCase() + traitLower.slice(1);
-    map[displayKey] = desc;
-  }
-  _keywordMap = map;
-  _keywordRegex = buildKeywordRegex(map);
+  // intentional no-op — inline keyword map is built at module load time
 }
 
 /**
- * Wrap recognized trait/keyword mentions in tooltip spans.
- * Requires initTraitDescriptions() to have been called first.
+ * Wrap recognised action and condition mentions in tooltip spans.
+ * Only action names (ABILITY_GLOSSARY) and condition names (CONDITIONS) are
+ * linked — traits are excluded and rely on the TraitChip / explicit-list path.
  */
 export function linkKeywords(html: string): string {
-  if (!_keywordRegex) return html;
   return html.replace(/>([^<]+)</g, (_match, text) => {
-    const linked = text.replace(_keywordRegex!, (kw: string) => {
-      const key = Object.keys(_keywordMap).find(k => k.toLowerCase() === kw.toLowerCase()) ?? kw;
-      const tip = _keywordMap[key] ?? '';
+    const linked = text.replace(_inlineKeywordRegex, (kw: string) => {
+      const key = Object.keys(_inlineKeywordMap).find(k => k.toLowerCase() === kw.toLowerCase()) ?? kw;
+      const tip = _inlineKeywordMap[key] ?? '';
       return `<span class="pf2kw" data-tip="${tip.replace(/"/g, '&quot;')}">${kw}</span>`;
     });
     return `>${linked}<`;
@@ -444,9 +456,12 @@ export function linkKeywords(html: string): string {
 
 export interface ProcessFoundryHtmlOptions {
   /**
-   * When false, skip `linkKeywords` so no `.pf2kw` tooltip spans are injected
-   * into the output.  Use this in contexts where keyword popups must not fire
-   * (e.g. encounter statblock descriptions).  Defaults to true.
+   * When true (default), action and condition names in the text are wrapped in
+   * `.pf2kw` tooltip spans so hover/click popups fire. Traits are never linked
+   * here — they rely on the TraitChip / explicit trait-list popup path.
+   *
+   * Pass false in contexts where no keyword popups should appear at all
+   * (e.g. flavour/description prose, encounter statblock descriptions).
    */
   interactive?: boolean;
 }
@@ -455,9 +470,12 @@ export interface ProcessFoundryHtmlOptions {
  * Apply the standard Foundry HTML processing pipeline:
  * strip macros → link keywords → link roll expressions.
  *
- * Pass `{ interactive: false }` to skip keyword linking and keep the output
- * free of `.pf2kw` spans — guaranteeing no tooltip popup can appear regardless
- * of which listeners may be active on ancestor elements.
+ * `interactive: true` (default) — action and condition names become hoverable
+ * `.pf2kw` spans. Trait keywords are excluded; they have their own popup path
+ * via TraitChip / useContainerTraitTooltip on explicit trait lists.
+ *
+ * `interactive: false` — skips keyword linking entirely; use for flavour text
+ * and any context where no keyword popups should appear.
  */
 export function processFoundryHtml(raw: string, options: ProcessFoundryHtmlOptions = {}): string {
   const { interactive = true } = options;

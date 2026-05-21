@@ -252,6 +252,8 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
       frequency = perMap[freq.per ?? ''] ?? `${freq.value} per ${freq.per}`;
     }
 
+    const traitValues: string[] = item.system?.traits?.value ?? [];
+
     return {
       name: item.name,
       description: rawDesc,
@@ -259,6 +261,7 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
       trigger,
       requirements,
       frequency,
+      traits: traitValues.length ? traitValues : undefined,
     };
   });
 

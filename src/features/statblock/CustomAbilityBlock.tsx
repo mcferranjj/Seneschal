@@ -4,6 +4,7 @@ import { extractDamageGroups, processFoundryHtml } from '../../utils/foundryMacr
 import type { DamageGroup } from '../../utils/foundryMacros';
 import { useGlossaryPopup } from '../../hooks/useGlossaryPopup';
 import { AbilityPopup } from './AbilityPopup';
+import { TraitChip } from './TraitChip';
 import styles from './StatblockDrawer.module.css';
 
 const ACTION_SYMBOLS: Record<string, string> = {
@@ -52,6 +53,18 @@ export function CustomAbilityBlock({ ab, adjustedDesc, dmgMod, ewStyle, onRollDa
           {ab.name}
         </strong>
         {sym && <span className={styles.actionSymbol}>{sym}</span>}
+        {ab.traits && ab.traits.length > 0 && (
+          <span className={styles.itemTraits}>
+            {' ('}
+            {ab.traits.map((t, i) => (
+              <span key={t}>
+                <TraitChip trait={t} rarity="" variant="inline" />
+                {i < ab.traits!.length - 1 && ', '}
+              </span>
+            ))}
+            {')'}
+          </span>
+        )}
         {ab.trigger && <> <strong>Trigger</strong> {ab.trigger};</>}
         {ab.requirements && <> <strong>Requirements</strong> {ab.requirements};</>}
         {ab.frequency && <> <strong>Frequency</strong> {ab.frequency}</>}
