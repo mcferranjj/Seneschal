@@ -1692,3 +1692,16 @@
   font-family: inherit;
   outline: none;
 }
+
+/* ── Drag-and-drop visual feedback ── */
+.dragging {
+  opacity: 0.4;
+}
+
+.dropAbove {
+  border-top: 2px solid var(--color-primary);
+}
+
+.dropBelow {
+  border-bottom: 2px solid var(--color-primary);
+}

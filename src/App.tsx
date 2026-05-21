@@ -140,6 +140,7 @@ export default function App() {
     setEliteWeak,
     setScaledLevel,
     setCreatureNotes,
+    setCreatureInit,
     duplicateCreature,
     addCustomCreature,
   } = useEncounter();
@@ -452,6 +453,7 @@ export default function App() {
                 filtersOpen={filtersOpenLabel}
                 onToggleFilters={() => setFiltersOpen(!filtersOpenRef.current)}
                 onOpenWizard={openWizard}
+                onRemoveCombatant={removeCreature}
               />
             </div>
             <div
@@ -480,6 +482,8 @@ export default function App() {
                 onDuplicateCreature={duplicateCreature}
                 onUpdateHP={updateHP}
                 onSetHP={setHPDirect}
+                onSetCreatureInit={setCreatureInit}
+                onAddCreatureRecord={addToEncounter}
                 onAddCustomCreature={addCustomCreature}
                 onSelectCreature={selectCreatureByIdAndShowStatblock}
                 onSelectEncounterCreature={() => {

@@ -47,6 +47,7 @@ export interface UseEncounterReturn {
   setScaledLevel: (uid: string, level: number | undefined) => Promise<void>;
   setCreatureNotes: (uid: string, notes: string) => void;
   duplicateCreature: (uid: string) => void;
+  setCreatureInit: (uid: string, init: number) => void;
   addCustomCreature: (
     name: string,
     level: number,
@@ -478,6 +479,19 @@ export function useEncounter(): UseEncounterReturn {
     [activeEnc]
   );
 
+  const setCreatureInit = useCallback(
+    (uid: string, init: number) => {
+      setEncounters(prev =>
+        prev.map((enc, i) =>
+          i === activeEnc
+            ? { ...enc, creatures: enc.creatures.map(c => c.uid === uid ? { ...c, init } : c) }
+            : enc
+        )
+      );
+    },
+    [activeEnc]
+  );
+
   const renameCreature = useCallback(
     (uid: string, name: string) => {
       setEncounters(prev =>
@@ -558,6 +572,7 @@ export function useEncounter(): UseEncounterReturn {
     setEliteWeak,
     setScaledLevel,
     setCreatureNotes,
+    setCreatureInit,
     duplicateCreature,
     addCustomCreature,
   };

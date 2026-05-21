@@ -11,7 +11,10 @@ import { eliteWeakLevel } from '../../utils/levelScaling';
 import { QuickCreatureForm } from './QuickCreatureForm';
 import { ConditionPicker } from './ConditionPicker';
 import { PartyPickerMenu } from '../parties';
-import type { PartyRecord } from '../../db/schema';
+import type { PartyRecord, CreatureRecord } from '../../db/schema';
+import { creatureRepository } from '../../db/repositories/CreatureRepository';
+import { readDndPayload, writeDndPayload } from '../../utils/dnd';
+import { computeInitForDrop } from '../../utils/initiative';
 
 
 // Only Frightened auto-reduces by 1 at end of each creature's turn per PF2e rules.
@@ -41,6 +44,8 @@ interface EncounterManagerProps {
   onDuplicateCreature: (uid: string) => void;
   onUpdateHP: (uid: string, delta: number) => void;
   onSetHP: (uid: string, newHp: number) => void;
+  onSetCreatureInit?: (uid: string, init: number) => void;
+  onAddCreatureRecord?: (record: CreatureRecord) => void;
   onAddCustomCreature: (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: CustomAttack[], abilities?: CustomAbility[], isEnemy?: boolean) => void;
   onSelectCreature: (id: string, encounterUid: string) => void;
   onSelectEncounterCreature: (uid: string) => void;
@@ -104,6 +109,8 @@ export function EncounterManager({
   onDuplicateCreature,
   onUpdateHP,
   onSetHP,
+  onSetCreatureInit,
+  onAddCreatureRecord,
   onAddCustomCreature,
   onSelectCreature,
   onSelectEncounterCreature,
@@ -223,6 +230,10 @@ export function EncounterManager({
   const [editHpVal, setEditHpVal] = useState('');
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editNameVal, setEditNameVal] = useState('');
+
+  // Drag-and-drop for combat cards
+  const [draggingUid, setDraggingUid] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<{ uid: string; position: 'above' | 'below' } | null>(null);
 
   function commitName(uid: string) {
     const trimmed = editNameVal.trim();
@@ -770,7 +781,30 @@ export function EncounterManager({
               {combatHeaderNarrow ? '✕' : '✕ End'}
             </button>
           </div>
-          <div className={styles.combatList}>
+          <div
+            className={styles.combatList}
+            onDragOver={e => {
+              if (readDndPayload(e)) e.preventDefault();
+            }}
+            onDrop={async e => {
+              e.preventDefault();
+              const parsed = readDndPayload(e);
+              if (!parsed) return;
+              // Card-level handler takes precedence when dropping on a card.
+              // This list-level handler only fires for drops in empty space.
+              if (parsed.kind === 'creatureRecord') {
+                try {
+                  const record = await creatureRepository.get(parsed.payload.creatureId);
+                  if (record) {
+                    if (onAddCreatureRecord) onAddCreatureRecord(record);
+                    else onSelectCreature(parsed.payload.creatureId, '');
+                  }
+                } catch (err) {
+                  console.error('Drop error:', err);
+                }
+              }
+            }}
+          >
             {liveCombatCreatures.map((c, i) => {
               const isActive = i === activeTurn;
               const combatEwMod = c.eliteWeak === 'elite' ? 2 : c.eliteWeak === 'weak' ? -2 : 0;
@@ -782,12 +816,105 @@ export function EncounterManager({
                 if (c.creatureId) onSelectCreature(c.creatureId, c.uid);
               };
 
+              // Only block drag on the card whose own edit input is open —
+              // editing another card should not freeze this card's drag handle.
+              const isEditingThisCard =
+                editingInit === c.uid || editingHp === c.uid || editingName === c.uid;
+              const isDraggable = !isEditingThisCard;
+              const isDragging = draggingUid === c.uid;
+              const showDropAbove = dragOver?.uid === c.uid && dragOver.position === 'above';
+              const showDropBelow = dragOver?.uid === c.uid && dragOver.position === 'below';
+
+              const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+                if (!isDraggable) {
+                  e.preventDefault();
+                  return;
+                }
+                e.dataTransfer!.effectAllowed = 'move';
+                writeDndPayload(e.dataTransfer!, { kind: 'combatant', payload: { uid: c.uid } });
+                setDraggingUid(c.uid);
+              };
+
+              const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+                if (!readDndPayload(e)) return;
+                e.preventDefault();
+
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const midpoint = rect.top + rect.height / 2;
+                const position = e.clientY < midpoint ? 'above' : 'below';
+
+                setDragOver({ uid: c.uid, position });
+              };
+
+              const handleDragLeave = () => {
+                setDragOver(null);
+              };
+
+              const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+                e.preventDefault();
+                const parsed = readDndPayload(e);
+                if (!parsed) { setDragOver(null); return; }
+
+                const targetIdx = liveCombatCreatures.findIndex(cr => cr.uid === c.uid);
+                const position = dragOver?.position ?? 'below';
+                const insertIdx = position === 'above' ? targetIdx : targetIdx + 1;
+
+                if (parsed.kind === 'combatant' && parsed.payload.uid !== c.uid) {
+                  const draggedIdx = liveCombatCreatures.findIndex(cr => cr.uid === parsed.payload.uid);
+                  if (draggedIdx === -1) { setDragOver(null); return; }
+
+                  const withoutDragged = liveCombatCreatures.filter((_, i) => i !== draggedIdx);
+                  // After removal, indices ≥ draggedIdx shift left by one.
+                  const adjustedIdx = insertIdx > draggedIdx ? insertIdx - 1 : insertIdx;
+                  const clampedIdx = Math.max(0, Math.min(adjustedIdx, withoutDragged.length));
+                  const newInit = computeInitForDrop(withoutDragged, clampedIdx);
+
+                  const dragged = liveCombatCreatures[draggedIdx]!;
+                  const updated = [
+                    ...withoutDragged.slice(0, clampedIdx),
+                    { ...dragged, init: newInit },
+                    ...withoutDragged.slice(clampedIdx),
+                  ].sort((a, b) => b.init - a.init);
+
+                  // Chase the active creature by uid, not by index.
+                  const activeUid = liveCombatCreatures[activeTurn]?.uid;
+                  if (activeUid) {
+                    const newIdx = updated.findIndex(cr => cr.uid === activeUid);
+                    if (newIdx !== -1) setActiveTurn(newIdx);
+                  }
+
+                  setCombatCreatures(updated);
+                  onSetCreatureInit?.(dragged.uid, newInit);
+                } else if (parsed.kind === 'creatureRecord' && onAddCreatureRecord) {
+                  // Add to encounter; the watcher effect on `enc.creatures` will
+                  // assign an auto-rolled initiative and re-sort. Precise drop-
+                  // position init is a follow-up: addToEncounter is sync but the
+                  // new combatant only lands in `combatCreatures` on the next
+                  // effect tick, so we can't reliably target it here without
+                  // tracking its uid.
+                  try {
+                    const record = await creatureRepository.get(parsed.payload.creatureId);
+                    if (record) onAddCreatureRecord(record);
+                  } catch (err) {
+                    console.error('Drop error:', err);
+                  }
+                }
+
+                setDragOver(null);
+              };
+
               return (
                 <div
                   key={c.uid}
-                  className={`${styles.combatCard} ${isActive ? styles.combatCardActive : ''} ${c.creatureId ? styles.combatCardClickable : ''} ${selectedEncounterUid === c.uid ? styles.combatCardSelected : ''}`}
+                  className={`${styles.combatCard} ${isActive ? styles.combatCardActive : ''} ${c.creatureId ? styles.combatCardClickable : ''} ${selectedEncounterUid === c.uid ? styles.combatCardSelected : ''} ${isDragging ? styles.dragging : ''} ${showDropAbove ? styles.dropAbove : ''} ${showDropBelow ? styles.dropBelow : ''}`}
                   onClick={c.creatureId ? openStatblock : undefined}
                   title={c.creatureId ? 'Click to view statblock' : undefined}
+                  draggable={isDraggable}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onDragEnd={() => setDraggingUid(null)}
                 >
                   {/* Row 1: init badge · name · hp */}
                   <div className={styles.combatCardTop}>

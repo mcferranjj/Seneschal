@@ -1,6 +1,4 @@
 Minor Improvements:
-    - make creatures click and draggable into, out of, and around the combat tracker (dragging creatures in the tracker should automatically update their initiative)
-
     - pictures?
         - not implemented
     - make ability damage scaler use dice more rather than applying the flat damage difference right in the damage description (e.g. magma dragon breath)
