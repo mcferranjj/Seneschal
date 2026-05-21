@@ -8,6 +8,7 @@ export interface SearchFilters {
   levelMax: number;
   creatureTypes: string[];
   hazardTypes: string[]; // [] = all hazard types; ['trap'] = traps only; etc.
+  families: string[];
   sizes: string[];
   rarities: string[];
   publications: string[];
@@ -24,6 +25,7 @@ export const DEFAULT_FILTERS: SearchFilters = {
   levelMax: 25,
   creatureTypes: [],
   hazardTypes: [],
+  families: [],
   sizes: [],
   rarities: [],
   publications: [],

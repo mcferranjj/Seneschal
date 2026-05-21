@@ -15,6 +15,7 @@ export interface PF2ESystem {
     publication?: { title?: string; authors?: string; license?: string; remaster?: boolean };
     publicNotes?: string;
     privateNotes?: string;
+    creatureType?: string;
     // Hazard-specific
     description?: string;
     disable?: string;

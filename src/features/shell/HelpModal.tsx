@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useBackable } from '../../nav/useBackable';
 import styles from './HelpModal.module.css';
 
 // ── Doc content ──────────────────────────────────────────────────────────────
@@ -215,12 +216,8 @@ export function HelpModal({ onClose, initialTopic }: HelpModalProps) {
   const [, startTransition] = useTransition();
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
+  // Register with the nav system so back button / Escape closes this modal
+  useBackable(true, onClose, 'Close help', { escClosable: true });
 
   // Scroll content to top when topic changes
   useEffect(() => {

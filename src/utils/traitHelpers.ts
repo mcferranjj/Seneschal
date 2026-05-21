@@ -30,9 +30,9 @@ export function resolveTraitKey(raw: string): string {
   // "range increment N feet" or "range N feet" → "range"
   if (lower.startsWith('range ')) return 'range';
 
-  // Strip a trailing parameter: "-Nd<N>", "-d<N>", or "-<N>"
-  // e.g. deadly-2d10, fatal-d10, reload-0, thrown-20
-  return lower.replace(/-(\d+d\d+|\d*d\d+|\d+)$/, '');
+  // Strip a trailing parameter: "-Nd<N>", "-d<N>", "-<N>", or "-<letter>"
+  // e.g. deadly-2d10, fatal-d10, reload-0, thrown-20, versatile-p, versatile-b
+  return lower.replace(/-(\d+d\d+|\d*d\d+|\d+|[a-z])$/, '');
 }
 
 /**

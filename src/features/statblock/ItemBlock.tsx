@@ -11,6 +11,7 @@ import { scaleAbilityHtml, eliteWeakDmgMod, eliteWeakDcMod } from '../../utils/l
 import { ABILITY_GLOSSARY } from '../../data/abilityGlossary';
 import { useGlossaryPopup } from '../../hooks/useGlossaryPopup';
 import { AbilityPopup } from './AbilityPopup';
+import { TraitChip } from './TraitChip';
 import styles from './StatblockDrawer.module.css';
 
 function actionSymbol(item: PF2EItem): string {
@@ -33,14 +34,15 @@ interface ItemBlockProps {
   ewStyle?: React.CSSProperties;
   baseLevel?: number;
   targetLevel?: number;
+  /** When false, skips keyword linking so no .pf2kw tooltip spans are injected. Defaults to true. */
+  interactive?: boolean;
 }
 
-export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewStyle, baseLevel, targetLevel }: ItemBlockProps) {
+export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewStyle, baseLevel, targetLevel, interactive = true }: ItemBlockProps) {
   const symbol = actionSymbol(item);
   const rawDesc = item.system?.description?.value ?? '';
   const traits = item.system?.traits?.value ?? [];
   const trigger = item.system?.trigger?.value;
-  const traitStr = traits.length > 0 ? `(${traits.join(', ')})` : '';
 
   // Apply level scaling first (if active), then elite/weak on top
   const scaledDesc = (baseLevel != null && targetLevel != null && baseLevel !== targetLevel)
@@ -75,7 +77,18 @@ export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewSt
           {item.name}
         </strong>
         {symbol && <span className={styles.actionSymbol}>{symbol}</span>}
-        {traitStr && <span className={styles.itemTraits}> {traitStr}</span>}
+        {traits.length > 0 && (
+          <span className={styles.itemTraits}>
+            {' ('}
+            {traits.map((t, i) => (
+              <span key={t}>
+                <TraitChip trait={t} rarity="" variant="inline" />
+                {i < traits.length - 1 && ', '}
+              </span>
+            ))}
+            {')'}
+          </span>
+        )}
         {trigger && (
           <>
             {' '}
@@ -86,7 +99,7 @@ export function ItemBlock({ item, onRollAll, onManualRollDamage, ewMod = 0, ewSt
       {adjustedDesc && (
         <div
           className={styles.itemDesc}
-          dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc) }}
+          dangerouslySetInnerHTML={{ __html: processFoundryHtml(adjustedDesc, { interactive }) }}
         />
       )}
       {hasDamage && (

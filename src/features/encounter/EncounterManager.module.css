@@ -273,6 +273,32 @@
   color: var(--color-text-mid);
 }
 
+.partyPickerBtn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.partyPickerBtn:hover {
+  background: var(--color-hover);
+}
+
+.caret {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
 /* ── Creature list ── */
 .creatureList {
   flex: 1;
@@ -1665,4 +1691,17 @@
   font-weight: 600;
   font-family: inherit;
   outline: none;
+}
+
+/* ── Drag-and-drop visual feedback ── */
+.dragging {
+  opacity: 0.4;
+}
+
+.dropAbove {
+  border-top: 2px solid var(--color-primary);
+}
+
+.dropBelow {
+  border-bottom: 2px solid var(--color-primary);
 }

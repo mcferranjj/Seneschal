@@ -50,15 +50,45 @@ const DEFAULTS: UIPrefs = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/** Sections that are currently mounted in the app. Kept in sync with the
+ *  `Section` union in types/encounter. Exported for tests. */
+export const VALID_SECTIONS: readonly Section[] = ['gm', 'rules', 'characters'];
+
+/**
+ * Pure helper — coerces an unknown persisted `activeSection` value into a
+ * valid Section, applying any historical migrations.
+ *
+ * Migrations:
+ *  - 'parties' (removed top-level tab; party manager is now a panel inside
+ *    the encounter column) → 'gm', so users returning after the rollout land
+ *    on the encounter screen where the panel now lives.
+ *
+ * Anything else unrecognized falls back to the default section.
+ *
+ * Exported so it can be unit-tested without touching localStorage.
+ */
+export function migrateActiveSection(
+  raw: unknown,
+  fallback: Section = DEFAULTS.activeSection,
+): Section {
+  if (raw === 'parties') return 'gm';
+  return VALID_SECTIONS.includes(raw as Section) ? (raw as Section) : fallback;
+}
+
 function loadPrefs(): UIPrefs {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULTS;
-    const parsed = JSON.parse(raw) as Partial<UIPrefs>;
-    // Merge with defaults so new keys added in the future don't crash
+    // Parse loosely so we can coerce stale `activeSection` values via
+    // `migrateActiveSection` below before asserting back into UIPrefs.
+    const parsed = JSON.parse(raw) as Partial<Omit<UIPrefs, 'activeSection'>> & {
+      activeSection?: unknown;
+    };
     return {
+      // Merge with defaults so new keys added in the future don't crash
       ...DEFAULTS,
       ...parsed,
+      activeSection: migrateActiveSection(parsed.activeSection),
       // Deep-merge filters so any new filter keys land at their default values
       filters: { ...DEFAULT_FILTERS, ...(parsed.filters ?? {}) },
     };

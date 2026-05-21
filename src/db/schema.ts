@@ -109,6 +109,7 @@ export interface CreatureRecord {
   data: PF2ECreature;
   /** Indexed for filtering; set for complex hazards only */
   isComplex?: boolean;
+  family?: string;
   customData?: {
     attacks?: CustomAttack[];
     abilities?: CustomAbility[];
@@ -197,6 +198,7 @@ export interface AncestryRecord {
   boosts: AncestryBoostSet;
   languages: string[];
   additionalLanguages: { count: number; options: string[] };
+  description: string;
   grantedItems: GrantedItem[];
   publication: string; remaster: boolean; blobSha: string;
 }
@@ -258,4 +260,27 @@ export interface FeatRecord {
   prerequisites: string[];
   description: string;
   publication: string; remaster: boolean; blobSha: string;
+}
+
+/** Lightweight stat block for a party member — GM-facing only, not tied to CharacterRecord. */
+export interface PartyMemberRecord {
+  id: string;            // 'pmember-<timestamp>-<rand>'
+  name: string;
+  maxHp: number;
+  ac: number;
+  perception: number;
+  fort: number;
+  ref: number;
+  will: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PartyRecord {
+  id: string;            // 'party-<timestamp>'
+  name: string;
+  level: number;         // 1..20
+  memberIds: string[];   // ordered list of PartyMemberRecord.id
+  createdAt: number;
+  updatedAt: number;
 }

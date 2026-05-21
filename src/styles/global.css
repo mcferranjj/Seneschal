@@ -53,13 +53,18 @@ textarea {
 
 /* PF2E keyword tooltips — injected via dangerouslySetInnerHTML */
 .pf2kw {
-  border-bottom: 1px dashed var(--color-accent);
-  cursor: pointer;
   position: relative;
   display: inline;
 }
 
-.pf2kw:hover {
+/* Interactive link styling only when trait tooltips are enabled.
+   Add the .pf2kwInteractive class to the container to opt-in. */
+.pf2kwInteractive .pf2kw {
+  border-bottom: 1px dashed var(--color-accent);
+  cursor: pointer;
+}
+
+.pf2kwInteractive .pf2kw:hover {
   border-bottom-style: solid;
 }
 

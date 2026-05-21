@@ -244,7 +244,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
       : 'moderate'
   );
   const [attacks, setAttacks] = useState<AttackDraft[]>(() =>
-    isEditing && editAttacks.length > 0 ? editAttacks : [defaultAttack(partyLevel)]
+    isEditing ? editAttacks : []
   );
   const [abilities, setAbilities] = useState<CustomAbility[]>(
     initFromEdit(editCreature?.customData?.abilities ?? [], [])
@@ -399,7 +399,7 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
     setPerception(lookupPerception(lv, 'moderate'));
     setPerceptionTier('moderate');
     setSpeeds([{ type: 'land', value: 25 }]);
-    setAttacks([defaultAttack(lv)]);
+    setAttacks([]);
     setAbilities([]);
     setSenses([]); setImmunities([]); setResistances([]); setWeaknesses([]); setSpellcasting([]);
     setSkills([]); setLanguages([]); setAllSavesNote('');
@@ -475,11 +475,13 @@ export function CustomCreatureWizard({ partyLevel, onSave, onCancel, editCreatur
       });
     const cleanAbilities: CustomAbility[] = abilities
       .filter(a => a.name.trim())
-      .map(({ name: n, description, actionType, frequency, trigger, requirements }) => ({
+      .map(({ name: n, description, actionType, frequency, trigger, requirements, traits, genericAbilityName }) => ({
         name: n.trim(), description, actionType,
         frequency: frequency?.trim() || undefined,
         trigger: trigger?.trim() || undefined,
         requirements: requirements?.trim() || undefined,
+        traits: traits && traits.length > 0 ? traits : undefined,
+        genericAbilityName,
       }));
     // Preserve ID when editing; generate new one for new creatures
     const id = isEditing ? editCreature!.id : `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`;

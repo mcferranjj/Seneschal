@@ -8,6 +8,18 @@
 
 import type { PF2ECreature } from '../types/pf2e';
 
+/**
+ * Normalizes a raw `system.details.creatureType` value into a family string.
+ * Returns `undefined` for missing / non-string / empty (after trim) values so
+ * sync and custom-import paths produce identical family keys for the same
+ * source data (avoids duplicate filter entries from trailing whitespace etc.).
+ */
+export function normalizeFamily(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 /** Returns the creature's base level as a number (default 0). */
 export function getLevel(c: PF2ECreature): number {
   const lvl = c.system?.details?.level;

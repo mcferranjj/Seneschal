@@ -10,6 +10,11 @@ import styles from './EncounterManager.module.css';
 import { eliteWeakLevel } from '../../utils/levelScaling';
 import { QuickCreatureForm } from './QuickCreatureForm';
 import { ConditionPicker } from './ConditionPicker';
+import { PartyPickerMenu } from '../parties';
+import type { PartyRecord, CreatureRecord } from '../../db/schema';
+import { creatureRepository } from '../../db/repositories/CreatureRepository';
+import { readDndPayload, writeDndPayload } from '../../utils/dnd';
+import { computeInitForDrop } from '../../utils/initiative';
 
 
 // Only Frightened auto-reduces by 1 at end of each creature's turn per PF2e rules.
@@ -39,6 +44,8 @@ interface EncounterManagerProps {
   onDuplicateCreature: (uid: string) => void;
   onUpdateHP: (uid: string, delta: number) => void;
   onSetHP: (uid: string, newHp: number) => void;
+  onSetCreatureInit?: (uid: string, init: number) => void;
+  onAddCreatureRecord?: (record: CreatureRecord) => void;
   onAddCustomCreature: (name: string, level: number, hp?: number, ac?: number, fort?: number, ref?: number, will?: number, attacks?: CustomAttack[], abilities?: CustomAbility[], isEnemy?: boolean) => void;
   onSelectCreature: (id: string, encounterUid: string) => void;
   onSelectEncounterCreature: (uid: string) => void;
@@ -49,6 +56,25 @@ interface EncounterManagerProps {
   onRoll?: (entry: Omit<RollHistoryEntry, 'id'>) => void;
   resultsOpen?: boolean;
   onToggleResults?: () => void;
+  parties?: PartyRecord[];
+  activeParty?: PartyRecord | null;
+  activePartyId?: string | null;
+  onApplyParty?: (p: PartyRecord) => void;
+  onInsertPartyAsCreatures?: (p: PartyRecord) => void;
+  onSetActivePartyId?: (id: string | null) => void;
+  onOpenPartyEditor?: (partyId: string | null) => void;
+}
+
+/**
+ * Compute whether a drag-over/drop event lands above or below the target card,
+ * based on cursor Y vs. the card's vertical midpoint. Module-scope and pure so
+ * `handleDragOver` and `handleDrop` share one implementation and `handleDrop`
+ * never reads stale midpoint state.
+ */
+function getDropPosition(e: React.DragEvent<HTMLElement>): 'above' | 'below' {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const midpoint = rect.top + rect.height / 2;
+  return e.clientY < midpoint ? 'above' : 'below';
 }
 
 function xpFor(monsterLevel: number, partyLevel: number): number {
@@ -95,6 +121,8 @@ export function EncounterManager({
   onDuplicateCreature,
   onUpdateHP,
   onSetHP,
+  onSetCreatureInit,
+  onAddCreatureRecord,
   onAddCustomCreature,
   onSelectCreature,
   onSelectEncounterCreature,
@@ -105,7 +133,16 @@ export function EncounterManager({
   onRoll,
   resultsOpen = true,
   onToggleResults,
+  parties = [],
+  activeParty = null,
+  activePartyId = null,
+  onApplyParty,
+  onInsertPartyAsCreatures,
+  onSetActivePartyId,
+  onOpenPartyEditor,
 }: EncounterManagerProps) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerBtnRef = useRef<HTMLButtonElement>(null);
   const [combatMode, setCombatMode] = useState(false);
   const [round, setRound] = useState(1);
   const [activeTurn, setActiveTurn] = useState(0);
@@ -205,6 +242,10 @@ export function EncounterManager({
   const [editHpVal, setEditHpVal] = useState('');
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editNameVal, setEditNameVal] = useState('');
+
+  // Drag-and-drop for combat cards
+  const [draggingUid, setDraggingUid] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<{ uid: string; position: 'above' | 'below' } | null>(null);
 
   function commitName(uid: string) {
     const trimmed = editNameVal.trim();
@@ -449,7 +490,7 @@ export function EncounterManager({
                 <button
                   className={`${styles.tab} ${i === activeEnc ? styles.tabActive : ''}`}
                   onClick={() => onActiveEncChange(i)}
-                  onDoubleClick={() => { setRenamingTab(i); setRenameVal(en.name); }}
+                  onDoubleClick={e => { e.preventDefault(); setRenamingTab(i); setRenameVal(en.name); }}
                   title="Double-click to rename"
                 >
                   {en.name}
@@ -485,6 +526,7 @@ export function EncounterManager({
           <div className={styles.budget}>
             <div className={styles.budgetHeader}>
               <span className={styles.sectionLabel}>Budget</span>
+              <span className={styles.xpTotal}>{totalXP} XP</span>
               <span className={styles.diffLabel} style={{ color: diff.color }}>
                 {diff.label}
               </span>
@@ -528,7 +570,29 @@ export function EncounterManager({
                   </button>
                 </div>
               </div>
-              <span className={styles.xpTotal}>{totalXP} XP</span>
+              <button
+                ref={pickerBtnRef}
+                className={styles.partyPickerBtn}
+                onClick={() => setPickerOpen(o => !o)}
+                aria-haspopup="menu"
+                aria-expanded={pickerOpen}
+              >
+                {activeParty ? activeParty.name : 'Party…'}
+                <span className={styles.caret}>&#9660;</span>
+              </button>
+              {pickerOpen && (
+                <PartyPickerMenu
+                  parties={parties}
+                  activePartyId={activePartyId}
+                  anchorRef={pickerBtnRef}
+                  onCreate={() => { setPickerOpen(false); onOpenPartyEditor?.(null); }}
+                  onUse={(p) => { setPickerOpen(false); onApplyParty?.(p); }}
+                  onInsert={(p) => { setPickerOpen(false); onInsertPartyAsCreatures?.(p); }}
+                  onEdit={(p) => { setPickerOpen(false); onOpenPartyEditor?.(p.id); }}
+                  onDetach={() => { setPickerOpen(false); onSetActivePartyId?.(null); }}
+                  onClose={() => setPickerOpen(false)}
+                />
+              )}
             </div>
           </div>
 
@@ -586,7 +650,7 @@ export function EncounterManager({
                       <span
                         className={`${styles.plannerName} ${c.creatureId ? styles.creatureNameClickable : ''}`}
                         title="Double-click to rename"
-                        onDoubleClick={e => { e.stopPropagation(); setEditingName(c.uid); setEditNameVal(c.name); }}
+                        onDoubleClick={e => { e.preventDefault(); e.stopPropagation(); setEditingName(c.uid); setEditNameVal(c.name); }}
                       >
                         {c.name}{c.eliteWeak === 'elite' ? ' (Elite)' : c.eliteWeak === 'weak' ? ' (Weak)' : ''}
                       </span>
@@ -641,6 +705,19 @@ export function EncounterManager({
                         {effWill != null ? (effWill >= 0 ? `+${effWill}` : effWill) : '—'}
                       </span>
                     </span>
+                    {(() => {
+                      const effPer = c.perception != null ? c.perception + ewMod : null;
+                      return (
+                        <span className={styles.combatDefStat} title={c.isHazard ? 'Stealth (initiative)' : 'Perception'}>
+                          <span className={styles.combatDefLabel}>{c.isHazard ? 'Ste' : 'Per'}</span>
+                          <span className={styles.combatDefVal} style={ewMod !== 0 && effPer != null ? ewValStyle : undefined}>
+                            {effPer != null ? (effPer >= 0 ? `+${effPer}` : effPer)
+                              : c.isHazard && c.stealthMod != null ? (c.stealthMod >= 0 ? `+${c.stealthMod}` : c.stealthMod)
+                              : '—'}
+                          </span>
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   {/* Bottom row: level/XP + Elite/Weak toggle buttons */}
@@ -716,7 +793,30 @@ export function EncounterManager({
               {combatHeaderNarrow ? '✕' : '✕ End'}
             </button>
           </div>
-          <div className={styles.combatList}>
+          <div
+            className={styles.combatList}
+            onDragOver={e => {
+              if (readDndPayload(e)) e.preventDefault();
+            }}
+            onDrop={async e => {
+              e.preventDefault();
+              const parsed = readDndPayload(e);
+              if (!parsed) return;
+              // Card-level handler takes precedence when dropping on a card.
+              // This list-level handler only fires for drops in empty space.
+              if (parsed.kind === 'creatureRecord') {
+                try {
+                  const record = await creatureRepository.get(parsed.payload.creatureId);
+                  if (record) {
+                    if (onAddCreatureRecord) onAddCreatureRecord(record);
+                    else onSelectCreature(parsed.payload.creatureId, '');
+                  }
+                } catch (err) {
+                  console.error('Drop error:', err);
+                }
+              }
+            }}
+          >
             {liveCombatCreatures.map((c, i) => {
               const isActive = i === activeTurn;
               const combatEwMod = c.eliteWeak === 'elite' ? 2 : c.eliteWeak === 'weak' ? -2 : 0;
@@ -728,12 +828,113 @@ export function EncounterManager({
                 if (c.creatureId) onSelectCreature(c.creatureId, c.uid);
               };
 
+              // Only block drag on the card whose own edit input is open —
+              // editing another card should not freeze this card's drag handle.
+              const isEditingThisCard =
+                editingInit === c.uid || editingHp === c.uid || editingName === c.uid;
+              const isDraggable = !isEditingThisCard;
+              const isDragging = draggingUid === c.uid;
+              const showDropAbove = dragOver?.uid === c.uid && dragOver.position === 'above';
+              const showDropBelow = dragOver?.uid === c.uid && dragOver.position === 'below';
+
+              const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+                if (!isDraggable) {
+                  e.preventDefault();
+                  return;
+                }
+                e.dataTransfer!.effectAllowed = 'move';
+                writeDndPayload(e.dataTransfer!, { kind: 'combatant', payload: { uid: c.uid } });
+                setDraggingUid(c.uid);
+              };
+
+              const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+                if (!readDndPayload(e)) return;
+                e.preventDefault();
+
+                const position = getDropPosition(e);
+                setDragOver({ uid: c.uid, position });
+              };
+
+              const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+                if ((e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) return;
+                setDragOver(null);
+              };
+
+              const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+                e.preventDefault();
+                const parsed = readDndPayload(e);
+                if (!parsed) { setDragOver(null); return; }
+
+                const targetIdx = liveCombatCreatures.findIndex(cr => cr.uid === c.uid);
+                const position = getDropPosition(e);
+                const insertIdx = position === 'above' ? targetIdx : targetIdx + 1;
+
+                if (parsed.kind === 'combatant' && parsed.payload.uid !== c.uid) {
+                  const draggedIdx = liveCombatCreatures.findIndex(cr => cr.uid === parsed.payload.uid);
+                  if (draggedIdx === -1) { setDragOver(null); return; }
+
+                  const withoutDragged = liveCombatCreatures.filter((_, i) => i !== draggedIdx);
+                  // After removal, indices ≥ draggedIdx shift left by one.
+                  const adjustedIdx = insertIdx > draggedIdx ? insertIdx - 1 : insertIdx;
+                  const clampedIdx = Math.max(0, Math.min(adjustedIdx, withoutDragged.length));
+                  const { draggedInit, sideEffects } = computeInitForDrop(withoutDragged, clampedIdx);
+
+                  // Apply side-effect init changes to withoutDragged before building updated.
+                  const withoutDraggedUpdated = withoutDragged.map((cr, i) => {
+                    const se = sideEffects.find(s => s.idx === i);
+                    return se ? { ...cr, init: se.init } : cr;
+                  });
+
+                  const dragged = liveCombatCreatures[draggedIdx]!;
+                  const updated = [
+                    ...withoutDraggedUpdated.slice(0, clampedIdx),
+                    { ...dragged, init: draggedInit },
+                    ...withoutDraggedUpdated.slice(clampedIdx),
+                  ].sort((a, b) => b.init - a.init);
+
+                  // Chase the active creature by uid, not by index.
+                  const activeUid = liveCombatCreatures[activeTurn]?.uid;
+                  if (activeUid) {
+                    const newIdx = updated.findIndex(cr => cr.uid === activeUid);
+                    if (newIdx !== -1) setActiveTurn(newIdx);
+                  }
+
+                  setCombatCreatures(updated);
+                  // Persist the dragged creature's new init, then any side-effect inits.
+                  onSetCreatureInit?.(dragged.uid, draggedInit);
+                  for (const se of sideEffects) {
+                    onSetCreatureInit?.(withoutDragged[se.idx].uid, se.init);
+                  }
+                } else if (parsed.kind === 'creatureRecord' && onAddCreatureRecord) {
+                  // Add to encounter; the watcher effect on `enc.creatures` will
+                  // assign an auto-rolled initiative and re-sort. Precise drop-
+                  // position init is a follow-up: addToEncounter is sync but the
+                  // new combatant only lands in `combatCreatures` on the next
+                  // effect tick, so we can't reliably target it here without
+                  // tracking its uid.
+                  try {
+                    const record = await creatureRepository.get(parsed.payload.creatureId);
+                    if (record) onAddCreatureRecord(record);
+                  } catch (err) {
+                    console.error('Drop error:', err);
+                  }
+                }
+
+                setDragOver(null);
+              };
+
               return (
                 <div
                   key={c.uid}
-                  className={`${styles.combatCard} ${isActive ? styles.combatCardActive : ''} ${c.creatureId ? styles.combatCardClickable : ''} ${selectedEncounterUid === c.uid ? styles.combatCardSelected : ''}`}
+                  className={`${styles.combatCard} ${isActive ? styles.combatCardActive : ''} ${c.creatureId ? styles.combatCardClickable : ''} ${selectedEncounterUid === c.uid ? styles.combatCardSelected : ''} ${isDragging ? styles.dragging : ''} ${showDropAbove ? styles.dropAbove : ''} ${showDropBelow ? styles.dropBelow : ''}`}
                   onClick={c.creatureId ? openStatblock : undefined}
                   title={c.creatureId ? 'Click to view statblock' : undefined}
+                  draggable={isDraggable}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onDragEnd={() => setDraggingUid(null)}
                 >
                   {/* Row 1: init badge · name · hp */}
                   <div className={styles.combatCardTop}>
@@ -778,7 +979,7 @@ export function EncounterManager({
                       <span
                         className={`${styles.combatName} ${isActive ? styles.combatNameActive : ''}`}
                         title="Double-click to rename"
-                        onDoubleClick={e => { e.stopPropagation(); setEditingName(c.uid); setEditNameVal(c.name); }}
+                        onDoubleClick={e => { e.preventDefault(); e.stopPropagation(); setEditingName(c.uid); setEditNameVal(c.name); }}
                       >
                         {c.name}{c.eliteWeak === 'elite' ? ' (Elite)' : c.eliteWeak === 'weak' ? ' (Weak)' : ''}
                       </span>
@@ -820,6 +1021,13 @@ export function EncounterManager({
                     const effFort = c.fort != null ? c.fort + pen.fort + combatEwMod : null;
                     const effRef  = c.ref  != null ? c.ref  + pen.ref  + combatEwMod : null;
                     const effWill = c.will != null ? c.will + pen.will + combatEwMod : null;
+                    // Hazards use stealthMod for initiative; creatures use perception.
+                    // Elite/weak applies to perception on creatures (not hazards).
+                    const effPer  = c.isHazard
+                      ? (c.stealthMod ?? null)
+                      : c.perception != null ? c.perception + combatEwMod : null;
+                    const perLabel = c.isHazard ? 'Ste' : 'Per';
+                    const perTitle = c.isHazard ? 'Stealth (initiative) · right-click to input' : 'Perception · right-click to input';
                     const debuffStyle = { color: '#c0392b', fontWeight: 700 } as const;
                     const combatEwStyle = combatEwMod > 0
                       ? { color: '#8a6a18', fontWeight: 700 } as const
@@ -867,6 +1075,17 @@ export function EncounterManager({
                           <span className={styles.combatDefLabel}>W</span>
                           <span className={styles.combatDefVal} style={pen.will !== 0 ? debuffStyle : combatEwMod !== 0 && effWill != null ? combatEwStyle : undefined}>
                             {effWill != null ? (effWill >= 0 ? `+${effWill}` : effWill) : '—'}
+                          </span>
+                        </span>
+                        <span
+                          className={styles.combatDefStat}
+                          title={perTitle}
+                          onClick={effPer != null ? e => { e.stopPropagation(); openStatblock(); setDiceRoll({ expr: `1d20${effPer >= 0 ? `+${effPer}` : effPer}`, label: `${c.name} · ${c.isHazard ? 'Stealth' : 'Perception'}`, x: e.clientX, y: e.clientY - 160 }); } : e => e.stopPropagation()}
+                          onContextMenu={effPer != null ? e => { e.preventDefault(); e.stopPropagation(); setManualRoll({ expr: `1d20${effPer >= 0 ? `+${effPer}` : effPer}`, label: `${c.name} · ${c.isHazard ? 'Stealth' : 'Perception'}`, x: e.clientX, y: e.clientY - 160 }); } : undefined}
+                        >
+                          <span className={styles.combatDefLabel}>{perLabel}</span>
+                          <span className={styles.combatDefVal} style={!c.isHazard && combatEwMod !== 0 && effPer != null ? combatEwStyle : undefined}>
+                            {effPer != null ? (effPer >= 0 ? `+${effPer}` : effPer) : '—'}
                           </span>
                         </span>
                       </div>

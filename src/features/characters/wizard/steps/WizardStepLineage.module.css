@@ -2,7 +2,6 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  overflow-y: auto;
 }
 
 .infoSection {
@@ -32,19 +31,13 @@
 
 .infoForm {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 16px;
-}
-
-@media (max-width: 1200px) {
-  .infoForm {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 @media (max-width: 768px) {
   .infoForm {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -52,6 +45,7 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-width: 0;
 }
 
 .fieldLabel {
@@ -74,12 +68,16 @@
   background: var(--color-bg);
   color: var(--color-text);
   font-size: 0.9rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .input:focus,
 .select:focus {
   outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
+  outline-offset: -2px;
+  border-color: var(--color-primary);
 }
 
 .hint {
@@ -104,6 +102,28 @@
   .pickerGrid {
     grid-template-columns: 1fr;
   }
+}
+
+.heritageWrap {
+  display: flex;
+  flex-direction: column;
+  animation: heritageEnter 0.32s ease both;
+  min-width: 0;
+}
+
+@keyframes heritageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heritageWrap { animation: none; }
 }
 
 .divider {

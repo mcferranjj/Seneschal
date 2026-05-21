@@ -14,6 +14,10 @@ export async function getAllTraits(): Promise<string[]> {
   return creatureRepository.getAllTraits();
 }
 
+export async function getAllFamilies(): Promise<string[]> {
+  return creatureRepository.getAllFamilies();
+}
+
 export async function getAllPublicationsWithMeta(): Promise<PublicationInfo[]> {
   return creatureRepository.getAllPublicationsWithMeta();
 }

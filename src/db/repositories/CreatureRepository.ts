@@ -20,7 +20,7 @@ export class CreatureRepository implements ICreatureRepository {
   async search(filters: SearchFilters): Promise<SearchResult> {
     const {
       name, traits, excludeTraits, levelMin, levelMax,
-      creatureTypes, hazardTypes, sizes, rarities, publications, entityTypes,
+      creatureTypes, hazardTypes, families, sizes, rarities, publications, entityTypes,
     } = filters;
 
     const nameLower = name.trim().toLowerCase();
@@ -28,6 +28,7 @@ export class CreatureRepository implements ICreatureRepository {
     const hasLevelFilter = levelMin !== -1 || levelMax !== 25;
     const hasCreatureTypeFilter = creatureTypes.length > 0;
     const hasHazardTypeFilter = hazardTypes.length > 0;
+    const hasFamilyFilter = families.length > 0;
     const hasSizeFilter = sizes.length > 0;
     const hasRarityFilter = rarities.length > 0;
     const hasPublicationFilter = publications.length > 0;
@@ -72,6 +73,7 @@ export class CreatureRepository implements ICreatureRepository {
         if (hasLevelFilter && (c.level < levelMin || c.level > levelMax)) return false;
         if (hasCreatureTypeFilter && !creatureTypes.some(t => c.traits.includes(t))) return false;
         if (hasHazardTypeFilter && !hazardTypes.some(t => c.traits.includes(t))) return false;
+        if (hasFamilyFilter && (!c.family || !families.includes(c.family))) return false;
         if (hasSizeFilter && !sizes.includes(c.size)) return false;
         if (hasRarityFilter && !rarities.includes(c.rarity)) return false;
         if (hasPublicationFilter && !publications.includes(c.publication)) return false;
@@ -102,6 +104,12 @@ export class CreatureRepository implements ICreatureRepository {
     return keys as string[];
   }
 
+  async getAllFamilies(): Promise<string[]> {
+    const keys = await db.creatures.orderBy('family').uniqueKeys();
+    const filtered = (keys as (string | undefined)[]).filter((f): f is string => f != null && f.length > 0);
+    return filtered.sort();
+  }
+
   async getAllPublicationsWithMeta(): Promise<PublicationInfo[]> {
     const names = await this.getAllPublications();
     const results: PublicationInfo[] = [];
@@ -119,6 +127,10 @@ export class CreatureRepository implements ICreatureRepository {
 
   async put(record: CreatureRecord): Promise<void> {
     await db.creatures.put(record);
+  }
+
+  async getAllCustom(): Promise<CreatureRecord[]> {
+    return db.creatures.where('packSource').equals('custom').toArray();
   }
 
   async delete(id: string): Promise<void> {

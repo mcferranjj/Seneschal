@@ -1,6 +1,7 @@
 import { db } from '../db/db';
 import { fetchLatestCommitSha, fetchPf2eTree, fetchCreatureRaw, GithubError } from './github';
 import { runInBatches } from '../utils/async';
+import { stripMechanicsSection } from '../utils/foundryMacros';
 import { ancestryRepository } from '../db/repositories/AncestryRepository';
 import { heritageRepository } from '../db/repositories/HeritageRepository';
 import { backgroundRepository } from '../db/repositories/BackgroundRepository';
@@ -46,10 +47,58 @@ function isRemaster(raw: any): boolean {
   return raw?.system?.publication?.remaster === true;
 }
 
+/**
+ * Expand `@UUID[Compendium.pf2e.journals.JournalEntry.X.JournalEntryPage.Y]{label}`
+ * references in an ancestry description by inlining the referenced JournalEntryPage's
+ * HTML content. The flavor paragraph in `system.description.value` is followed by a
+ * UUID macro pointing to the full lore page; without expansion only the flavor renders.
+ */
+function expandJournalReferences(html: string, journalPages: Record<string, string>): string {
+  if (!html) return html;
+  // Strip the wrapping <em>…</em> (and surrounding <p>) around the UUID macro so the
+  // injected long-form content doesn't render entirely in italics.
+  return html.replace(
+    /<p>\s*<em>\s*@UUID\[Compendium\.pf2e\.journals\.JournalEntry\.[^.\]]+\.JournalEntryPage\.([^\]]+)\]\{[^}]*\}\s*<\/em>\s*<\/p>/g,
+    (full, pageId: string) => stripMechanicsSection(journalPages[pageId] ?? full),
+  ).replace(
+    /@UUID\[Compendium\.pf2e\.journals\.JournalEntry\.[^.\]]+\.JournalEntryPage\.([^\]]+)\](?:\{[^}]*\})?/g,
+    (full, pageId: string) => stripMechanicsSection(journalPages[pageId] ?? full),
+  );
+}
+
+interface JournalPage {
+  _id?: string;
+  text?: { content?: string };
+}
+interface JournalFile {
+  pages?: JournalPage[];
+}
+
+/**
+ * Fetch the ancestries journal and build a `pageId → html` map.
+ * Falls back to an empty map if the journal can't be loaded (sync still succeeds).
+ */
+async function fetchAncestryJournalPages(commitSha: string): Promise<Record<string, string>> {
+  try {
+    const raw = (await fetchCreatureRaw(commitSha, 'journals/ancestries.json')) as JournalFile;
+    const pages = raw?.pages ?? [];
+    const map: Record<string, string> = {};
+    for (const p of pages) {
+      if (p?._id && p?.text?.content) {
+        map[p._id] = p.text.content;
+      }
+    }
+    return map;
+  } catch (err) {
+    console.warn('charBuilderSync: failed to load ancestries journal — ancestry descriptions will be brief.', err);
+    return {};
+  }
+}
+
 // ── Transform functions ──────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function toAncestryRecord(raw: any, blobSha: string): AncestryRecord | null {
+export function toAncestryRecord(raw: any, blobSha: string, journalPages: Record<string, string> = {}): AncestryRecord | null {
   if (raw?.type !== 'ancestry') return null;
 
   const boostsRaw: Record<string, { value: string[] }> = raw.system.boosts ?? {};
@@ -90,6 +139,10 @@ export function toAncestryRecord(raw: any, blobSha: string): AncestryRecord | nu
       count: raw.system.additionalLanguages?.count ?? 0,
       options: raw.system.additionalLanguages?.value ?? [],
     },
+    description: expandJournalReferences(
+      raw.system.details?.description?.value ?? raw.system.description?.value ?? '',
+      journalPages,
+    ),
     grantedItems,
     publication: raw.system.publication?.title ?? '',
     remaster: isRemaster(raw),
@@ -284,8 +337,13 @@ export async function runCharBuilderSync(onProgress?: ProgressCallback, force = 
       fileEntries.push({ path: entry.path, blobSha: entry.sha });
     }
 
-    // Step 3: diff against stored SHAs
-    const toFetch = fileEntries.filter(e => storedFileShas[e.path] !== e.blobSha);
+    // Step 3: diff against stored SHAs. When `force` is true we ignore the
+    // stored per-file SHAs and re-fetch every entry — this is how the user
+    // refreshes after the local schema changes (e.g. new fields parsed off
+    // existing upstream data).
+    const toFetch = force
+      ? fileEntries.slice()
+      : fileEntries.filter(e => storedFileShas[e.path] !== e.blobSha);
     const currentKeys = new Set(fileEntries.map(e => e.path));
     const removedKeys = Object.keys(storedFileShas).filter(k => !currentKeys.has(k));
 
@@ -302,6 +360,11 @@ export async function runCharBuilderSync(onProgress?: ProgressCallback, force = 
 
     // Step 4: fetch changed/new files
     onProgress?.({ phase: 'fetching', done: 0, total: toFetch.length });
+
+    // Ancestry descriptions reference JournalEntryPages for the full lore.
+    // Fetch the ancestries journal once and inline matching pages during transform.
+    const needsAncestries = toFetch.some(e => e.path.startsWith('ancestries/'));
+    const journalPages = needsAncestries ? await fetchAncestryJournalPages(latestCommitSha) : {};
 
     const ancestries: AncestryRecord[] = [];
     const heritages: HeritageRecord[] = [];
@@ -322,7 +385,7 @@ export async function runCharBuilderSync(onProgress?: ProgressCallback, force = 
 
           let pushed = false;
           if (path.startsWith('ancestries/')) {
-            const r = toAncestryRecord(raw, blobSha);
+            const r = toAncestryRecord(raw, blobSha, journalPages);
             if (r) { ancestries.push(r); pushed = true; }
           } else if (path.startsWith('heritages/')) {
             const r = toHeritageRecord(raw, blobSha);

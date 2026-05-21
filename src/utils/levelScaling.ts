@@ -230,22 +230,71 @@ function exprToAvg(expr: string): number | null {
 }
 
 /**
+ * Rebalance a damage expression so dice contribute roughly half of total
+ * expected damage. Preserves total average exactly until the final round
+ * of the flat modifier. Returns { dice, sides, flat } where dice >= 1;
+ * `flat` may be negative (XdY-Z is a valid PF2e damage shape and is
+ * intentionally preserved when the caller passes one in).
+ *
+ * Termination: `totalAvg` is invariant across the loop (we trade avgDie
+ * between dice and flat 1:1), so the dice ratio `d*avgDie/totalAvg` is
+ * strictly monotonic in `d`. `|ratio - 0.5|` is therefore a V-shape and
+ * the loop stops at its unique minimum.
+ */
+export function rebalanceDiceFlat(
+  dice: number,
+  sides: number,
+  flat: number,
+): { dice: number; sides: number; flat: number } {
+  const avgDie = (sides + 1) / 2;
+  const totalAvg = dice * avgDie + flat;
+
+  // Tiebreak helper: pick (dice, flat) closer to 50% dice ratio.
+  const ratioDistance = (d: number) => {
+    if (totalAvg <= 0) return Infinity;
+    return Math.abs((d * avgDie) / totalAvg - 0.5);
+  };
+
+  // Add dice while doing so brings the dice ratio closer to 50%, and
+  // the flat can afford to give up an avgDie. This is the only loop:
+  // it never drives flat below zero (gated by `flat - avgDie >= 0`),
+  // so a caller-supplied negative flat (e.g. an XdY-Z downscale) is
+  // preserved untouched.
+  while (flat - avgDie >= 0 && ratioDistance(dice + 1) < ratioDistance(dice)) {
+    dice += 1;
+    flat -= avgDie;
+  }
+
+  return { dice, sides, flat: Math.round(flat) };
+}
+
+/**
  * Convert the flat average diff back into a modified dice expression.
  * We take the target table entry (which gives us the right dice for that level),
- * then adjust its flat modifier so that the resulting average matches
- * targetEntryAvg + diff.
+ * then apply the diff to its flat modifier. The result is then rebalanced to
+ * make dice contribute roughly half the total expected damage.
  *
  * e.g. targetEntry = "2d10+9" (avg 20), diff = +1.5 → newFlat = 9 + round(1.5) = 11
- *      → "2d10+11"
+ *      → rebalanced to roughly 50% dice ratio (e.g., "3d10+3" if sensible)
  */
 function applyDiffToEntry(targetEntry: string, diff: number): string {
-  const m = targetEntry.trim().match(/^(\d+d\d+)(?:([+-]\d+))?$/);
+  const m = targetEntry.trim().match(/^(\d+)d(\d+)(?:([+-]\d+))?$/);
   if (!m) return targetEntry;
-  const dice    = m[1];
-  const oldFlat = m[2] ? parseInt(m[2]) : 0;
+  const dice = parseInt(m[1]);
+  const sides = parseInt(m[2]);
+  const oldFlat = m[3] ? parseInt(m[3]) : 0;
   const newFlat = oldFlat + Math.round(diff);
-  if (newFlat === 0) return dice;
-  return `${dice}${newFlat > 0 ? `+${newFlat}` : newFlat}`;
+
+  // Rebalance to prefer more dice (closer to 50% dice ratio)
+  const { dice: rebalDice, sides: rebalSides, flat: rebalFlat } = rebalanceDiceFlat(
+    dice,
+    sides,
+    newFlat,
+  );
+
+  // Format output
+  if (rebalFlat === 0) return `${rebalDice}d${rebalSides}`;
+  return `${rebalDice}d${rebalSides}${rebalFlat > 0 ? `+${rebalFlat}` : rebalFlat}`;
 }
 
 /**
@@ -858,11 +907,7 @@ function scaleHazardAttackBonus(value: number, baseLevel: number, targetLevel: n
  * Scale a hazard's damage expression. Uses the simple/complex offense table columns.
  */
 function scaleHazardDamageExpr(expr: string, baseLevel: number, targetLevel: number, isComplex: boolean): string {
-  const inputAvg = (function exprToAvgLocal(e: string): number | null {
-    const m = e.trim().match(/^(\d+)d(\d+)(?:([+-]\d+))?$/);
-    if (!m) return null;
-    return parseInt(m[1]) * (parseInt(m[2]) + 1) / 2 + (m[3] ? parseInt(m[3]) : 0);
-  })(expr.replace(/\s/g, ''));
+  const inputAvg = exprToAvg(expr.replace(/\s/g, ''));
   if (inputAvg === null) return expr;
 
   const bl = Math.max(-1, Math.min(24, baseLevel));
@@ -873,15 +918,10 @@ function scaleHazardDamageExpr(expr: string, baseLevel: number, targetLevel: num
   const baseEntry = isComplex ? baseRow.complexDmg : baseRow.simpleDmg;
   const targetEntry = isComplex ? targetRow.complexDmg : targetRow.simpleDmg;
 
-  // Compute average of the base table entry
-  const baseAvgLocal = (function e2a(e: string): number | null {
-    const m = e.trim().match(/^(\d+)d(\d+)(?:([+-]\d+))?$/);
-    if (!m) return null;
-    return parseInt(m[1]) * (parseInt(m[2]) + 1) / 2 + (m[3] ? parseInt(m[3]) : 0);
-  })(baseEntry);
-  if (baseAvgLocal === null) return expr;
+  const baseAvg = exprToAvg(baseEntry);
+  if (baseAvg === null) return expr;
 
-  const diff = inputAvg - baseAvgLocal;
+  const diff = inputAvg - baseAvg;
   return applyDiffToEntry(targetEntry, diff);
 }
 

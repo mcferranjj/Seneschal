@@ -2,6 +2,14 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  transition: gap 0.3s ease;
+}
+
+/* When the section's header is hidden, the rarity group has no visible
+ * children — fully remove it from layout so it doesn't leave dead
+ * vertical space (the parent picker list has its own gap). */
+.rarityGroupCollapsed {
+  display: none;
 }
 
 .rarityHeader {
@@ -12,6 +20,23 @@
   padding: 2px 6px;
   border-radius: 4px;
   align-self: flex-start;
+  max-height: 24px;
+  overflow: hidden;
+  transition:
+    opacity 0.25s ease,
+    max-height 0.3s ease,
+    padding 0.25s ease,
+    margin 0.25s ease,
+    border-width 0.25s ease;
+}
+
+.rarityHeaderHidden {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin: 0;
+  border-width: 0;
 }
 
 .rarity_common {

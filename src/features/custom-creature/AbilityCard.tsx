@@ -164,6 +164,18 @@ export function AbilityCard({
         <button className={styles.removeBtn} onClick={onRemove}>×</button>
       </div>
 
+      {/* Traits input */}
+      <input
+        className={styles.metaInput}
+        value={(ability.traits ?? []).join(', ')}
+        onChange={e => {
+          const raw = e.target.value;
+          const traits = raw.split(',').map(t => t.trim()).filter(Boolean);
+          onChange({ traits: traits.length > 0 ? traits : undefined });
+        }}
+        placeholder="Traits (e.g. auditory, emotion, fear)"
+      />
+
       {/* Editor */}
       <AbilityEditor
         ready={ability.name.trim().length > 0 && ability.actionType !== undefined}

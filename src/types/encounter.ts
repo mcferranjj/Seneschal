@@ -1,4 +1,4 @@
-export type Section = 'gm' | 'rules' | 'parties' | 'characters';
+export type Section = 'gm' | 'rules' | 'characters';
 
 export interface Condition {
   name: string;
@@ -49,6 +49,8 @@ export interface CustomAbility {
   frequency?: string;
   trigger?: string;
   requirements?: string;
+  /** Trait keywords shown in parentheses after the ability header (e.g. auditory, emotion) */
+  traits?: string[];
   /**
    * If set, this ability was inserted from the generic ability glossary.
    * The value is the canonical glossary name (may differ from `name` if the
@@ -143,4 +145,5 @@ export interface Encounter {
   id: number;
   name: string;
   creatures: EncounterCreature[];
+  activePartyId?: string | null;
 }
