@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import { resolvePublicationTitle } from '../sync/publicationRegistry';
+import { normalizeFamily } from '../utils/pf2eHelpers';
 import type {
   CreatureRecord, MetaRecord, TraitDescriptionsRecord, CharacterRecord, EncounterStateRecord,
   AncestryRecord, HeritageRecord, BackgroundRecord, ClassRecord, FeatRecord, PartyRecord,
@@ -143,6 +144,35 @@ class SeneschalDatabase extends Dexie {
       parties:           'id, updatedAt',
       partyMembers:      'id, updatedAt',
     });
+    // Version 12: backfill the `family` field for existing NPC records that were
+    // synced before version 11 added the index (those records have family === undefined).
+    // We read `creatureType` directly from the embedded `data` blob — no network
+    // call needed — so this migration is instant and transparent to the user.
+    this.version(12).stores({
+      creatures:         'id, entityType, nameLower, level, rarity, size, packSource, publication, family, *traits',
+      meta:              'key',
+      encounterState:    'key',
+      characters:        'id, nameLower, level',
+      traitDescriptions: 'key',
+      ancestries:        'id, nameLower, slug, *traits, rarity',
+      heritages:         'id, nameLower, ancestrySlug, isVersatile',
+      backgrounds:       'id, nameLower, rarity',
+      classes:           'id, nameLower, slug',
+      feats:             'id, nameLower, level, category, *traits, rarity, [category+level]',
+      parties:           'id, updatedAt',
+      partyMembers:      'id, updatedAt',
+    }).upgrade(tx => tx.table('creatures').toCollection().modify(c => {
+      try {
+        // Only backfill NPC records that don't already have a family set —
+        // idempotent + matches the sync-path gating (NPCs only) in sync.ts.
+        if (c.entityType !== 'npc' || c.family != null) return;
+        const family = normalizeFamily(c.data?.system?.details?.creatureType);
+        if (family) c.family = family;
+      } catch (err) {
+        // Never let one malformed record abort the whole migration transaction.
+        console.warn('[db v12] family backfill skipped for record', c?.id, err);
+      }
+    }));
   }
 }
 
