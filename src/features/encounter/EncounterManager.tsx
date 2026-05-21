@@ -900,13 +900,19 @@ export function EncounterManager({
                   // After removal, indices ≥ draggedIdx shift left by one.
                   const adjustedIdx = insertIdx > draggedIdx ? insertIdx - 1 : insertIdx;
                   const clampedIdx = Math.max(0, Math.min(adjustedIdx, withoutDragged.length));
-                  const newInit = computeInitForDrop(withoutDragged, clampedIdx);
+                  const { draggedInit, sideEffects } = computeInitForDrop(withoutDragged, clampedIdx);
+
+                  // Apply side-effect init changes to withoutDragged before building updated.
+                  const withoutDraggedUpdated = withoutDragged.map((cr, i) => {
+                    const se = sideEffects.find(s => s.idx === i);
+                    return se ? { ...cr, init: se.init } : cr;
+                  });
 
                   const dragged = liveCombatCreatures[draggedIdx]!;
                   const updated = [
-                    ...withoutDragged.slice(0, clampedIdx),
-                    { ...dragged, init: newInit },
-                    ...withoutDragged.slice(clampedIdx),
+                    ...withoutDraggedUpdated.slice(0, clampedIdx),
+                    { ...dragged, init: draggedInit },
+                    ...withoutDraggedUpdated.slice(clampedIdx),
                   ].sort((a, b) => b.init - a.init);
 
                   // Chase the active creature by uid, not by index.
@@ -917,7 +923,11 @@ export function EncounterManager({
                   }
 
                   setCombatCreatures(updated);
-                  onSetCreatureInit?.(dragged.uid, newInit);
+                  // Persist the dragged creature's new init, then any side-effect inits.
+                  onSetCreatureInit?.(dragged.uid, draggedInit);
+                  for (const se of sideEffects) {
+                    onSetCreatureInit?.(withoutDragged[se.idx].uid, se.init);
+                  }
                 } else if (parsed.kind === 'creatureRecord' && onAddCreatureRecord) {
                   // Add to encounter; the watcher effect on `enc.creatures` will
                   // assign an auto-rolled initiative and re-sort. Precise drop-
