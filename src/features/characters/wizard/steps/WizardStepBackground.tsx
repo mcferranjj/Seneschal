@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import type { CharacterBackgroundRef, BackgroundRecord } from '../../../../db/schema';
 import { useBackgroundData } from '../../hooks/useBackgroundData';
+import { useFeatData } from '../../hooks/useFeatData';
 import { PickerLayout } from '../shared/PickerLayout';
 import { DetailPanel, DetailSection } from '../shared/DetailPanel';
 import { FoundryHtml } from '../shared/FoundryHtml';
@@ -157,6 +158,8 @@ function uniqueValues(items: BackgroundRecord[], col: ColKey, search: string): s
 
 export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardStepBackgroundProps) {
   const { backgrounds, loading } = useBackgroundData();
+  const { feats } = useFeatData();
+  const [featDetailOpen, setFeatDetailOpen] = useState(false);
 
   const {
     sort, checkFilters, checkModes, textFilters, hasAnyFilter,
@@ -228,6 +231,9 @@ export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardSt
     ? backgrounds.find(b => b.id === selected.id) ?? null
     : null;
 
+  // Reset feat detail when selected background changes
+  useEffect(() => { setFeatDetailOpen(false); }, [selected?.id]);
+
   const dropdownValues        = dropdown ? uniqueValues(backgrounds, dropdown.col, dropdown.listSearch) : [];
   const dropdownCheckedCount  = dropdown ? (checkFilters[dropdown.col]?.size ?? 0) : 0;
   const dropdownMode          = dropdown ? (checkModes[dropdown.col] ?? 'or') : 'or';
@@ -257,13 +263,42 @@ export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardSt
               {opt.choices.map(k => k.toUpperCase()).join(' or ')}
             </span>
           ))}
+          {selectedRecord.freeBoostCount > 0 && (
+            <span className={`${styles.boostOpt} ${styles.boostOptFree}`}>
+              + {selectedRecord.freeBoostCount === 1 ? 'one free boost' : `${selectedRecord.freeBoostCount} free boosts`}
+            </span>
+          )}
         </div>
       </DetailSection>
-      {selectedRecord.grantedFeat && (
-        <DetailSection label="Granted Feat">
-          <span className={styles.grantedFeat}>{selectedRecord.grantedFeat.name}</span>
-        </DetailSection>
-      )}
+      {selectedRecord.grantedFeat && (() => {
+        const featRecord = feats.find(f => f.name === selectedRecord.grantedFeat!.name);
+        return (
+          <DetailSection label="Granted Feat">
+            <button
+              type="button"
+              className={styles.grantedFeatBtn}
+              onClick={() => setFeatDetailOpen(prev => !prev)}
+              title={featRecord ? (featDetailOpen ? 'Hide feat details' : 'Show feat details') : undefined}
+            >
+              <span className={styles.grantedFeat}>{selectedRecord.grantedFeat!.name}</span>
+              {featRecord && (
+                <span className={styles.grantedFeatChevron}>{featDetailOpen ? '▲' : '▼'}</span>
+              )}
+            </button>
+            {featDetailOpen && featRecord && (
+              <div className={styles.grantedFeatDetail}>
+                {featRecord.prerequisites.length > 0 && (
+                  <div className={styles.grantedFeatPrereqs}>
+                    <span className={styles.grantedFeatPrereqLabel}>Prerequisites: </span>
+                    {featRecord.prerequisites.join(', ')}
+                  </div>
+                )}
+                <FoundryHtml html={featRecord.description} />
+              </div>
+            )}
+          </DetailSection>
+        );
+      })()}
       {selectedRecord.publication && (
         <DetailSection label="Source">
           <div className={styles.source}>{selectedRecord.publication}</div>

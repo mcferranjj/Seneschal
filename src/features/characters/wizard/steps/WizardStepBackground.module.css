@@ -455,11 +455,58 @@
   border: 1px solid var(--color-border);
 }
 
+.boostOptFree {
+  font-style: italic;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border-style: dashed;
+}
+
+.grantedFeatBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.grantedFeatBtn:hover .grantedFeat {
+  text-decoration: underline;
+}
+
 .grantedFeat {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--color-accent-dark);
   font-style: italic;
+}
+
+.grantedFeatChevron {
+  font-size: 0.55rem;
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+
+.grantedFeatDetail {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--color-bg-overlay-mid);
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  font-size: 0.78rem;
+}
+
+.grantedFeatPrereqs {
+  margin-bottom: 6px;
+  font-size: 0.74rem;
+  color: var(--color-text-mid);
+}
+
+.grantedFeatPrereqLabel {
+  font-weight: 600;
+  color: var(--color-text-muted);
 }
 
 .detailPanel {
