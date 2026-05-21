@@ -263,26 +263,42 @@ export async function importExportFile(file: ExportFile): Promise<ImportReport> 
   }
 
   // Import encounters
+  // Encounter ids are local-only sequential integers with no semantic meaning
+  // across exports. Always assign fresh ids so a collision on the default
+  // id=1 "Encounter 1" never silently drops the user's data.
   if (contents.encounters && contents.encounters.length > 0) {
     const currentState = await loadEncounterState();
     const existingEncounters = currentState?.encounters ?? [];
-    const existingIds = new Set(existingEncounters.map((e) => e.id));
 
-    const newEncounters = contents.encounters.filter((enc) => !existingIds.has(enc.id));
-    const collidingEncounters = contents.encounters.filter((enc) => existingIds.has(enc.id));
+    // Compute the next available id
+    let nextId =
+      existingEncounters.length > 0
+        ? Math.max(...existingEncounters.map((e) => e.id)) + 1
+        : 1;
 
-    report.imported['encounters'] = newEncounters.length;
-    report.skipped['encounters'] = collidingEncounters.length;
+    // Build a set of existing encounter names for optional name-uniquification
+    const existingNames = new Set(existingEncounters.map((e) => e.name));
 
-    if (newEncounters.length > 0) {
-      const merged = [...existingEncounters, ...newEncounters];
-      await saveEncounterState({
-        encounters: merged,
-        activeEnc: currentState?.activeEnc ?? 0,
-        partySize: currentState?.partySize ?? 4,
-        partyLevel: currentState?.partyLevel ?? 1,
-      });
-    }
+    const importedEncounters = contents.encounters.map((enc) => {
+      let name = enc.name;
+      if (existingNames.has(name)) {
+        name = `${name} (imported)`;
+      }
+      // Track the new name so batch imports don't collide with each other either
+      existingNames.add(name);
+      return { ...enc, id: nextId++, name };
+    });
+
+    report.imported['encounters'] = importedEncounters.length;
+    report.skipped['encounters'] = 0;
+
+    const merged = [...existingEncounters, ...importedEncounters];
+    await saveEncounterState({
+      encounters: merged,
+      activeEnc: currentState?.activeEnc ?? 0,
+      partySize: currentState?.partySize ?? 4,
+      partyLevel: currentState?.partyLevel ?? 1,
+    });
   }
 
   return report;
