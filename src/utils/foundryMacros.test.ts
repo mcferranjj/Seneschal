@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stripMechanicsSection, toEditableText } from './foundryMacros';
+import { stripMechanicsSection, toEditableText, toEditablePlainText } from './foundryMacros';
 
 describe('stripMechanicsSection', () => {
   it('removes everything from the first "<Subject> Mechanics" heading onward', () => {
@@ -152,5 +152,51 @@ describe('toEditableText', () => {
     const result = toEditableText(html);
     // Should strip the @Damage macro and preserve label or infer text
     expect(result).not.toContain('@Damage');
+  });
+});
+
+describe('toEditablePlainText', () => {
+  it('strips HTML tags, returning plain text', () => {
+    const result = toEditablePlainText('<p>Hello <strong>world</strong>.</p>');
+    expect(result).toBe('Hello world.');
+    expect(result).not.toContain('<');
+    expect(result).not.toContain('>');
+  });
+
+  it('preserves paragraph breaks as double newlines', () => {
+    const result = toEditablePlainText('<p>Line 1.</p><p>Line 2.</p>');
+    expect(result).toContain('Line 1.');
+    expect(result).toContain('Line 2.');
+    expect(result).toMatch(/Line 1\.\s*\n\n\s*Line 2\./);
+  });
+
+  it('decodes HTML entities', () => {
+    const result = toEditablePlainText('Some &hellip; entity &amp; another');
+    expect(result).toContain('…');
+    expect(result).toContain('&');
+    expect(result).not.toContain('&hellip;');
+    expect(result).not.toContain('&amp;');
+  });
+
+  it('handles <hr/> and <br/> with newlines and no tags', () => {
+    const result = toEditablePlainText('<hr/>Text<br/>more');
+    expect(result).toContain('Text');
+    expect(result).toContain('more');
+    expect(result).not.toContain('<hr');
+    expect(result).not.toContain('<br');
+    // newlines should separate text from hr and br
+    expect(result).toMatch(/Text\nmore/);
+  });
+
+  it('returns empty string for empty or whitespace input', () => {
+    expect(toEditablePlainText('')).toBe('');
+    expect(toEditablePlainText('   ')).toBe('');
+  });
+
+  it('handles Foundry macros mixed with HTML without crashing', () => {
+    const result = toEditablePlainText('@Damage[2d6[fire]] and <p>text</p>');
+    expect(result).not.toContain('@Damage');
+    expect(result).not.toContain('<p>');
+    expect(result).toContain('text');
   });
 });

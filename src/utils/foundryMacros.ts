@@ -129,6 +129,63 @@ export function toEditableText(raw: string): string {
 }
 
 /**
+ * Convert Foundry source text to clean plain text (no HTML) suitable for a textarea.
+ *
+ * 1. Strips Foundry macros via `stripFoundryMacros`.
+ * 2. Converts block-level closing tags to newlines so paragraph breaks survive.
+ * 3. Strips all remaining HTML tags.
+ * 4. Decodes common HTML entities.
+ * 5. Collapses whitespace while preserving paragraph breaks (at most two
+ *    consecutive newlines).
+ * 6. Trims leading/trailing whitespace.
+ */
+export function toEditablePlainText(raw: string): string {
+  if (!raw) return '';
+
+  // Step 1: Strip Foundry macros
+  let text = stripFoundryMacros(raw);
+
+  // Step 2: Replace block-level boundaries with newlines before stripping tags
+  text = text
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/h[1-6]>/gi, '\n\n')
+    .replace(/<hr\s*\/?>/gi, '\n');
+
+  // Step 3: Strip all remaining HTML tags
+  if (typeof DOMParser !== 'undefined') {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'text/html');
+    text = doc.body.textContent ?? text.replace(/<[^>]*>/g, '');
+  } else {
+    // Regex fallback for non-browser environments
+    text = text.replace(/<[^>]*>/g, '');
+    // Decode common entities
+    text = text
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&hellip;/g, '…')
+      .replace(/&mdash;/g, '—')
+      .replace(/&ndash;/g, '–')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&');
+  }
+
+  // Step 4: Normalise whitespace — collapse runs of spaces/tabs on each line,
+  // but preserve paragraph breaks (at most two consecutive newlines).
+  text = text
+    .replace(/[ \t]+/g, ' ')           // collapse horizontal whitespace
+    .replace(/\n{3,}/g, '\n\n')        // at most two consecutive newlines
+    .replace(/[ \t]*\n[ \t]*/g, '\n'); // trim spaces around newlines
+
+  return text.trim();
+}
+
+/**
  * Strip Foundry inline macros to plain readable text.
  *
  * Handles:

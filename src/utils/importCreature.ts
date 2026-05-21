@@ -5,7 +5,7 @@ import type {
   CustomSpellcastingEntry, CustomSpell, SpellTradition, SpellcastingType, SpellFrequency,
 } from '../types/encounter';
 import { getDamageString, getAttacks, getActions, getPassives } from '../features/statblock/statblockHelpers';
-import { toEditableText } from './foundryMacros';
+import { toEditableText, toEditablePlainText } from './foundryMacros';
 import { normalizeFamily } from './pf2eHelpers';
 
 function mapActionCost(raw: string | number | null | undefined): AbilityActionType | undefined {
@@ -289,9 +289,9 @@ export function importCreatureAsCustom(source: CreatureRecord): CreatureRecord {
     if (raw && typeof raw === 'object' && 'value' in (raw as object)) return String((raw as { value: unknown }).value ?? '');
     return '';
   }
-  const hazardDisable: string = toEditableText(extractHtml(system?.details?.disable));
-  const hazardReset: string = toEditableText(extractHtml(system?.details?.reset));
-  const hazardRoutine: string = toEditableText(extractHtml(system?.details?.routine));
+  const hazardDisable: string = toEditablePlainText(extractHtml(system?.details?.disable));
+  const hazardReset: string = toEditablePlainText(extractHtml(system?.details?.reset));
+  const hazardRoutine: string = toEditablePlainText(extractHtml(system?.details?.routine));
 
   if (isHazard) {
     return {
