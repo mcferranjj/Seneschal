@@ -16,6 +16,7 @@ export interface ICreatureRepository {
   getAllPublications(): Promise<string[]>;
   getAllPublicationsWithMeta(): Promise<PublicationInfo[]>;
   getAllFamilies(): Promise<string[]>;
+  getAllCustom(): Promise<CreatureRecord[]>;
   bulkPut(records: CreatureRecord[]): Promise<void>;
   put(record: CreatureRecord): Promise<void>;
   delete(id: string): Promise<void>;

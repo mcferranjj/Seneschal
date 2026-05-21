@@ -49,18 +49,6 @@ function makeExportFile(
 }
 
 /**
- * Sanitize a user-typed name for use as a download filename segment.
- * Strips path separators, leading dots, and caps length so a creature
- * named "../../etc/passwd" can't escape the download directory.
- */
-export function sanitizeFilenameSegment(raw: string, maxLength = 60): string {
-  const cleaned = raw.replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
-  const trimmed = cleaned.replace(/^[-.]+/, '').replace(/-+/g, '-');
-  const truncated = trimmed.slice(0, maxLength);
-  return truncated || 'untitled';
-}
-
-/**
  * Build a full database export including all custom creatures, encounters,
  * characters, parties, and party members.
  */
@@ -140,6 +128,29 @@ export async function buildCustomCreatureExport(creatureIds: string[]): Promise<
 }
 
 /**
+ * Build a selective export from an explicit set of records. The caller is
+ * responsible for resolving any bundled dependencies (e.g. custom creatures
+ * referenced by encounters). Kind is inferred:
+ *   - 'encounter' when only encounters (+creatures) are included
+ *   - 'customCreature' when only creatures are included
+ *   - 'full' for any other combination
+ */
+export function makeExportFileSelective(
+  contents: ExportFile['contents'],
+): ExportFile {
+  const hasEncounters = (contents.encounters?.length ?? 0) > 0;
+  const hasCreatures  = (contents.customCreatures?.length ?? 0) > 0;
+  const hasChars      = (contents.characters?.length ?? 0) > 0;
+  const hasParties    = (contents.parties?.length ?? 0) > 0;
+
+  let kind: ExportFile['kind'] = 'full';
+  if (hasEncounters && !hasChars && !hasParties) kind = 'encounter';
+  else if (hasCreatures && !hasEncounters && !hasChars && !hasParties) kind = 'customCreature';
+
+  return makeExportFile(kind, contents);
+}
+
+/**
  * Trigger a browser download of a JSON file.
  */
 export function downloadJson(filename: string, data: unknown): void {
@@ -153,6 +164,18 @@ export function downloadJson(filename: string, data: unknown): void {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Sanitize a user-typed name for use as a download filename segment.
+ * Strips path separators, leading dots, and caps length so a creature
+ * named "../../etc/passwd" can't escape the download directory.
+ */
+export function sanitizeFilenameSegment(raw: string, maxLength = 60): string {
+  const cleaned = raw.replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
+  const trimmed = cleaned.replace(/^[-.]+/, '').replace(/-+/g, '-');
+  const truncated = trimmed.slice(0, maxLength);
+  return truncated || 'untitled';
 }
 
 /**

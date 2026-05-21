@@ -22,6 +22,10 @@ export class PartyMemberRepository implements IPartyMemberRepository {
   async delete(id: string): Promise<void> {
     await db.partyMembers.delete(id);
   }
+
+  async bulkDelete(ids: string[]): Promise<void> {
+    await db.partyMembers.bulkDelete(ids);
+  }
 }
 
 export const partyMemberRepository = new PartyMemberRepository();

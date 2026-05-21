@@ -248,7 +248,9 @@ export function useEncounter(): UseEncounterReturn {
     setEncounters(prev => {
       const newIdx = prev.length;
       setActiveEnc(newIdx);
-      return [...prev, { id: newIdx + 1, name: `Encounter ${newIdx + 1}`, creatures: [] }];
+      // Use max existing id + 1 so IDs stay unique even after deletions or imports
+      const maxId = prev.length > 0 ? Math.max(...prev.map(e => e.id)) : 0;
+      return [...prev, { id: maxId + 1, name: `Encounter ${newIdx + 1}`, creatures: [] }];
     });
   }, []);
 

@@ -411,29 +411,14 @@ function StatblockContent({
         const displayName = hasCustomName ? encounterName! : c.name;
         return (
       <div className={styles.header}>
-        <div className={styles.headerMain}>
+        <div className={styles.headerRow1}>
           <span className={styles.creatureName}>
             {displayName}{activeEliteWeak === 'elite' ? ' (Elite)' : activeEliteWeak === 'weak' ? ' (Weak)' : ''}
             {effectiveScaledLevel != null && (
               <span className={styles.scaledBadge}> ⇅ Lv {effectiveScaledLevel}</span>
             )}
           </span>
-          <span className={styles.creatureLevel}>
-            {creature.entityType === 'hazard'
-              ? (hazard?.isComplex ? 'Complex Hazard' : 'Simple Hazard')
-              : 'Creature'}{' '}
-            {effectiveScaledLevel != null
-              ? activeEliteWeak ? eliteWeakLevel(effectiveScaledLevel, activeEliteWeak) : effectiveScaledLevel
-              : activeEliteWeak ? eliteWeakLevel(level, activeEliteWeak) : level}
-            {activeEliteWeak && ` (base ${effectiveScaledLevel ?? level})`}
-            {effectiveScaledLevel != null && !activeEliteWeak && ` (base ${level})`}
-            {creature.entityType !== 'hazard' && ` · ${size}`}
-            {hasCustomName && (
-              <span className={styles.creatureOriginalName}> · {c.name}</span>
-            )}
-          </span>
-        </div>
-        <div className={styles.headerActions}>
+          <div className={styles.headerActions}>
           {creature.publication !== 'Custom' && (
             <a
               className={styles.aonLink}
@@ -453,16 +438,6 @@ function StatblockContent({
           {onCopyAsCustom && (
             <button className={styles.copyBtn} onClick={() => onCopyAsCustom(creature)} title="Copy and edit as custom creature">
               ⧉
-            </button>
-          )}
-          {/* Notes toggle — only shown when an encounter creature is selected */}
-          {onSetNotes && (
-            <button
-              className={`${styles.notesBtn} ${notesOpen ? styles.notesBtnActive : ''} ${activeNotes ? styles.notesBtnHasContent : ''}`}
-              title={notesOpen ? 'Hide notes' : 'Add GM notes'}
-              onClick={() => setNotesOpen(o => !o)}
-            >
-              📝
             </button>
           )}
           {/* Level scaling button — shown whenever the callback is available or as a preview */}
@@ -510,6 +485,32 @@ function StatblockContent({
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close statblock">
             ✕
           </button>
+          </div>
+        </div>
+        <div className={styles.headerRow2}>
+          <span className={styles.creatureLevel}>
+            {creature.entityType === 'hazard'
+              ? (hazard?.isComplex ? 'Complex Hazard' : 'Simple Hazard')
+              : 'Creature'}{' '}
+            {effectiveScaledLevel != null
+              ? activeEliteWeak ? eliteWeakLevel(effectiveScaledLevel, activeEliteWeak) : effectiveScaledLevel
+              : activeEliteWeak ? eliteWeakLevel(level, activeEliteWeak) : level}
+            {activeEliteWeak && ` (base ${effectiveScaledLevel ?? level})`}
+            {effectiveScaledLevel != null && !activeEliteWeak && ` (base ${level})`}
+            {creature.entityType !== 'hazard' && ` · ${size}`}
+            {hasCustomName && (
+              <span className={styles.creatureOriginalName}> · {c.name}</span>
+            )}
+          </span>
+          {onSetNotes && (
+            <button
+              className={`${styles.notesBtn} ${notesOpen ? styles.notesBtnActive : ''} ${activeNotes ? styles.notesBtnHasContent : ''}`}
+              title={notesOpen ? 'Hide notes' : 'Add GM notes'}
+              onClick={() => setNotesOpen(o => !o)}
+            >
+              📝
+            </button>
+          )}
         </div>
       </div>
         );

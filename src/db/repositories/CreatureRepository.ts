@@ -129,6 +129,10 @@ export class CreatureRepository implements ICreatureRepository {
     await db.creatures.put(record);
   }
 
+  async getAllCustom(): Promise<CreatureRecord[]> {
+    return db.creatures.where('packSource').equals('custom').toArray();
+  }
+
   async delete(id: string): Promise<void> {
     await db.creatures.delete(id);
   }

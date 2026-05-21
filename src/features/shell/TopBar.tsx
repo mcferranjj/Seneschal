@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Section } from '../../types/encounter';
 import type { Theme } from '../../utils/themeEngine';
-import { buildFullExport, downloadJson, parseExportFile, importExportFile, ImportError } from '../../utils/exportImport';
+import { parseExportFile, importExportFile, ImportError } from '../../utils/exportImport';
 import styles from './TopBar.module.css';
 import { HelpModal } from './HelpModal';
 import { ThemePicker } from './ThemePicker';
+import { ExportModal } from './ExportModal';
 import { useCharSyncMenu } from './useCharSyncMenu';
 import { NavArrowButton } from '../../nav/NavArrowButton';
 
@@ -25,6 +26,7 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
   const [resetting, setResetting] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -88,17 +90,6 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
     } finally {
       setResetting(false);
       setConfirmOpen(false);
-    }
-  };
-
-  const handleExportFull = async () => {
-    try {
-      setMenuOpen(false);
-      const file = await buildFullExport();
-      const dateStr = new Date().toISOString().split('T')[0];
-      downloadJson(`seneschal-backup-${dateStr}.json`, file);
-    } catch (err) {
-      alert(`Export failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -244,13 +235,13 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
                   </button>
                 )}
                 <div className={styles.settingsMenuDivider} />
-                <button className={styles.settingsMenuItem} onClick={handleExportFull}>
+                <button className={styles.settingsMenuItem} onClick={() => { setMenuOpen(false); setExportOpen(true); }}>
                   <span className={styles.settingsMenuIcon}>💾</span>
-                  Export full backup
+                  Export…
                 </button>
                 <button className={styles.settingsMenuItem} onClick={handleImportClick}>
                   <span className={styles.settingsMenuIcon}>📂</span>
-                  Import backup…
+                  Import…
                 </button>
                 <div className={styles.settingsMenuDivider} />
                 <button className={styles.settingsMenuItem} onClick={handleResetClick}>
@@ -271,6 +262,7 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
           onClose={() => setThemePickerOpen(false)}
         />
       )}
+      {exportOpen && <ExportModal onClose={() => setExportOpen(false)} />}
 
       <input
         ref={fileInputRef}
