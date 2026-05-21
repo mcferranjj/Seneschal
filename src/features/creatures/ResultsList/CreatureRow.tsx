@@ -2,6 +2,7 @@ import type { CreatureRecord } from '../../../db/schema';
 import { SIZE_LABELS } from '../../../data/pf2eConstants';
 import { RARITY_COLORS, traitBg } from '../../../utils/traitColors';
 import { writeDndPayload } from '../../../utils/dnd';
+import { buildCustomCreatureExport, downloadJson } from '../../../utils/exportImport';
 import styles from './ResultsList.module.css';
 
 interface CreatureRowProps {
@@ -16,10 +17,23 @@ export function CreatureRow({ creature, isSelected, onClick, onAddToEncounter }:
   const shownTraits = creature.traits.slice(0, 3);
   const sizeLabel = SIZE_LABELS[creature.size] ?? creature.size;
   const levelLabel = `Lv ${creature.level}`;
+  const isCustom = creature.packSource === 'custom';
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     e.dataTransfer!.effectAllowed = 'copy';
     writeDndPayload(e.dataTransfer!, { kind: 'creatureRecord', payload: { creatureId: creature.id } });
+  };
+
+  const handleExportCustomCreature = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const file = await buildCustomCreatureExport([creature.id]);
+      const sanitized = creature.name.replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
+      const dateStr = new Date().toISOString().split('T')[0];
+      downloadJson(`creature-${sanitized}-${dateStr}.json`, file);
+    } catch (err) {
+      alert(`Export failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   return (
@@ -48,6 +62,17 @@ export function CreatureRow({ creature, isSelected, onClick, onAddToEncounter }:
           <span className={`${styles.levelBadge} ${isSelected ? styles.levelBadgeActive : ''}`}>
             {levelLabel}
           </span>
+          {isCustom && (
+            <button
+              className={styles.exportBtn}
+              onClick={handleExportCustomCreature}
+              title="Export creature"
+              tabIndex={-1}
+              aria-label={`Export ${creature.name}`}
+            >
+              💾
+            </button>
+          )}
           <button
             className={styles.addBtn}
             onClick={e => {

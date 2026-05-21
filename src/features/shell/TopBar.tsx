@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Section } from '../../types/encounter';
 import type { Theme } from '../../utils/themeEngine';
+import { buildFullExport, downloadJson, parseExportFile, importExportFile, ImportError } from '../../utils/exportImport';
 import styles from './TopBar.module.css';
 import { HelpModal } from './HelpModal';
 import { ThemePicker } from './ThemePicker';
@@ -25,6 +26,7 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
   const [helpOpen, setHelpOpen] = useState(false);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { isSyncing: charSyncing, progress: charSyncProgress, triggerSync: handleCharSync } = useCharSyncMenu();
 
@@ -86,6 +88,50 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
     } finally {
       setResetting(false);
       setConfirmOpen(false);
+    }
+  };
+
+  const handleExportFull = async () => {
+    try {
+      setMenuOpen(false);
+      const file = await buildFullExport();
+      const dateStr = new Date().toISOString().split('T')[0];
+      downloadJson(`seneschal-backup-${dateStr}.json`, file);
+    } catch (err) {
+      alert(`Export failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleImportClick = () => {
+    setMenuOpen(false);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const exportFile = parseExportFile(text);
+      const report = await importExportFile(exportFile);
+
+      const importedCount = Object.values(report.imported).reduce((a, b) => a + b, 0);
+      const skippedCount = Object.values(report.skipped).reduce((a, b) => a + b, 0);
+
+      const summary = `Import complete!\n\nImported: ${importedCount}\nSkipped (already exist): ${skippedCount}${
+        report.warnings.length > 0 ? `\n\nWarnings:\n${report.warnings.join('\n')}` : ''
+      }`;
+
+      alert(summary);
+    } catch (err) {
+      const message = err instanceof ImportError ? err.message : 'Failed to import backup';
+      alert(`Import failed: ${message}`);
+    }
+
+    // Reset the input so selecting the same file again works
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -198,6 +244,15 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
                   </button>
                 )}
                 <div className={styles.settingsMenuDivider} />
+                <button className={styles.settingsMenuItem} onClick={handleExportFull}>
+                  <span className={styles.settingsMenuIcon}>💾</span>
+                  Export full backup
+                </button>
+                <button className={styles.settingsMenuItem} onClick={handleImportClick}>
+                  <span className={styles.settingsMenuIcon}>📂</span>
+                  Import backup…
+                </button>
+                <div className={styles.settingsMenuDivider} />
                 <button className={styles.settingsMenuItem} onClick={handleResetClick}>
                   <span className={styles.settingsMenuIcon}>🗑</span>
                   Reset creature database
@@ -216,6 +271,14 @@ export function TopBar({ activeSection, onSectionChange, historyCount, historyOp
           onClose={() => setThemePickerOpen(false)}
         />
       )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json"
+        onChange={handleFileSelected}
+        style={{ display: 'none' }}
+      />
 
       {confirmOpen && (
         <div className={styles.overlay} onClick={() => !resetting && setConfirmOpen(false)}>

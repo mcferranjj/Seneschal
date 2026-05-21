@@ -3,6 +3,7 @@ import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbili
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import { getRecallKnowledge, RK_DC_TABLE, RK_RARITY_ADJUSTMENT, RK_SKILLS } from '../../utils/recallKnowledge';
 import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '../../utils/conditionEffects';
+import { buildEncounterExport, downloadJson } from '../../utils/exportImport';
 import { DiceRoller } from '../dice/DiceRoller';
 import { ManualRollInput } from '../dice/ManualRollInput';
 import { cryptoD } from '../../utils/dice';
@@ -425,6 +426,18 @@ export function EncounterManager({
     setEditingHp(null);
   }
 
+  const handleExportEncounter = async (encounterId: number, encounterName: string) => {
+    try {
+      const file = await buildEncounterExport(String(encounterId));
+      // Sanitize filename: keep alphanumeric, dashes, underscores
+      const sanitized = encounterName.replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
+      const dateStr = new Date().toISOString().split('T')[0];
+      downloadJson(`encounter-${sanitized}-${dateStr}.json`, file);
+    } catch (err) {
+      alert(`Export failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
   return (
     <div className={styles.manager}>
       {/* Encounter tabs */}
@@ -490,14 +503,25 @@ export function EncounterManager({
                   <button className={styles.tabDeleteNo} onClick={() => setConfirmDeleteTab(null)}>✕</button>
                 </span>
               ) : (
-                i === activeEnc && encounters.length > 1 && (
-                  <button
-                    className={styles.tabDeleteBtn}
-                    onClick={() => setConfirmDeleteTab(i)}
-                    title="Delete encounter"
-                  >
-                    ×
-                  </button>
+                i === activeEnc && (
+                  <>
+                    <button
+                      className={styles.tabExportBtn}
+                      onClick={() => handleExportEncounter(en.id, en.name)}
+                      title="Export encounter"
+                    >
+                      💾
+                    </button>
+                    {encounters.length > 1 && (
+                      <button
+                        className={styles.tabDeleteBtn}
+                        onClick={() => setConfirmDeleteTab(i)}
+                        title="Delete encounter"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </>
                 )
               )}
             </div>
