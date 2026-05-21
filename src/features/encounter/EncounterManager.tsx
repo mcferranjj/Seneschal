@@ -3,7 +3,7 @@ import type { Encounter, EncounterCreature, Condition, CustomAttack, CustomAbili
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import { getRecallKnowledge, RK_DC_TABLE, RK_RARITY_ADJUSTMENT, RK_SKILLS } from '../../utils/recallKnowledge';
 import { computePenalties, computeAttackPenalty, computeDamagePenalty } from '../../utils/conditionEffects';
-import { buildEncounterExport, downloadJson } from '../../utils/exportImport';
+import { buildEncounterExport, downloadJson, sanitizeFilenameSegment } from '../../utils/exportImport';
 import { DiceRoller } from '../dice/DiceRoller';
 import { ManualRollInput } from '../dice/ManualRollInput';
 import { cryptoD } from '../../utils/dice';
@@ -428,9 +428,8 @@ export function EncounterManager({
 
   const handleExportEncounter = async (encounterId: number, encounterName: string) => {
     try {
-      const file = await buildEncounterExport(String(encounterId));
-      // Sanitize filename: keep alphanumeric, dashes, underscores
-      const sanitized = encounterName.replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
+      const file = await buildEncounterExport(encounterId);
+      const sanitized = sanitizeFilenameSegment(encounterName);
       const dateStr = new Date().toISOString().split('T')[0];
       downloadJson(`encounter-${sanitized}-${dateStr}.json`, file);
     } catch (err) {

@@ -2,8 +2,6 @@ Encounters:
     - flesh out settings
         - default preferences
 
-    - add ability to export/import monsters, full database, encounters, etc.
-
     - in the custom creature wizard, add functionality to browse and add/scale abilities from all other monsters, filterable by creature type
     
 

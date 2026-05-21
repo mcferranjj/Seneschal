@@ -2,7 +2,7 @@ import type { CreatureRecord } from '../../../db/schema';
 import { SIZE_LABELS } from '../../../data/pf2eConstants';
 import { RARITY_COLORS, traitBg } from '../../../utils/traitColors';
 import { writeDndPayload } from '../../../utils/dnd';
-import { buildCustomCreatureExport, downloadJson } from '../../../utils/exportImport';
+import { buildCustomCreatureExport, downloadJson, sanitizeFilenameSegment } from '../../../utils/exportImport';
 import styles from './ResultsList.module.css';
 
 interface CreatureRowProps {
@@ -28,7 +28,7 @@ export function CreatureRow({ creature, isSelected, onClick, onAddToEncounter }:
     e.stopPropagation();
     try {
       const file = await buildCustomCreatureExport([creature.id]);
-      const sanitized = creature.name.replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
+      const sanitized = sanitizeFilenameSegment(creature.name);
       const dateStr = new Date().toISOString().split('T')[0];
       downloadJson(`creature-${sanitized}-${dateStr}.json`, file);
     } catch (err) {

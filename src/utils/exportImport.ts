@@ -34,6 +34,32 @@ export class ImportError extends Error {
   }
 }
 
+/** Shared wrapper builder so all three exporters stay in sync on format/version. */
+function makeExportFile(
+  kind: ExportFile['kind'],
+  contents: ExportFile['contents'],
+): ExportFile {
+  return {
+    format: 'seneschal-export',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    kind,
+    contents,
+  };
+}
+
+/**
+ * Sanitize a user-typed name for use as a download filename segment.
+ * Strips path separators, leading dots, and caps length so a creature
+ * named "../../etc/passwd" can't escape the download directory.
+ */
+export function sanitizeFilenameSegment(raw: string, maxLength = 60): string {
+  const cleaned = raw.replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
+  const trimmed = cleaned.replace(/^[-.]+/, '').replace(/-+/g, '-');
+  const truncated = trimmed.slice(0, maxLength);
+  return truncated || 'untitled';
+}
+
 /**
  * Build a full database export including all custom creatures, encounters,
  * characters, parties, and party members.
@@ -51,37 +77,34 @@ export async function buildFullExport(): Promise<ExportFile> {
   const parties = await db.parties.toArray();
   const partyMembers = await db.partyMembers.toArray();
 
-  return {
-    format: 'seneschal-export',
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    kind: 'full',
-    contents: {
-      customCreatures,
-      encounters,
-      characters,
-      parties,
-      partyMembers,
-    },
-  };
+  return makeExportFile('full', {
+    customCreatures,
+    encounters,
+    characters,
+    parties,
+    partyMembers,
+  });
 }
 
 /**
  * Build an encounter export that includes the encounter and all its referenced
  * custom creatures (bundled dependencies).
+ *
+ * Encounter ids are numeric (see `Encounter.id` in src/types/encounter.ts).
  */
-export async function buildEncounterExport(encounterId: string): Promise<ExportFile> {
+export async function buildEncounterExport(encounterId: number): Promise<ExportFile> {
   const encounterState = await loadEncounterState();
   if (!encounterState) {
     throw new ImportError('No encounter state found');
   }
 
-  const encounter = encounterState.encounters.find((e) => String(e.id) === String(encounterId));
+  const encounter = encounterState.encounters.find((e) => e.id === encounterId);
   if (!encounter) {
     throw new ImportError(`Encounter with id ${encounterId} not found`);
   }
 
-  // Collect unique custom creature IDs referenced by this encounter
+  // Collect unique custom creature IDs referenced by this encounter.
+  // EncounterCreature.creatureId is the FK into db.creatures.
   const customCreatureIds = new Set<string>();
   for (const creature of encounter.creatures) {
     if (creature.creatureId) {
@@ -97,16 +120,10 @@ export async function buildEncounterExport(encounterId: string): Promise<ExportF
     Array.from(customCreatureIds).map((id) => db.creatures.get(id))
   );
 
-  return {
-    format: 'seneschal-export',
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    kind: 'encounter',
-    contents: {
-      customCreatures: customCreatures.filter((c) => c !== undefined),
-      encounters: [encounter],
-    },
-  };
+  return makeExportFile('encounter', {
+    customCreatures: customCreatures.filter((c) => c !== undefined),
+    encounters: [encounter],
+  });
 }
 
 /**
@@ -117,15 +134,9 @@ export async function buildCustomCreatureExport(creatureIds: string[]): Promise<
     creatureIds.map((id) => db.creatures.get(id))
   );
 
-  return {
-    format: 'seneschal-export',
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    kind: 'customCreature',
-    contents: {
-      customCreatures: customCreatures.filter((c) => c !== undefined),
-    },
-  };
+  return makeExportFile('customCreature', {
+    customCreatures: customCreatures.filter((c) => c !== undefined),
+  });
 }
 
 /**
@@ -219,7 +230,13 @@ export async function importExportFile(file: ExportFile): Promise<ImportReport> 
     }
   }
 
-  // Import parties
+  // Import parties / party members (skip-on-collision).
+  //
+  // Phase 1 caveat: parties reference their members by id. If a partyMember id
+  // collides with an existing member that belongs to a DIFFERENT party, we
+  // skip the incoming member and the imported party will reference the
+  // *existing* (other-party) member. This is wrong but tolerable for Phase 1;
+  // a future phase should remap ids on collision instead.
   if (contents.parties && contents.parties.length > 0) {
     for (const party of contents.parties) {
       const existing = await db.parties.get(party.id);
