@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
-import type { CharacterBackgroundRef, BackgroundRecord } from '../../../../db/schema';
+import type { CharacterBackgroundRef, BackgroundRecord, FeatRecord } from '../../../../db/schema';
 import { useBackgroundData } from '../../hooks/useBackgroundData';
 import { useFeatData } from '../../hooks/useFeatData';
 import { PickerLayout } from '../shared/PickerLayout';
@@ -122,6 +122,46 @@ function sortAndFilter(
  * - lore:   exploded on commas
  * - others: unique values found in the data
  */
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+interface GrantedFeatSectionProps {
+  featName: string;
+  /** Full feat record if available in the local cache, otherwise null. */
+  featRecord: FeatRecord | null;
+}
+
+/** Renders the "Granted Feat" detail section with an expandable description. */
+function GrantedFeatSection({ featName, featRecord }: GrantedFeatSectionProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <DetailSection label="Granted Feat">
+      <button
+        type="button"
+        className={styles.grantedFeatBtn}
+        onClick={() => setOpen(prev => !prev)}
+        title={featRecord ? (open ? 'Hide feat details' : 'Show feat details') : undefined}
+      >
+        <span className={styles.grantedFeat}>{featName}</span>
+        {featRecord && (
+          <span className={styles.grantedFeatChevron}>{open ? '▲' : '▼'}</span>
+        )}
+      </button>
+      {open && featRecord && (
+        <div className={styles.grantedFeatDetail}>
+          {featRecord.prerequisites.length > 0 && (
+            <div className={styles.grantedFeatPrereqs}>
+              <span className={styles.grantedFeatPrereqLabel}>Prerequisites: </span>
+              {featRecord.prerequisites.join(', ')}
+            </div>
+          )}
+          <FoundryHtml html={featRecord.description} />
+        </div>
+      )}
+    </DetailSection>
+  );
+}
+
 function uniqueValues(items: BackgroundRecord[], col: ColKey, search: string): string[] {
   let values: string[];
 
@@ -159,7 +199,6 @@ function uniqueValues(items: BackgroundRecord[], col: ColKey, search: string): s
 export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardStepBackgroundProps) {
   const { backgrounds, loading } = useBackgroundData();
   const { feats } = useFeatData();
-  const [featDetailOpen, setFeatDetailOpen] = useState(false);
 
   const {
     sort, checkFilters, checkModes, textFilters, hasAnyFilter,
@@ -231,9 +270,6 @@ export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardSt
     ? backgrounds.find(b => b.id === selected.id) ?? null
     : null;
 
-  // Reset feat detail when selected background changes
-  useEffect(() => { setFeatDetailOpen(false); }, [selected?.id]);
-
   const dropdownValues        = dropdown ? uniqueValues(backgrounds, dropdown.col, dropdown.listSearch) : [];
   const dropdownCheckedCount  = dropdown ? (checkFilters[dropdown.col]?.size ?? 0) : 0;
   const dropdownMode          = dropdown ? (checkModes[dropdown.col] ?? 'or') : 'or';
@@ -270,35 +306,13 @@ export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardSt
           )}
         </div>
       </DetailSection>
-      {selectedRecord.grantedFeat && (() => {
-        const featRecord = feats.find(f => f.name === selectedRecord.grantedFeat!.name);
-        return (
-          <DetailSection label="Granted Feat">
-            <button
-              type="button"
-              className={styles.grantedFeatBtn}
-              onClick={() => setFeatDetailOpen(prev => !prev)}
-              title={featRecord ? (featDetailOpen ? 'Hide feat details' : 'Show feat details') : undefined}
-            >
-              <span className={styles.grantedFeat}>{selectedRecord.grantedFeat!.name}</span>
-              {featRecord && (
-                <span className={styles.grantedFeatChevron}>{featDetailOpen ? '▲' : '▼'}</span>
-              )}
-            </button>
-            {featDetailOpen && featRecord && (
-              <div className={styles.grantedFeatDetail}>
-                {featRecord.prerequisites.length > 0 && (
-                  <div className={styles.grantedFeatPrereqs}>
-                    <span className={styles.grantedFeatPrereqLabel}>Prerequisites: </span>
-                    {featRecord.prerequisites.join(', ')}
-                  </div>
-                )}
-                <FoundryHtml html={featRecord.description} />
-              </div>
-            )}
-          </DetailSection>
-        );
-      })()}
+      {selectedRecord.grantedFeat && (
+        <GrantedFeatSection
+          key={selectedRecord.id}
+          featName={selectedRecord.grantedFeat.name}
+          featRecord={feats.find(f => f.name === selectedRecord.grantedFeat!.name) ?? null}
+        />
+      )}
       {selectedRecord.publication && (
         <DetailSection label="Source">
           <div className={styles.source}>{selectedRecord.publication}</div>

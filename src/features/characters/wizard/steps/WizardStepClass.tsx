@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
-import type { CharacterClassRef, CharacterSubclassRef, ClassRecord, AbilityKey, ClassFeatureItem } from '../../../../db/schema';
+import type { CharacterClassRef, CharacterSubclassRef, ClassRecord, AbilityKey } from '../../../../db/schema';
 import { useClassData } from '../../hooks/useClassData';
 import { useFeatData } from '../../hooks/useFeatData';
 import { ABILITY_LABELS, ABILITY_ABBR } from '../../utils/abilityComputation';
 import { PickerLayout } from '../shared/PickerLayout';
 import { EntityCard } from '../shared/EntityCard';
 import { DetailPanel, DetailSection } from '../shared/DetailPanel';
-import { FoundryHtml } from '../shared/FoundryHtml';
 import { RaritySection } from '../shared/RaritySection';
 import { groupByRarity, RARITY_ORDER } from '../shared/groupByRarity';
 import { usePickerSearch } from '../shared/usePickerSearch';
+import { ClassFeatureTable } from '../shared/ClassFeatureTable';
 import { WizardStepSubclass } from './WizardStepSubclass';
 import styles from './WizardStepClass.module.css';
 
@@ -37,7 +37,6 @@ export function WizardStepClass({
 }: WizardStepClassProps) {
   const { classes, loading } = useClassData();
   const { feats } = useFeatData();
-  const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
 
   // Mirror the lineage two-panel pattern: confirm class → subclass picker slides in
   const [classConfirmed, setClassConfirmed] = useState<boolean>(!!subclass);
@@ -140,12 +139,7 @@ export function WizardStepClass({
       )}
 
       <DetailSection label="Class Features by Level">
-        <ClassFeatureTable
-          cls={selectedRecord}
-          feats={feats}
-          expandedFeature={expandedFeature}
-          onToggle={key => setExpandedFeature(prev => prev === key ? null : key)}
-        />
+        <ClassFeatureTable cls={selectedRecord} feats={feats} />
       </DetailSection>
     </DetailPanel>
   );
@@ -236,111 +230,6 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     <div className={styles.statRow}>
       <span className={styles.statLabel}>{label}</span>
       <span className={styles.statVal}>{value}</span>
-    </div>
-  );
-}
-
-// ── Feature-level table ────────────────────────────────────────────────────────
-
-interface AutoEntry {
-  key: string;
-  name: string;
-  kind: 'feat-slot' | 'skill-increase';
-}
-
-function buildAutoEntries(cls: ClassRecord): Map<number, AutoEntry[]> {
-  const map = new Map<number, AutoEntry[]>();
-
-  function add(level: number, entry: AutoEntry) {
-    if (!map.has(level)) map.set(level, []);
-    map.get(level)!.push(entry);
-  }
-
-  for (const lv of cls.ancestryFeatLevels)  add(lv, { key: `ancestry-feat-${lv}`,  name: 'Ancestry Feat',  kind: 'feat-slot' });
-  for (const lv of cls.classFeatLevels)     add(lv, { key: `class-feat-${lv}`,     name: 'Class Feat',     kind: 'feat-slot' });
-  for (const lv of cls.generalFeatLevels)   add(lv, { key: `general-feat-${lv}`,   name: 'General Feat',   kind: 'feat-slot' });
-  for (const lv of cls.skillFeatLevels)     add(lv, { key: `skill-feat-${lv}`,     name: 'Skill Feat',     kind: 'feat-slot' });
-  for (const lv of cls.skillIncreaseLevels) add(lv, { key: `skill-increase-${lv}`, name: 'Skill Increase', kind: 'skill-increase' });
-
-  return map;
-}
-
-interface ClassFeatureTableProps {
-  cls: ClassRecord;
-  feats: import('../../../../db/schema').FeatRecord[];
-  expandedFeature: string | null;
-  onToggle: (key: string) => void;
-}
-
-function ClassFeatureTable({ cls, feats, expandedFeature, onToggle }: ClassFeatureTableProps) {
-  const featByName = new Map(feats.filter(f => f.category === 'classfeature').map(f => [f.name, f]));
-  const autoByLevel = buildAutoEntries(cls);
-
-  // Group class features by level
-  const featuresByLevel = new Map<number, ClassFeatureItem[]>();
-  for (const feat of cls.features) {
-    if (!featuresByLevel.has(feat.level)) featuresByLevel.set(feat.level, []);
-    featuresByLevel.get(feat.level)!.push(feat);
-  }
-
-  return (
-    <div className={styles.featureTable}>
-      {Array.from({ length: 20 }, (_, i) => i + 1).map(level => {
-        const classFeatures = featuresByLevel.get(level) ?? [];
-        const autoEntries   = autoByLevel.get(level) ?? [];
-        if (classFeatures.length === 0 && autoEntries.length === 0) return null;
-
-        return (
-          <div key={level} className={styles.featureLevel}>
-            <div className={styles.featureLevelHeader}>
-              <span className={styles.featureLevelNum}>{level}</span>
-            </div>
-            <div className={styles.featureLevelEntries}>
-              {classFeatures.map(feature => {
-                const record  = featByName.get(feature.name);
-                const entryKey = `${level}-${feature.name}`;
-                const isOpen   = expandedFeature === entryKey;
-                return (
-                  <div key={feature.name} className={styles.featureEntry}>
-                    <button
-                      type="button"
-                      className={`${styles.featureEntryBtn} ${record ? styles.featureEntryClickable : ''}`}
-                      onClick={() => record && onToggle(entryKey)}
-                      disabled={!record}
-                    >
-                      <span className={styles.featureEntryName}>{feature.name}</span>
-                      {record && (
-                        <span className={styles.featureEntryChevron}>{isOpen ? '▲' : '▼'}</span>
-                      )}
-                    </button>
-                    {isOpen && record && (
-                      <div className={styles.featureEntryDetail}>
-                        {record.prerequisites.length > 0 && (
-                          <div className={styles.featureEntryPrereqs}>
-                            <span className={styles.featureEntryPrereqLabel}>Prerequisites: </span>
-                            {record.prerequisites.join(', ')}
-                          </div>
-                        )}
-                        <FoundryHtml html={record.description} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              {autoEntries.map(entry => (
-                <div key={entry.key} className={styles.featureEntry}>
-                  <div className={`${styles.featureEntryBtn} ${styles.featureEntryAuto}`}>
-                    <span className={styles.featureEntryName}>{entry.name}</span>
-                    <span className={`${styles.featureEntryKindBadge} ${styles[`kind_${entry.kind}`]}`}>
-                      {entry.kind === 'feat-slot' ? 'Feat' : 'Skill'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 }
