@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type {
   CharacterRecord, CharacterSkills,
   BoostChoicesByLevel, FeatChoice, CharacterAncestryRef, CharacterHeritageRef,
-  CharacterBackgroundRef, CharacterClassRef,
+  CharacterBackgroundRef, CharacterClassRef, CharacterSubclassRef,
 } from '../../../db/schema';
 import { blankSkills, applyLockedSkills } from '../utils/skillHelpers';
 import { computeFeatSlots, mergeFeatChoices } from '../utils/featSlots';
@@ -94,11 +94,16 @@ export function useCharacterWizard() {
       return {
         ...prev,
         class: cls,
+        subclass: null, // reset subclass whenever the class changes
         boostChoices: { ...prev.boostChoices, classKeyAbility: cls?.keyAbilityOptions[0] ?? null },
         skills: newSkills,
         feats: newFeats,
       };
     });
+  }, []);
+
+  const setSubclass = useCallback((subclass: CharacterSubclassRef | null) => {
+    setDraft(prev => ({ ...prev, subclass }));
   }, []);
 
   const setBoostChoices = useCallback((boostChoices: BoostChoicesByLevel) => {
@@ -138,6 +143,7 @@ export function useCharacterWizard() {
     setHeritage,
     setBackground,
     setClass,
+    setSubclass,
     setBoostChoices,
     setSkills,
     setFeats,

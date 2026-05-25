@@ -173,6 +173,22 @@ class SeneschalDatabase extends Dexie {
         console.warn('[db v12] family backfill skipped for record', c?.id, err);
       }
     }));
+    // Version 13: no schema change — clears the char-builder sync metadata so
+    // the next sync pulls class-features/ (new prefix added in this version).
+    this.version(13).stores({
+      creatures:         'id, entityType, nameLower, level, rarity, size, packSource, publication, family, *traits',
+      meta:              'key',
+      encounterState:    'key',
+      characters:        'id, nameLower, level',
+      traitDescriptions: 'key',
+      ancestries:        'id, nameLower, slug, *traits, rarity',
+      heritages:         'id, nameLower, ancestrySlug, isVersatile',
+      backgrounds:       'id, nameLower, rarity',
+      classes:           'id, nameLower, slug',
+      feats:             'id, nameLower, level, category, *traits, rarity, [category+level]',
+      parties:           'id, updatedAt',
+      partyMembers:      'id, updatedAt',
+    }).upgrade(tx => tx.table('meta').delete('char_builder_sync_state'));
   }
 }
 

@@ -90,6 +90,16 @@ export interface CharacterClassRef {
   generalFeatLevels: number[];
   skillFeatLevels: number[];
   skillIncreaseLevels: number[];
+  /** Tag used to filter class-feature records that are subclass options (e.g. "barbarian-instinct"). Null for classes with no subclass. */
+  subclassTag: string | null;
+  /** Human-readable label for the subclass choice (e.g. "Instinct", "Research Field"). */
+  subclassLabel: string | null;
+}
+
+export interface CharacterSubclassRef {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 // -- Existing database records -------------------------------------------------
@@ -147,6 +157,7 @@ export interface CharacterRecord {
   heritage: CharacterHeritageRef | null;
   background: CharacterBackgroundRef | null;
   class: CharacterClassRef | null;
+  subclass: CharacterSubclassRef | null;
 
   abilityScores: AbilityScores;
   boostChoices: BoostChoicesByLevel;
@@ -246,6 +257,10 @@ export interface ClassRecord {
   skillFeatLevels: number[];
   skillIncreaseLevels: number[];
   features: ClassFeatureItem[];
+  /** Tag used to filter class-feature records that are subclass options (e.g. "barbarian-instinct"). Null for classes with no subclass. */
+  subclassTag: string | null;
+  /** Human-readable label for the subclass choice (e.g. "Instinct", "Research Field"). */
+  subclassLabel: string | null;
   traits: string[]; rarity: string;
   publication: string; remaster: boolean; blobSha: string;
 }
@@ -255,6 +270,7 @@ export interface FeatRecord {
   level: number;
   category: FeatCategory;
   traits: string[]; rarity: string;
+  otherTags: string[];
   actionType: string | null;
   actions: number | null;
   prerequisites: string[];

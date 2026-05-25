@@ -29,6 +29,7 @@ const INCLUDED_PREFIXES = [
   'heritages/',
   'backgrounds/',
   'classes/',
+  'class-features/',
   'feats/ancestry/',
   'feats/class/',
   'feats/general/',
@@ -94,6 +95,39 @@ async function fetchAncestryJournalPages(commitSha: string): Promise<Record<stri
     return {};
   }
 }
+
+// ── Subclass tag map ─────────────────────────────────────────────────────────
+
+/**
+ * Maps class slug → { tag, label } for classes that have a primary subclass
+ * choice (instinct, research field, etc.).  Classes not listed here have no
+ * subclass picker.
+ */
+const SUBCLASS_MAP: Record<string, { tag: string; label: string }> = {
+  alchemist:    { tag: 'alchemist-research-field',     label: 'Research Field'    },
+  animist:      { tag: 'animist-apparition',            label: 'Apparition'        },
+  barbarian:    { tag: 'barbarian-instinct',            label: 'Instinct'          },
+  bard:         { tag: 'bard-muse',                    label: 'Muse'              },
+  champion:     { tag: 'champion-cause',               label: 'Cause'             },
+  cleric:       { tag: 'cleric-doctrine',              label: 'Doctrine'          },
+  druid:        { tag: 'druid-order',                  label: 'Order'             },
+  exemplar:     { tag: 'exemplar-ikon',                label: 'Ikon'              },
+  gunslinger:   { tag: 'gunslinger-way',               label: 'Way'               },
+  inventor:     { tag: 'inventor-innovation',          label: 'Innovation'        },
+  investigator: { tag: 'investigator-methodology',     label: 'Methodology'       },
+  kineticist:   { tag: 'kineticist-kinetic-gate',      label: 'Kinetic Gate'      },
+  magus:        { tag: 'magus-hybrid-study',           label: 'Hybrid Study'      },
+  oracle:       { tag: 'oracle-mystery',               label: 'Mystery'           },
+  psychic:      { tag: 'psychic-subconscious-mind',    label: 'Subconscious Mind' },
+  ranger:       { tag: 'ranger-hunters-edge',          label: "Hunter's Edge"     },
+  rogue:        { tag: 'rogue-racket',                 label: 'Racket'            },
+  sorcerer:     { tag: 'sorcerer-bloodline',           label: 'Bloodline'         },
+  summoner:     { tag: 'summoner-eidolon',             label: 'Eidolon'           },
+  swashbuckler: { tag: 'swashbuckler-style',           label: 'Style'             },
+  thaumaturge:  { tag: 'thaumaturge-implement',        label: 'Implement'         },
+  witch:        { tag: 'witch-patron',                 label: 'Patron'            },
+  wizard:       { tag: 'wizard-arcane-school',         label: 'Arcane School'     },
+};
 
 // ── Transform functions ──────────────────────────────────────────────────────
 
@@ -226,11 +260,14 @@ export function toClassRecord(raw: any, blobSha: string): ClassRecord | null {
     .map(i => ({ level: i.level ?? 1, name: i.name, uuid: i.uuid }))
     .sort((a, b) => a.level - b.level);
 
+  const slug = deriveSlug(raw);
+  const subclassEntry = SUBCLASS_MAP[slug] ?? null;
+
   return {
     id: raw._id,
     name: raw.name,
     nameLower: raw.name.toLowerCase(),
-    slug: deriveSlug(raw),
+    slug,
     hp: raw.system.hp ?? 0,
     keyAbilityOptions: (raw.system.keyAbility?.value ?? []) as AbilityKey[],
     perception: raw.system.perception ?? 1,
@@ -260,6 +297,8 @@ export function toClassRecord(raw: any, blobSha: string): ClassRecord | null {
     skillFeatLevels: raw.system.skillFeatLevels?.value ?? [],
     skillIncreaseLevels: raw.system.skillIncreaseLevels?.value ?? [],
     features,
+    subclassTag:   subclassEntry?.tag   ?? null,
+    subclassLabel: subclassEntry?.label ?? null,
     traits: raw.system.traits?.value ?? [],
     rarity: raw.system.traits?.rarity ?? 'common',
     publication: raw.system.publication?.title ?? '',
@@ -290,6 +329,7 @@ export function toFeatRecord(raw: any, blobSha: string): FeatRecord | null {
     category: category as FeatRecord['category'],
     traits: raw.system.traits?.value ?? [],
     rarity: raw.system.traits?.rarity ?? 'common',
+    otherTags: raw.system.traits?.otherTags ?? [],
     actionType: raw.system.actionType?.value ?? null,
     actions: raw.system.actions?.value ?? null,
     prerequisites,
@@ -396,7 +436,7 @@ export async function runCharBuilderSync(onProgress?: ProgressCallback, force = 
           } else if (path.startsWith('classes/')) {
             const r = toClassRecord(raw, blobSha);
             if (r) { classes.push(r); pushed = true; }
-          } else if (path.startsWith('feats/')) {
+          } else if (path.startsWith('class-features/') || path.startsWith('feats/')) {
             const r = toFeatRecord(raw, blobSha);
             if (r) { feats.push(r); pushed = true; }
           }

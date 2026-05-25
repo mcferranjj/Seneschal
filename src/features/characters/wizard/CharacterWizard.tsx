@@ -30,7 +30,7 @@ export function CharacterWizard({ onComplete, onCancel, headerLeft }: CharacterW
     draft, activeStep, stepMeta,
     canBack, canNext, isLastStep, canFinish, saving,
     setSaving, goBack, goNext, jumpTo,
-    updateDraft, setAncestry, setHeritage, setBackground, setClass,
+    updateDraft, setAncestry, setHeritage, setBackground, setClass, setSubclass,
     setBoostChoices, setSkills, setFeats, buildCharacter,
   } = wizard;
 
@@ -161,8 +161,10 @@ export function CharacterWizard({ onComplete, onCancel, headerLeft }: CharacterW
             {activeStep === 'class' && (
               <WizardStepClass
                 selected={draft.class}
+                subclass={draft.subclass}
                 keyAbility={draft.boostChoices.classKeyAbility}
                 onSelect={setClass}
+                onSubclassSelect={setSubclass}
                 onKeyAbilityChange={(ka) => setBoostChoices({ ...draft.boostChoices, classKeyAbility: ka })}
                 onConfirm={handleGoNext}
               />

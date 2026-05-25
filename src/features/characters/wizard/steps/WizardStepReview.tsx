@@ -40,6 +40,7 @@ export function WizardStepReview({ draft, onFinish, saving }: WizardStepReviewPr
     heritage: draft.heritage,
     background: draft.background,
     class: draft.class,
+    subclass: draft.subclass,
     abilityScores,
     boostChoices: draft.boostChoices,
     skills: draft.skills,

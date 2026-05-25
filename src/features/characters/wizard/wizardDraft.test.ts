@@ -29,6 +29,7 @@ const cls: CharacterClassRef = {
   ancestryFeatLevels: [1, 5, 9], classFeatLevels: [2, 4, 6],
   generalFeatLevels: [3, 7], skillFeatLevels: [2, 4, 6],
   skillIncreaseLevels: [3, 5, 7],
+  subclassTag: 'wizard-arcane-school', subclassLabel: 'Arcane School',
 };
 
 describe('blankDraft', () => {

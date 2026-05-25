@@ -1,6 +1,6 @@
 import type {
   CharacterAncestryRef, CharacterHeritageRef, CharacterBackgroundRef,
-  CharacterClassRef, CharacterSkills, BoostChoicesByLevel, FeatChoice,
+  CharacterClassRef, CharacterSubclassRef, CharacterSkills, BoostChoicesByLevel, FeatChoice,
 } from '../../../db/schema';
 
 /** Ordered list of wizard steps. Drives both the progress bar and `goNext`/`goBack`. */
@@ -30,6 +30,7 @@ export interface CharacterDraft {
   heritage: CharacterHeritageRef | null;
   background: CharacterBackgroundRef | null;
   class: CharacterClassRef | null;
+  subclass: CharacterSubclassRef | null;
   boostChoices: BoostChoicesByLevel;
   skills: CharacterSkills;
   feats: FeatChoice[];
