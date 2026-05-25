@@ -189,6 +189,30 @@ class SeneschalDatabase extends Dexie {
       parties:           'id, updatedAt',
       partyMembers:      'id, updatedAt',
     }).upgrade(tx => tx.table('meta').delete('char_builder_sync_state'));
+    // Version 14: clear classes and feats so the next sync re-populates them
+    // with the new subclassTag/subclassLabel fields on ClassRecord and the new
+    // otherTags field on FeatRecord (both added in the previous version but not
+    // present on already-cached rows).
+    this.version(14).stores({
+      creatures:         'id, entityType, nameLower, level, rarity, size, packSource, publication, family, *traits',
+      meta:              'key',
+      encounterState:    'key',
+      characters:        'id, nameLower, level',
+      traitDescriptions: 'key',
+      ancestries:        'id, nameLower, slug, *traits, rarity',
+      heritages:         'id, nameLower, ancestrySlug, isVersatile',
+      backgrounds:       'id, nameLower, rarity',
+      classes:           'id, nameLower, slug',
+      feats:             'id, nameLower, level, category, *traits, rarity, [category+level]',
+      parties:           'id, updatedAt',
+      partyMembers:      'id, updatedAt',
+    }).upgrade(async tx => {
+      await Promise.all([
+        tx.table('classes').clear(),
+        tx.table('feats').clear(),
+        tx.table('meta').delete('char_builder_sync_state'),
+      ]);
+    });
   }
 }
 
