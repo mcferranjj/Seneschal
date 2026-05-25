@@ -161,63 +161,52 @@ export function WizardStepClass({
       detail={classConfirmed ? undefined : detailContent}
       suppressDetailPanel={classConfirmed && !subclass}
     >
-      {classConfirmed && selectedRecord ? (
-        // Collapsed: show just the confirmed class card with a "Change" action
-        <div className={styles.confirmedRow}>
-          <EntityCard
-            name={selectedRecord.name}
-            selected
-            stats={
-              <>
-                <span>HP {selectedRecord.hp}</span>
-                <span>{selectedRecord.keyAbilityOptions.map(k => ABILITY_ABBR[k]).join('/')}</span>
-              </>
-            }
-            onClick={() => { /* no-op when confirmed */ }}
-            action={{ label: 'Change', onClick: () => { setClassConfirmed(false); onSubclassSelect(null); }, variant: 'secondary' as const }}
-          />
-        </div>
-      ) : (
-        groupedByRarity.map(({ rarity, items }) => (
-          <RaritySection key={rarity} rarity={rarity}>
-            <div className={styles.grid}>
+      {groupedByRarity.map(({ rarity, items }) => {
+        const containsSelected = classConfirmed && selected
+          ? items.some(c => c.id === selected.id)
+          : false;
+        return (
+          <RaritySection key={rarity} rarity={rarity} hideHeader={classConfirmed && !containsSelected}>
+            <div className={`${styles.grid} ${classConfirmed ? styles.gridConfirmed : ''}`}>
               {items.map(c => {
                 const isSelected = selected?.id === c.id;
                 const hasSubclass = !!c.subclassTag;
+                const action = isSelected
+                  ? classConfirmed
+                    ? { label: 'Change', onClick: () => { setClassConfirmed(false); onSubclassSelect(null); }, variant: 'secondary' as const }
+                    : hasSubclass
+                      ? { label: `Choose ${c.subclassLabel}`, onClick: () => setClassConfirmed(true), variant: 'primary' as const }
+                      : onConfirm
+                        ? { label: 'Select', onClick: () => onConfirm(), variant: 'primary' as const }
+                        : undefined
+                  : undefined;
                 return (
                   <EntityCard
                     key={c.id}
                     name={c.name}
                     selected={isSelected}
+                    collapsed={classConfirmed && !isSelected}
                     stats={
                       <>
                         <span>HP {c.hp}</span>
                         <span>{c.keyAbilityOptions.map(k => ABILITY_ABBR[k]).join('/')}</span>
                       </>
                     }
-                    onClick={() => selectClass(c)}
+                    onClick={() => !classConfirmed && selectClass(c)}
                     onDoubleClick={() => {
+                      if (classConfirmed) return;
                       selectClass(c);
-                      if (hasSubclass) {
-                        setClassConfirmed(true);
-                      } else {
-                        onConfirm?.();
-                      }
+                      if (hasSubclass) setClassConfirmed(true);
+                      else onConfirm?.();
                     }}
-                    action={isSelected
-                      ? hasSubclass
-                        ? { label: `Choose ${c.subclassLabel}`, onClick: () => setClassConfirmed(true), variant: 'primary' as const }
-                        : onConfirm
-                          ? { label: 'Select', onClick: () => onConfirm(), variant: 'primary' as const }
-                          : undefined
-                      : undefined}
+                    action={action}
                   />
                 );
               })}
             </div>
           </RaritySection>
-        ))
-      )}
+        );
+      })}
     </PickerLayout>
   );
 
