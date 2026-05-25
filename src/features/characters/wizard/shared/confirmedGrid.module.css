@@ -1,0 +1,54 @@
+/**
+ * Shared grid collapse styles used by entity-card pickers (ancestry, heritage,
+ * subclass) when a selection is confirmed and non-selected cards collapse away.
+ */
+
+/* Switch from grid to flex so the lone surviving card sits at the natural
+   start of the row instead of holding its original grid column. Gap is zeroed
+   so the many zero-width collapsed siblings don't accumulate spacing. */
+.gridConfirmed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.gridConfirmed > * {
+  flex: 0 0 auto;
+  min-width: 160px;
+  max-width: 220px;
+}
+
+/* Collapsed EntityCards set aria-hidden="true"; strip their width so the
+   surviving card isn't pushed right by their reserved min-width. */
+.gridConfirmed > [aria-hidden="true"] {
+  min-width: 0;
+  max-width: 0;
+  width: 0;
+  flex-basis: 0;
+}
+
+/* Gentle settle-in animation for the surviving card. */
+.gridConfirmed > :not([aria-hidden="true"]) {
+  animation: confirmedGridSettle 0.34s ease both;
+}
+
+@keyframes confirmedGridSettle {
+  0%   { transform: scale(0.94) translateY(-2px); opacity: 0.55; }
+  60%  { transform: scale(1.02); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Reverse animation when the user deselects and all cards expand back. */
+.gridDeconfirming > * {
+  animation: confirmedGridReveal 0.32s ease both;
+}
+
+@keyframes confirmedGridReveal {
+  0%   { opacity: 0; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gridConfirmed > :not([aria-hidden="true"]),
+  .gridDeconfirming > * { animation: none; }
+}

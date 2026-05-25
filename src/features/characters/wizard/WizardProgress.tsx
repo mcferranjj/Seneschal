@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { WizardStep, WizardStepMeta } from '../hooks/useCharacterWizard';
+import type { WizardStep, WizardStepMeta } from './wizardTypes';
 import styles from './WizardProgress.module.css';
 
 interface WizardProgressProps {
@@ -16,17 +16,16 @@ export function WizardProgress({ stepMeta, activeStep, onJump, actions }: Wizard
     <div className={styles.bar}>
       <div className={styles.steps}>
         {stepMeta.map((meta, i) => {
-          const isActive = meta.key === activeStep;
-          // Only mark prior steps as completed (the ones the user has actually moved past).
-          const isCompleted = i < activeIdx && meta.completed;
-          const isFuture = i > activeIdx;
+          const isActive    = meta.key === activeStep;
+          const isCompleted = meta.completed && !isActive;
+          const isReachable = meta.reachable;
 
           return (
             <button
               key={meta.key}
-              className={`${styles.step} ${isActive ? styles.active : ''} ${isCompleted ? styles.completed : ''} ${isFuture ? styles.future : ''}`}
-              onClick={() => !isFuture && onJump(meta.key)}
-              disabled={isFuture}
+              className={`${styles.step} ${isActive ? styles.active : ''} ${isCompleted ? styles.completed : ''} ${!isReachable ? styles.future : ''}`}
+              onClick={() => isReachable && onJump(meta.key)}
+              disabled={!isReachable}
               title={meta.label}
             >
               <span className={styles.stepNum}>

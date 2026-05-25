@@ -18,6 +18,8 @@ export interface WizardStepMeta {
   label: string;
   /** True when the user has provided enough data for this step to be considered finished. */
   completed: boolean;
+  /** True when this step has been reached at least once (can be jumped to). */
+  reachable: boolean;
 }
 
 /** Working state of the character being built. Mirrors `CharacterRecord` but

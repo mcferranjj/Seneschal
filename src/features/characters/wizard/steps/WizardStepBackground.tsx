@@ -218,9 +218,26 @@ export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardSt
   const dropdownRef    = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus the text input when a dropdown opens
+  // Auto-focus the text input when a dropdown opens, and clamp position so it
+  // doesn't overflow the bottom or right edge of the viewport.
   useEffect(() => {
-    if (dropdown) requestAnimationFrame(() => searchInputRef.current?.focus());
+    if (!dropdown) return;
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+      if (dropdownRef.current) {
+        const rect    = dropdownRef.current.getBoundingClientRect();
+        const padding = 8;
+        setDropdown(prev => {
+          if (!prev) return prev;
+          let { x, y } = prev;
+          const overflowBottom = rect.bottom - (window.innerHeight - padding);
+          if (overflowBottom > 0) y -= overflowBottom;
+          const overflowRight  = rect.right  - (window.innerWidth  - padding);
+          if (overflowRight  > 0) x -= overflowRight;
+          return (x === prev.x && y === prev.y) ? prev : { ...prev, x, y };
+        });
+      }
+    });
   }, [dropdown?.col]);
 
   // Close dropdown on outside click
@@ -264,7 +281,17 @@ export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardSt
     });
   }
 
-  const rows = sortAndFilter(backgrounds, sort, checkFilters, checkModes, textFilters);
+  // "Pinned" = the user has double-clicked/confirmed a background; it floats to the top.
+  // Single-click just highlights without pinning.
+  const [pinnedId, setPinnedId] = useState<string | null>(selected?.id ?? null);
+  // If the selection is cleared externally, unpin.
+  useEffect(() => { if (!selected) setPinnedId(null); }, [selected]);
+
+  const sortedFiltered = sortAndFilter(backgrounds, sort, checkFilters, checkModes, textFilters);
+  const pinnedRecord = pinnedId ? backgrounds.find(b => b.id === pinnedId) ?? null : null;
+  const rows = pinnedRecord
+    ? [pinnedRecord, ...sortedFiltered.filter(b => b.id !== pinnedId)]
+    : sortedFiltered;
 
   const selectedRecord = selected
     ? backgrounds.find(b => b.id === selected.id) ?? null
@@ -441,13 +468,18 @@ export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardSt
           </thead>
           <tbody>
             {rows.map(b => {
-              const isSel = selected?.id === b.id;
+              const isSel    = selected?.id === b.id;
+              const isPinned = b.id === pinnedId;
               return (
                 <tr
                   key={b.id}
-                  className={`${styles.row} ${isSel ? styles.rowSelected : ''}`}
+                  className={[
+                    styles.row,
+                    isSel    ? styles.rowSelected : '',
+                    isPinned ? styles.rowPinned   : '',
+                  ].join(' ')}
                   onClick={() => selectBackground(b)}
-                  onDoubleClick={e => { e.preventDefault(); selectBackground(b); onConfirm?.(); }}
+                  onDoubleClick={e => { e.preventDefault(); selectBackground(b); setPinnedId(b.id); onConfirm?.(); }}
                 >
                   <td className={`${styles.tdRarity} ${styles[`rarity_${b.rarity}`]}`}>
                     {b.rarity.charAt(0).toUpperCase() + b.rarity.slice(1)}
@@ -463,9 +495,9 @@ export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardSt
           </tbody>
         </table>
 
-        {selected && rows.some(b => b.id === selected.id) && onConfirm && (
+        {selected && onConfirm && (
           <div className={styles.confirmRow}>
-            <button type="button" className={styles.confirmBtn} onClick={() => onConfirm()}>
+            <button type="button" className={styles.confirmBtn} onClick={() => { setPinnedId(selected.id); onConfirm(); }}>
               Select {selectedRecord?.name}
             </button>
           </div>
@@ -504,26 +536,24 @@ export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardSt
 
           <div className={styles.dropdownDivider} />
 
-          {dropdownCheckedCount >= 2 && (
-            <>
-              <div className={styles.modeRow}>
-                <span className={styles.modeLabel}>Match:</span>
-                <div className={styles.modePills}>
-                  <button
-                    type="button"
-                    className={`${styles.modePill} ${dropdownMode === 'or' ? styles.modePillActive : ''}`}
-                    onClick={() => setCheckMode(dropdown.col, 'or')}
-                  >Any (OR)</button>
-                  <button
-                    type="button"
-                    className={`${styles.modePill} ${dropdownMode === 'and' ? styles.modePillActive : ''}`}
-                    onClick={() => setCheckMode(dropdown.col, 'and')}
-                  >All (AND)</button>
-                </div>
-              </div>
-              <div className={styles.dropdownDivider} />
-            </>
-          )}
+          <div className={`${styles.modeRow} ${dropdownCheckedCount < 2 ? styles.modeRowDisabled : ''}`}>
+            <span className={styles.modeLabel}>Match:</span>
+            <div className={styles.modePills}>
+              <button
+                type="button"
+                className={`${styles.modePill} ${dropdownMode === 'or' ? styles.modePillActive : ''}`}
+                onClick={() => setCheckMode(dropdown.col, 'or')}
+                disabled={dropdownCheckedCount < 2}
+              >Any (OR)</button>
+              <button
+                type="button"
+                className={`${styles.modePill} ${dropdownMode === 'and' ? styles.modePillActive : ''}`}
+                onClick={() => setCheckMode(dropdown.col, 'and')}
+                disabled={dropdownCheckedCount < 2}
+              >All (AND)</button>
+            </div>
+          </div>
+          <div className={styles.dropdownDivider} />
 
           <div className={styles.dropdownScroll}>
             {dropdownValues.length === 0 ? (
@@ -545,13 +575,11 @@ export function WizardStepBackground({ selected, onSelect, onConfirm }: WizardSt
             )}
           </div>
 
-          {dropdownHasActive && (
-            <button
-              type="button"
-              className={styles.dropdownClear}
-              onClick={() => { clearColumnFilter(dropdown.col); setDropdown(null); }}
-            >Clear filter</button>
-          )}
+          <button
+            type="button"
+            className={`${styles.dropdownClear} ${!dropdownHasActive ? styles.dropdownClearDisabled : ''}`}
+            onClick={() => { if (dropdownHasActive) { clearColumnFilter(dropdown.col); setDropdown(null); } }}
+          >Clear filter</button>
         </div>
       )}
     </>

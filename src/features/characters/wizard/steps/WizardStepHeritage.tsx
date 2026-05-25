@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { CharacterHeritageRef, HeritageRecord } from '../../../../db/schema';
 import { useHeritageData } from '../../hooks/useHeritageData';
 import { PickerLayout } from '../shared/PickerLayout';
@@ -7,7 +8,10 @@ import { RARITY_ORDER, groupByRarity } from '../shared/groupByRarity';
 import { RaritySection } from '../shared/RaritySection';
 import { FoundryHtml } from '../shared/FoundryHtml';
 import { usePickerSearch } from '../shared/usePickerSearch';
+import { useScrollSelectedIntoView } from '../shared/useScrollSelectedIntoView';
+import { useConfirmAnimation } from '../shared/useConfirmAnimation';
 import styles from './WizardStepHeritage.module.css';
+import gridStyles from '../shared/confirmedGrid.module.css';
 
 function compareByRarityThenName(a: HeritageRecord, b: HeritageRecord): number {
   const rarityDiff =
@@ -23,11 +27,18 @@ interface WizardStepHeritageProps {
   onSelect: (heritage: CharacterHeritageRef | null) => void;
   hideHeading?: boolean;
   suppressDetailPanel?: boolean;
+  /** When true, only the selected card is shown and its action becomes "Deselect". */
+  confirmed?: boolean;
   /** Called when the user clicks "Select" on the highlighted heritage (or double-clicks). */
   onConfirm?: () => void;
+  /** Called when the user clicks "Deselect" on the confirmed card. */
+  onDeconfirm?: () => void;
 }
 
-export function WizardStepHeritage({ ancestrySlug, selected, onSelect, hideHeading, suppressDetailPanel, onConfirm }: WizardStepHeritageProps) {
+export function WizardStepHeritage({
+  ancestrySlug, selected, onSelect, hideHeading, suppressDetailPanel,
+  confirmed = false, onConfirm, onDeconfirm,
+}: WizardStepHeritageProps) {
   const { heritages, loading } = useHeritageData(ancestrySlug);
   const { search, setSearch, filtered } = usePickerSearch({
     items: heritages,
@@ -36,6 +47,10 @@ export function WizardStepHeritage({ ancestrySlug, selected, onSelect, hideHeadi
 
   const ancestryHeritages = filtered.filter(h => !h.isVersatile).sort(compareByRarityThenName);
   const versatileHeritages = filtered.filter(h => h.isVersatile).sort(compareByRarityThenName);
+
+  const deconfirming = useConfirmAnimation(confirmed);
+  const selectedCardRef = useRef<HTMLDivElement | null>(null);
+  useScrollSelectedIntoView(selectedCardRef, confirmed);
 
   function selectHeritage(h: HeritageRecord) {
     onSelect({
@@ -49,20 +64,29 @@ export function WizardStepHeritage({ ancestrySlug, selected, onSelect, hideHeadi
 
   function renderHeritageCard(h: HeritageRecord) {
     const isSelected = selected?.id === h.id;
+    const action = isSelected
+      ? confirmed
+        ? { label: 'Deselect', onClick: () => onDeconfirm?.(), variant: 'secondary' as const }
+        : onConfirm
+          ? { label: 'Select', onClick: () => onConfirm(), variant: 'primary' as const }
+          : undefined
+      : undefined;
+
     return (
       <EntityCard
         key={h.id}
         name={h.name}
         selected={isSelected}
         traits={h.traits}
-        onClick={() => selectHeritage(h)}
+        collapsed={confirmed && !isSelected}
+        domRef={isSelected ? selectedCardRef : undefined}
+        onClick={() => !confirmed && selectHeritage(h)}
         onDoubleClick={() => {
+          if (confirmed && isSelected) { onDeconfirm?.(); return; }
           selectHeritage(h);
           onConfirm?.();
         }}
-        action={isSelected && onConfirm
-          ? { label: 'Select', onClick: () => onConfirm(), variant: 'primary' as const }
-          : undefined}
+        action={action}
       />
     );
   }
@@ -105,8 +129,8 @@ export function WizardStepHeritage({ ancestrySlug, selected, onSelect, hideHeadi
 
   return (
     <PickerLayout
-      title={hideHeading ? undefined : "Choose Heritage"}
-      sub={hideHeading ? undefined : "Your heritage represents your lineage within your ancestry."}
+      title={hideHeading ? undefined : 'Choose Heritage'}
+      sub={hideHeading ? undefined : 'Your heritage represents your lineage within your ancestry.'}
       search={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search heritages…"
@@ -116,26 +140,36 @@ export function WizardStepHeritage({ ancestrySlug, selected, onSelect, hideHeadi
     >
       {ancestryHeritages.length > 0 && (
         <div className={styles.heritageGroup}>
-          <div className={styles.groupHeader}>Ancestry Heritages</div>
-          {groupByRarity(ancestryHeritages).map(({ rarity, items }) => (
-            <RaritySection key={`anc-${rarity}`} rarity={rarity}>
-              <div className={styles.grid}>
-                {items.map(renderHeritageCard)}
-              </div>
-            </RaritySection>
-          ))}
+          {!confirmed && <div className={styles.groupHeader}>Ancestry Heritages</div>}
+          {groupByRarity(ancestryHeritages).map(({ rarity, items }) => {
+            const containsSelected = confirmed && selected
+              ? items.some(h => h.id === selected.id)
+              : false;
+            return (
+              <RaritySection key={`anc-${rarity}`} rarity={rarity} hideHeader={confirmed && !containsSelected}>
+                <div className={`${styles.grid} ${confirmed ? gridStyles.gridConfirmed : ''} ${deconfirming ? gridStyles.gridDeconfirming : ''}`}>
+                  {items.map(renderHeritageCard)}
+                </div>
+              </RaritySection>
+            );
+          })}
         </div>
       )}
       {versatileHeritages.length > 0 && (
         <div className={styles.heritageGroup}>
-          <div className={`${styles.groupHeader} ${styles.groupHeaderVersatile}`}>Versatile Heritages</div>
-          {groupByRarity(versatileHeritages).map(({ rarity, items }) => (
-            <RaritySection key={`ver-${rarity}`} rarity={rarity}>
-              <div className={styles.grid}>
-                {items.map(renderHeritageCard)}
-              </div>
-            </RaritySection>
-          ))}
+          {!confirmed && <div className={`${styles.groupHeader} ${styles.groupHeaderVersatile}`}>Versatile Heritages</div>}
+          {groupByRarity(versatileHeritages).map(({ rarity, items }) => {
+            const containsSelected = confirmed && selected
+              ? items.some(h => h.id === selected.id)
+              : false;
+            return (
+              <RaritySection key={`ver-${rarity}`} rarity={rarity} hideHeader={confirmed && !containsSelected}>
+                <div className={`${styles.grid} ${confirmed ? gridStyles.gridConfirmed : ''} ${deconfirming ? gridStyles.gridDeconfirming : ''}`}>
+                  {items.map(renderHeritageCard)}
+                </div>
+              </RaritySection>
+            );
+          })}
         </div>
       )}
     </PickerLayout>

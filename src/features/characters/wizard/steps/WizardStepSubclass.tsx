@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { CharacterSubclassRef, FeatRecord } from '../../../../db/schema';
 import { useFeatData } from '../../hooks/useFeatData';
 import { PickerLayout } from '../shared/PickerLayout';
@@ -5,19 +6,27 @@ import { EntityCard } from '../shared/EntityCard';
 import { DetailPanel, DetailSection } from '../shared/DetailPanel';
 import { FoundryHtml } from '../shared/FoundryHtml';
 import { usePickerSearch } from '../shared/usePickerSearch';
+import { useScrollSelectedIntoView } from '../shared/useScrollSelectedIntoView';
+import { useConfirmAnimation } from '../shared/useConfirmAnimation';
 import styles from './WizardStepSubclass.module.css';
+import gridStyles from '../shared/confirmedGrid.module.css';
 
 interface WizardStepSubclassProps {
   subclassTag: string;
   subclassLabel: string;
   selected: CharacterSubclassRef | null;
   onSelect: (subclass: CharacterSubclassRef | null) => void;
-  /** Called when the user double-clicks or clicks "Select". */
+  /** When true, only the selected card is shown and its action becomes "Deselect". */
+  confirmed?: boolean;
+  /** Called when the user clicks "Select" or double-clicks. */
   onConfirm?: () => void;
+  /** Called when the user clicks "Deselect" on the confirmed card. */
+  onDeconfirm?: () => void;
 }
 
 export function WizardStepSubclass({
-  subclassTag, subclassLabel, selected, onSelect, onConfirm,
+  subclassTag, subclassLabel, selected, onSelect,
+  confirmed = false, onConfirm, onDeconfirm,
 }: WizardStepSubclassProps) {
   const { feats, loading } = useFeatData();
 
@@ -29,6 +38,10 @@ export function WizardStepSubclass({
     items: subclassOptions,
     getName: f => f.name,
   });
+
+  const deconfirming = useConfirmAnimation(confirmed);
+  const selectedCardRef = useRef<HTMLDivElement | null>(null);
+  useScrollSelectedIntoView(selectedCardRef, confirmed);
 
   const selectedRecord = selected
     ? subclassOptions.find(f => f.id === selected.id) ?? null
@@ -70,19 +83,30 @@ export function WizardStepSubclass({
       loading={loading}
       detail={detailContent}
     >
-      <div className={styles.grid}>
+      <div className={`${styles.grid} ${confirmed ? gridStyles.gridConfirmed : ''} ${deconfirming ? gridStyles.gridDeconfirming : ''}`}>
         {filtered.map(f => {
           const isSelected = selected?.id === f.id;
+          const action = isSelected
+            ? confirmed
+              ? { label: 'Deselect', onClick: () => onDeconfirm?.(), variant: 'secondary' as const }
+              : onConfirm
+                ? { label: 'Select', onClick: () => onConfirm(), variant: 'primary' as const }
+                : undefined
+            : undefined;
           return (
             <EntityCard
               key={f.id}
               name={f.name}
               selected={isSelected}
-              onClick={() => selectSubclass(f)}
-              onDoubleClick={() => { selectSubclass(f); onConfirm?.(); }}
-              action={isSelected && onConfirm
-                ? { label: 'Select', onClick: () => onConfirm(), variant: 'primary' as const }
-                : undefined}
+              collapsed={confirmed && !isSelected}
+              domRef={isSelected ? selectedCardRef : undefined}
+              onClick={() => !confirmed && selectSubclass(f)}
+              onDoubleClick={() => {
+                if (confirmed && isSelected) { onDeconfirm?.(); return; }
+                selectSubclass(f);
+                onConfirm?.();
+              }}
+              action={action}
             />
           );
         })}

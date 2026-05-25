@@ -19,6 +19,9 @@ export type { WizardStep, WizardStepMeta, CharacterDraft };
 export function useCharacterWizard() {
   const [draft, setDraft] = useState<CharacterDraft>(blankDraft());
   const [activeStep, setActiveStep] = useState<WizardStep>('lineage');
+  // The furthest step index ever reached — used to keep checkmarks and allow
+  // jumping forward to any previously-visited step.
+  const [highWaterMark, setHighWaterMark] = useState(0);
   const [saving, setSaving] = useState(false);
 
   const activeIndex = WIZARD_STEPS.indexOf(activeStep);
@@ -26,7 +29,11 @@ export function useCharacterWizard() {
   const stepMeta: WizardStepMeta[] = WIZARD_STEPS.map((key, i) => ({
     key,
     label: WIZARD_STEP_LABELS[key],
-    completed: i < activeIndex || isStepComplete(key, draft),
+    // A step is completed only if the user has advanced *past* it (i.e. it sits
+    // behind the high-water mark) AND its own completion check still passes.
+    // Steps at or ahead of the high-water mark are merely "reachable" or active.
+    completed: i < highWaterMark && isStepComplete(key, draft),
+    reachable: i <= highWaterMark,
   }));
 
   const canBack = activeIndex > 0;
@@ -45,17 +52,19 @@ export function useCharacterWizard() {
   const goNext = useCallback(() => {
     setActiveStep(prev => {
       const i = WIZARD_STEPS.indexOf(prev);
-      return i < WIZARD_STEPS.length - 1 ? WIZARD_STEPS[i + 1] : prev;
+      const next = i < WIZARD_STEPS.length - 1 ? WIZARD_STEPS[i + 1] : prev;
+      setHighWaterMark(hw => Math.max(hw, WIZARD_STEPS.indexOf(next)));
+      return next;
     });
   }, []);
 
   const jumpTo = useCallback((step: WizardStep) => {
     const targetIdx = WIZARD_STEPS.indexOf(step);
-    const currentIdx = WIZARD_STEPS.indexOf(activeStep);
-    if (targetIdx <= currentIdx) {
+    // Allow jumping to any step within the high-water mark
+    if (targetIdx <= highWaterMark) {
       setActiveStep(step);
     }
-  }, [activeStep]);
+  }, [highWaterMark]);
 
   const updateDraft = useCallback((patch: Partial<CharacterDraft>) => {
     setDraft(prev => ({ ...prev, ...patch }));

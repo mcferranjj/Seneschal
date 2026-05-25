@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CharacterRecord } from '../../db/schema';
 import type { RollHistoryEntry } from '../../types/diceHistory';
 import { useCharacters } from './hooks/useCharacters';
@@ -27,6 +27,13 @@ export function CharactersSection({ onRoll }: CharactersSectionProps) {
     { scope: 'characters' },
   );
   useBackable(showWizard, () => setShowWizard(false), 'Cancel character builder', { scope: 'characters', redo: () => setShowWizard(true) });
+
+  // Auto-expand the sidebar whenever we're on the empty state (no characters,
+  // no wizard open, nothing selected) so the user isn't left staring at a blank panel.
+  const isEmptyState = !loading && characters.length === 0 && !showWizard && !selectedCharacter;
+  useEffect(() => {
+    if (isEmptyState && sidebarCollapsed) setSidebarCollapsed(false);
+  }, [isEmptyState, sidebarCollapsed]);
 
   const handleWizardComplete = async (record: CharacterRecord) => {
     await createCharacter(record);
@@ -73,7 +80,8 @@ export function CharactersSection({ onRoll }: CharactersSectionProps) {
           <CharacterWizard
             onComplete={handleWizardComplete}
             onCancel={() => setShowWizard(false)}
-            headerLeft={expandBtn}
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={() => setSidebarCollapsed(c => !c)}
           />
         ) : (
           <>

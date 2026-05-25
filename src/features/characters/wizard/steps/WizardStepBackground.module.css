@@ -239,7 +239,7 @@
   color: var(--color-primary) !important;
 }
 
-/* ── Confirm button ──────────────────────────────────────────────────────── */
+/* ── Confirm / deselect row ──────────────────────────────────────────────── */
 .confirmRow {
   display: flex;
   justify-content: flex-end;
@@ -260,6 +260,13 @@
   transition: opacity 0.12s;
 }
 .confirmBtn:hover { opacity: 0.88; }
+
+/* ── Pinned selected row ─────────────────────────────────────────────────── */
+/* When a selection exists and it's been floated to the top, add a bottom
+   border separator to visually detach it from the sorted list below. */
+.rowPinned {
+  border-bottom: 2px solid var(--color-primary) !important;
+}
 
 /* ── Filter dropdown ─────────────────────────────────────────────────────── */
 .dropdown {
@@ -414,6 +421,18 @@
 .dropdownClear:hover {
   background: var(--color-border-light);
   color: var(--color-text);
+}
+.dropdownClearDisabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.dropdownClearDisabled:hover {
+  background: none;
+  color: var(--color-text-muted);
+}
+
+.modeRowDisabled {
+  opacity: 0.35;
 }
 
 /* ── Detail panel (right-column) ─────────────────────────────────────────── */

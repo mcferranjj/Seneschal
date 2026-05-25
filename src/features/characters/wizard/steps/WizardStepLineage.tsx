@@ -26,6 +26,7 @@ export function WizardStepLineage({
   // hidden. Once confirmed, only the chosen ancestry card remains and the
   // heritage list takes over the visual focus.
   const [ancestryConfirmed, setAncestryConfirmed] = useState<boolean>(!!draft.heritage);
+  const [heritageConfirmed, setHeritageConfirmed] = useState<boolean>(!!draft.heritage);
 
   // If the user already had a heritage picked (e.g. coming back to this step),
   // keep the ancestry confirmed automatically.
@@ -35,7 +36,7 @@ export function WizardStepLineage({
 
   // If the ancestry is cleared entirely, drop back to the un-confirmed state.
   useEffect(() => {
-    if (!draft.ancestry) setAncestryConfirmed(false);
+    if (!draft.ancestry) { setAncestryConfirmed(false); setHeritageConfirmed(false); }
   }, [draft.ancestry]);
 
   return (
@@ -97,6 +98,7 @@ export function WizardStepLineage({
             // Reverse the lock-in: bring the full ancestry grid back and
             // discard any heritage choice made under the old ancestry.
             setAncestryConfirmed(false);
+            setHeritageConfirmed(false);
             onHeritageSelect(null);
           }}
           // Once a heritage is picked, the heritage panel takes over the
@@ -112,11 +114,10 @@ export function WizardStepLineage({
               selected={draft.heritage}
               onSelect={onHeritageSelect}
               hideHeading={true}
-              // Only the picker that "owns" the right column at any given
-              // moment should project content. Heritage takes over as soon
-              // as the user clicks a heritage card.
               suppressDetailPanel={!draft.heritage}
-              onConfirm={() => onAdvance?.()}
+              confirmed={heritageConfirmed}
+              onConfirm={() => { setHeritageConfirmed(true); onAdvance?.(); }}
+              onDeconfirm={() => { setHeritageConfirmed(false); onHeritageSelect(null); }}
             />
           </div>
         )}

@@ -17,8 +17,22 @@
   gap: 10px;
 }
 
-.headerLeft {
+.sidebarToggleBtn {
   flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.sidebarToggleBtn:hover {
+  color: var(--color-text);
+  background: var(--color-border-light);
 }
 
 .title {

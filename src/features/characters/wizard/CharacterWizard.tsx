@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from 'react';
-import type React from 'react';
 import type { CharacterRecord } from '../../../db/schema';
 import { useCharacterWizard } from '../hooks/useCharacterWizard';
 import { useCharBuilderSync } from '../hooks/useCharBuilderSync';
@@ -19,11 +18,13 @@ import styles from './CharacterWizard.module.css';
 interface CharacterWizardProps {
   onComplete: (record: CharacterRecord) => Promise<void>;
   onCancel: () => void;
-  /** Optional node rendered at the start of the header row (e.g. sidebar expand button). */
-  headerLeft?: React.ReactNode;
+  /** Whether the character sidebar is currently collapsed. */
+  sidebarCollapsed?: boolean;
+  /** Called when the user clicks the sidebar toggle button in the header. */
+  onToggleSidebar?: () => void;
 }
 
-export function CharacterWizard({ onComplete, onCancel, headerLeft }: CharacterWizardProps) {
+export function CharacterWizard({ onComplete, onCancel, sidebarCollapsed, onToggleSidebar }: CharacterWizardProps) {
   const { isSyncing, progress, triggerSync, hasData } = useCharBuilderSync();
   const wizard = useCharacterWizard();
   const {
@@ -85,7 +86,17 @@ export function CharacterWizard({ onComplete, onCancel, headerLeft }: CharacterW
   return (
     <div className={styles.wizard}>
       <div className={styles.header}>
-        {headerLeft && <div className={styles.headerLeft}>{headerLeft}</div>}
+        {onToggleSidebar && (
+          <button
+            className={styles.sidebarToggleBtn}
+            onClick={onToggleSidebar}
+            title={sidebarCollapsed ? 'Show characters' : 'Hide characters'}
+            aria-label={sidebarCollapsed ? 'Show characters' : 'Hide characters'}
+            type="button"
+          >
+            {sidebarCollapsed ? '››' : '‹‹'}
+          </button>
+        )}
         <h2 className={styles.title}>Character Builder</h2>
       </div>
       <WizardProgress

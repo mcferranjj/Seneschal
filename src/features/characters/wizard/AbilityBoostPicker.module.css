@@ -2,97 +2,90 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-surface);
-}
-
-.groupLabel {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--color-text-muted);
-  margin-bottom: 2px;
-}
-
-.lockedRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 2px;
-}
-
-.lockedBoost {
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  font-family: 'DM Mono', monospace;
-  background: var(--color-healing-tint);
-  color: var(--color-healing);
-  border: 1px solid var(--color-healing);
-}
-
-.lockedFlaw {
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  font-family: 'DM Mono', monospace;
-  background: var(--color-damage-tint);
-  color: var(--color-damage);
-  border: 1px solid var(--color-damage);
-}
-
-.slotRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.slotNum {
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: var(--color-text-muted);
-  width: 14px;
-  text-align: right;
-  flex-shrink: 0;
 }
 
 .abilityBtns {
   display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
+  gap: 5px;
 }
 
 .abilityBtn {
-  padding: 4px 7px;
+  flex: 1;
+  padding: 6px 4px;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: 5px;
   background: var(--color-bg);
   color: var(--color-text-mid);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
   font-family: 'DM Mono', monospace;
   cursor: pointer;
   user-select: none;
+  text-align: center;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
 
-.abilityBtn:hover:not(.disabled) {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+.abilityBtn:hover:not(:disabled) {
+  border-color: var(--color-healing);
+  color: var(--color-healing);
 }
 
 .abilityBtn.chosen {
-  background: var(--color-primary);
-  color: var(--color-primary-text);
-  border-color: var(--color-primary);
+  background: var(--color-healing-tint);
+  color: var(--color-healing);
+  border-color: var(--color-healing);
+}
+
+.abilityBtn.lockedBoost {
+  background: var(--color-healing-tint);
+  color: var(--color-healing);
+  border-color: var(--color-healing);
+  cursor: default;
+}
+
+.abilityBtn.lockedFlaw {
+  background: var(--color-damage-tint);
+  color: var(--color-damage);
+  border-color: var(--color-damage);
+  cursor: pointer;
+}
+
+/* Flaw + voluntary boost = net ±0; shown in a neutral "cancelled" style */
+.abilityBtn.flawBoosted {
+  background: var(--color-bg-overlay-mid);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+  border-style: dashed;
+  cursor: pointer;
 }
 
 .abilityBtn.disabled {
-  opacity: 0.35;
+  opacity: 0.3;
   cursor: not-allowed;
+}
+
+/* Progress row */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pip {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.pipFilled {
+  background: var(--color-healing);
+}
+
+.progressLabel {
+  font-size: 0.62rem;
+  color: var(--color-text-muted);
+  margin-left: 2px;
 }

@@ -41,35 +41,10 @@
   margin-top: -4px;
 }
 
-.sectionLabel {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--color-text-muted);
-  font-weight: 700;
-}
-
 .bgBoosts {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.lockedBoostRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.lockedChip {
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  font-family: 'DM Mono', monospace;
-  background: var(--color-healing-tint);
-  color: var(--color-healing);
-  border: 1px solid var(--color-healing);
 }
 
 /* Score totals sticky bar */

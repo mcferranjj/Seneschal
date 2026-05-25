@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import type { CharacterAncestryRef, AncestryRecord } from '../../../../db/schema';
 import { useAncestryData } from '../../hooks/useAncestryData';
 import { PickerLayout } from '../shared/PickerLayout';
@@ -7,10 +7,12 @@ import { RaritySection } from '../shared/RaritySection';
 import { groupByRarity, RARITY_ORDER } from '../shared/groupByRarity';
 import { usePickerSearch } from '../shared/usePickerSearch';
 import { useScrollSelectedIntoView } from '../shared/useScrollSelectedIntoView';
+import { useConfirmAnimation } from '../shared/useConfirmAnimation';
 import { stripMechanicsSection } from '../../../../utils/foundryMacros';
 import { SIZE_LABELS } from '../../../../data/pf2eConstants';
 import { AncestryDetail } from './AncestryDetail';
 import styles from './WizardStepAncestry.module.css';
+import gridStyles from '../shared/confirmedGrid.module.css';
 
 interface WizardStepAncestryProps {
   selected: CharacterAncestryRef | null;
@@ -49,25 +51,8 @@ export function WizardStepAncestry({
   // cards can animate (fade + collapse) instead of vanishing instantly.
   const groupedByRarity = groupByRarity(filtered);
 
-  // Briefly mark the grid as "deconfirming" right after the user deselects so
-  // we can run a one-shot reverse animation on the cards (a small fade/scale
-  // entry) while they expand back out from zero-size to their natural size.
-  const [deconfirming, setDeconfirming] = useState(false);
-  const prevConfirmedRef = useRef(confirmed);
-  useEffect(() => {
-    const wasConfirmed = prevConfirmedRef.current;
-    prevConfirmedRef.current = confirmed;
-    if (wasConfirmed && !confirmed) {
-      setDeconfirming(true);
-      const t = setTimeout(() => setDeconfirming(false), 360);
-      return () => clearTimeout(t);
-    }
-  }, [confirmed]);
+  const deconfirming = useConfirmAnimation(confirmed);
 
-  // Scroll the selected card to the top of the picker's scroll container
-  // whenever the user confirms or deselects. See useScrollSelectedIntoView
-  // for the rAF-driven re-target logic that keeps the scroll aligned with
-  // the in-progress collapse/expand animation.
   const selectedCardRef = useRef<HTMLDivElement | null>(null);
   useScrollSelectedIntoView(selectedCardRef, confirmed);
 
@@ -125,7 +110,7 @@ export function WizardStepAncestry({
             rarity={rarity}
             hideHeader={confirmed && !containsSelected}
           >
-            <div className={`${styles.grid} ${confirmed ? styles.gridConfirmed : ''} ${deconfirming ? styles.gridDeconfirming : ''}`}>
+            <div className={`${styles.grid} ${confirmed ? gridStyles.gridConfirmed : ''} ${deconfirming ? gridStyles.gridDeconfirming : ''}`}>
               {items.map(a => {
                 const isSelected = selected?.id === a.id;
                 // Show the Select/Deselect button only on the highlighted

@@ -40,13 +40,10 @@ export function WizardStepClass({
 
   // Mirror the lineage two-panel pattern: confirm class → subclass picker slides in
   const [classConfirmed, setClassConfirmed] = useState<boolean>(!!subclass);
+  const [subclassConfirmed, setSubclassConfirmed] = useState<boolean>(!!subclass);
 
   useEffect(() => {
-    if (subclass) setClassConfirmed(true);
-  }, [subclass]);
-
-  useEffect(() => {
-    if (!selected) setClassConfirmed(false);
+    if (!selected) { setClassConfirmed(false); setSubclassConfirmed(false); }
   }, [selected]);
 
   const { search, setSearch, filtered: filteredUnsorted } = usePickerSearch({
@@ -167,7 +164,7 @@ export function WizardStepClass({
                 const hasSubclass = !!c.subclassTag;
                 const action = isSelected
                   ? classConfirmed
-                    ? { label: 'Change', onClick: () => { setClassConfirmed(false); onSubclassSelect(null); }, variant: 'secondary' as const }
+                    ? { label: 'Change', onClick: () => { setClassConfirmed(false); setSubclassConfirmed(false); onSubclassSelect(null); }, variant: 'secondary' as const }
                     : hasSubclass
                       ? { label: `Choose ${c.subclassLabel}`, onClick: () => setClassConfirmed(true), variant: 'primary' as const }
                       : onConfirm
@@ -217,7 +214,9 @@ export function WizardStepClass({
             subclassLabel={selectedRecord.subclassLabel!}
             selected={subclass}
             onSelect={onSubclassSelect}
-            onConfirm={onConfirm}
+            confirmed={subclassConfirmed}
+            onConfirm={() => { setSubclassConfirmed(true); onConfirm?.(); }}
+            onDeconfirm={() => { setSubclassConfirmed(false); onSubclassSelect(null); }}
           />
         </div>
       )}
